@@ -37,15 +37,6 @@ export async function deleteCategory(name: string): Promise<void> {
   if (!resp.ok) throw new Error(`Failed to delete category: ${resp.status}`)
 }
 
-export async function reorderCategory(name: string, direction: 'up' | 'down'): Promise<void> {
-  const resp = await apiFetch('/api/categories/reorder', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, direction }),
-  })
-  if (!resp.ok) throw new Error(`Failed to reorder category: ${resp.status}`)
-}
-
 export async function moveCategory(name: string, toIndex: number): Promise<void> {
   const resp = await apiFetch('/api/categories/move', {
     method: 'POST',

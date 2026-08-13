@@ -3,7 +3,7 @@ import { TabBar } from '@/src/components/nav/TabBar'
 
 export default function TabsLayout() {
   return (
-    <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
+    <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, animation: 'none' }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="activity" />
       <Tabs.Screen name="envelopes" />

@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Pressable, ScrollView, Modal, ActivityIndicator, Alert, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, Modal, Alert, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency, formatDateTime } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
+import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
@@ -53,6 +55,7 @@ type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 
 export default function InvestmentsScreen() {
   const { tokens } = useTheme()
+  const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const holdingsQuery = useHoldings()
@@ -126,7 +129,7 @@ export default function InvestmentsScreen() {
 
       {isLoading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={tokens.text2} />
+          <LoadingCaption />
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
@@ -141,7 +144,7 @@ export default function InvestmentsScreen() {
               Net Worth
             </Text>
             <Text style={[styles.nwAmount, { color: tokens.text, fontFamily: fontFamily.displayBold }]}>
-              {formatCurrency(netWorth)}
+              {formatCurrency(netWorth, hideAmounts)}
             </Text>
           </View>
 
@@ -183,7 +186,7 @@ export default function InvestmentsScreen() {
                     </Text>
                   </View>
                   <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                    {formatCurrency(Number(h.value) || 0)}
+                    {formatCurrency(Number(h.value) || 0, hideAmounts)}
                   </Text>
                 </Pressable>
               ))}
@@ -197,7 +200,7 @@ export default function InvestmentsScreen() {
               </Text>
               <View style={{ gap: 8 }}>
                 {reversedEvents.map((e, i) => (
-                  <EventRow key={i} event={e} tokens={tokens} />
+                  <EventRow key={i} event={e} tokens={tokens} hideAmounts={hideAmounts} />
                 ))}
               </View>
             </>
@@ -240,7 +243,7 @@ function SheetOption({ label, color, onPress }: { label: string; color: string; 
   )
 }
 
-function EventRow({ event, tokens }: { event: HoldingEventRow; tokens: ThemeTokens }) {
+function EventRow({ event, tokens, hideAmounts }: { event: HoldingEventRow; tokens: ThemeTokens; hideAmounts: boolean }) {
   const amount = Number(event.amount) || 0
   const prev = Number(event.previous_value) || 0
   const next = Number(event.new_value) || 0
@@ -253,14 +256,14 @@ function EventRow({ event, tokens }: { event: HoldingEventRow; tokens: ThemeToke
             {eventLabel(event.event_type)}
           </Text>
           <Text style={[styles.eventAmount, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-            {sign}{formatCurrency(amount)}
+            {sign}{formatCurrency(amount, hideAmounts)}
           </Text>
         </View>
         <Text style={[styles.eventMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
           {event.holding_name} · {formatDateTime(event.timestamp)}
         </Text>
         <Text style={[styles.eventDelta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-          {formatCurrency(prev)} → {formatCurrency(next)}
+          {formatCurrency(prev, hideAmounts)} → {formatCurrency(next, hideAmounts)}
         </Text>
       </View>
     </View>

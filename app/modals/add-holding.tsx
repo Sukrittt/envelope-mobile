@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddHolding } from '@/src/hooks/useHoldings'
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 
 const TYPES = ['Equity', 'FD', 'Mutual Fund', 'Gold', 'Crypto', 'Bonds', 'Other']
 
@@ -17,6 +18,7 @@ export default function AddHoldingModal() {
   const [name, setName] = useState('')
   const [type, setType] = useState('')
   const [value, setValue] = useState('')
+  const [addSuccess, setAddSuccess] = useState(false)
 
   const parsedValue = Number(value)
   const canSubmit = name.trim() !== '' && value.trim() !== '' && !Number.isNaN(parsedValue) && parsedValue >= 0
@@ -26,7 +28,7 @@ export default function AddHoldingModal() {
     addHolding.mutate(
       { name: name.trim(), type: type || 'Other', value: value.trim() },
       {
-        onSuccess: () => router.back(),
+        onSuccess: () => setAddSuccess(true),
         onError: (e) => Alert.alert('Failed to add holding', e instanceof Error ? e.message : String(e)),
       },
     )
@@ -110,18 +112,20 @@ export default function AddHoldingModal() {
           </View>
         </View>
 
-        <Pressable
-          onPress={handleAdd}
-          disabled={!canSubmit || addHolding.isPending}
-          style={[
-            styles.confirmButton,
-            { backgroundColor: tokens.gold, opacity: !canSubmit || addHolding.isPending ? 0.5 : 1 },
-          ]}
-        >
-          <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-            {addHolding.isPending ? 'Adding…' : 'Add Holding'}
-          </Text>
-        </Pressable>
+        <SuccessPill success={addSuccess} onDone={() => router.back()} style={styles.confirmButton}>
+          <Pressable
+            onPress={handleAdd}
+            disabled={!canSubmit || addHolding.isPending}
+            style={[
+              styles.confirmButton,
+              { backgroundColor: tokens.gold, opacity: !canSubmit || addHolding.isPending ? 0.5 : 1 },
+            ]}
+          >
+            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {addHolding.isPending ? 'Adding…' : 'Add Holding'}
+            </Text>
+          </Pressable>
+        </SuccessPill>
       </ScrollView>
     </KeyboardAvoidingView>
   )

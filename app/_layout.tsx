@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { View, ActivityIndicator } from 'react-native'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -8,6 +7,7 @@ import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, initAccessMode, type AccessMode } from '@/src/api/accessMode'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { AppSplash } from '@/src/components/shared/AppSplash'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 
@@ -56,11 +56,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [router])
 
   if (!authReady) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
-      </View>
-    )
+    return <AppSplash />
   }
 
   return <>{children}</>
@@ -72,8 +68,16 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
       <Stack.Screen name="unlock" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="investments" options={{ presentation: 'card' }} />
-      <Stack.Screen name="modals/log-expense" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen
+        name="modals/log-expense"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.75],
+          sheetCornerRadius: 24,
+          sheetGrabberVisible: true,
+        }}
+      />
       <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/category-manager" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />

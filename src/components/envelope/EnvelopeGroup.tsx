@@ -12,7 +12,7 @@ interface Props {
   envelopes: Envelope[]
   hideAmounts: boolean
   onMoveMoney: (category: string) => void
-  onEditAmount: (category: string, newAssigned: number) => void
+  onEditAmount: (category: string, newAssigned: number) => Promise<void>
   defaultExpanded?: boolean
 }
 

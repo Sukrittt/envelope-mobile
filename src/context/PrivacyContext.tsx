@@ -1,7 +1,10 @@
-// Shared "hide amounts" toggle so Home (Package B) and More (Package E) read/write
-// the same boolean instead of each keeping a local copy. No persistence — resets
-// on app restart, matching the plan's "keep it minimal" instruction.
-import { createContext, useContext, useState, useMemo } from 'react'
+// Shared "hide amounts" toggle so every screen reads/writes the same boolean
+// instead of each keeping a local copy. Persisted via SecureStore, matching
+// ThemeProvider's pattern.
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import * as SecureStore from 'expo-secure-store'
+
+const PREF_KEY = 'mc-hide-amounts'
 
 interface PrivacyContextValue {
   hideAmounts: boolean
@@ -10,8 +13,20 @@ interface PrivacyContextValue {
 
 const PrivacyContext = createContext<PrivacyContextValue | null>(null)
 
-export function PrivacyProvider({ children }: { children: React.ReactNode }) {
-  const [hideAmounts, setHideAmounts] = useState(false)
+export function PrivacyProvider({ children }: { children: ReactNode }) {
+  const [hideAmounts, setHideAmountsState] = useState(false)
+
+  useEffect(() => {
+    SecureStore.getItemAsync(PREF_KEY).then((stored) => {
+      if (stored === 'true') setHideAmountsState(true)
+    })
+  }, [])
+
+  const setHideAmounts = (value: boolean) => {
+    setHideAmountsState(value)
+    SecureStore.setItemAsync(PREF_KEY, String(value)).catch(() => {})
+  }
+
   const value = useMemo(() => ({ hideAmounts, setHideAmounts }), [hideAmounts])
   return <PrivacyContext.Provider value={value}>{children}</PrivacyContext.Provider>
 }

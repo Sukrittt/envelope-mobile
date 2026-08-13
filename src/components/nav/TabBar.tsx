@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { useRef } from 'react'
+import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
@@ -30,6 +31,19 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 
   const byName = (name: string) => state.routes.find((r) => r.name === name)
 
+  const scales = useRef({
+    index: new Animated.Value(1),
+    activity: new Animated.Value(1),
+    envelopes: new Animated.Value(1),
+    more: new Animated.Value(1),
+  }).current
+
+  const bounce = (name: keyof typeof scales) => {
+    const scale = scales[name]
+    scale.setValue(0.85)
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 8, stiffness: 220 }).start()
+  }
+
   const renderTab = (name: 'index' | 'activity' | 'envelopes' | 'more') => {
     const route = byName(name)
     if (!route) return null
@@ -39,11 +53,16 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     return (
       <Pressable
         key={route.key}
-        onPress={() => navigation.navigate(route.name)}
+        onPress={() => {
+          bounce(name)
+          navigation.navigate(route.name)
+        }}
         style={styles.tab}
       >
-        <Text style={{ fontSize: 20 }}>{TAB_ICON[name]}</Text>
-        <Text style={[styles.label, { color, fontFamily: fontFamily.displayMedium }]}>{TAB_LABEL[name]}</Text>
+        <Animated.View style={{ alignItems: 'center', gap: 3, transform: [{ scale: scales[name] }] }}>
+          <Text style={{ fontSize: 20 }}>{TAB_ICON[name]}</Text>
+          <Text style={[styles.label, { color, fontFamily: fontFamily.displayMedium }]}>{TAB_LABEL[name]}</Text>
+        </Animated.View>
       </Pressable>
     )
   }

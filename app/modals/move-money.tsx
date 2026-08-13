@@ -3,8 +3,10 @@ import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
@@ -23,6 +25,7 @@ function str(v: string | string[] | undefined): string {
 // mutations (or one, when the source is Ready to Assign).
 export default function MoveMoneyModal() {
   const { tokens } = useTheme()
+  const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -63,6 +66,7 @@ export default function MoveMoneyModal() {
   )
   const [amount, setAmount] = useState(isOverspent ? String(Math.round(Math.abs(targetAvail))) : '')
   const [error, setError] = useState('')
+  const [moveSuccess, setMoveSuccess] = useState(false)
 
   const maxAvailable = useMemo(() => {
     if (selectedSource === RTA_SENTINEL) return readyToAssign
@@ -100,7 +104,7 @@ export default function MoveMoneyModal() {
           setAssigned(targetCategoryName, target.assigned + parsedAmount),
         ])
       }
-      router.back()
+      setMoveSuccess(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to move money')
     }
@@ -149,8 +153,8 @@ export default function MoveMoneyModal() {
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <Text style={[styles.description, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
             {isOverspent
-              ? `Cover ${formatCurrency(Math.abs(targetAvail))} overspent in ${targetCategoryName}`
-              : `Move money to ${targetCategoryName} (currently ${formatCurrency(targetAvail)} available)`}
+              ? `Cover ${formatCurrency(Math.abs(targetAvail), hideAmounts)} overspent in ${targetCategoryName}`
+              : `Move money to ${targetCategoryName} (currently ${formatCurrency(targetAvail, hideAmounts)} available)`}
           </Text>
 
           <View style={styles.field}>
@@ -158,7 +162,7 @@ export default function MoveMoneyModal() {
             <View style={{ gap: 8 }}>
               {readyToAssign > 0 && (
                 <SourceOption
-                  label={`Ready to Assign (${formatCurrency(readyToAssign)} available)`}
+                  label={`Ready to Assign (${formatCurrency(readyToAssign, hideAmounts)} available)`}
                   selected={selectedSource === RTA_SENTINEL}
                   onPress={() => setSelectedSource(RTA_SENTINEL)}
                   tokens={tokens}
@@ -167,7 +171,7 @@ export default function MoveMoneyModal() {
               {envelopeSources.map((e) => (
                 <SourceOption
                   key={e.category}
-                  label={`${e.category} (${formatCurrency(e.available)} available)`}
+                  label={`${e.category} (${formatCurrency(e.available, hideAmounts)} available)`}
                   selected={selectedSource === e.category}
                   onPress={() => setSelectedSource(e.category)}
                   tokens={tokens}
@@ -185,8 +189,8 @@ export default function MoveMoneyModal() {
               }}
             >
               {resultingBalance >= 0
-                ? `${selectedSource === RTA_SENTINEL ? 'Ready to Assign' : selectedSource} will have ${formatCurrency(resultingBalance)} available after this move`
-                : `Source only has ${formatCurrency(maxAvailable)} — reduce the amount`}
+                ? `${selectedSource === RTA_SENTINEL ? 'Ready to Assign' : selectedSource} will have ${formatCurrency(resultingBalance, hideAmounts)} available after this move`
+                : `Source only has ${formatCurrency(maxAvailable, hideAmounts)} — reduce the amount`}
             </Text>
           )}
 
@@ -210,15 +214,17 @@ export default function MoveMoneyModal() {
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
 
-          <Pressable
-            onPress={handleSubmit}
-            disabled={!canSubmit || saving}
-            style={[styles.confirmButton, { backgroundColor: tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
-          >
-            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {saving ? 'Moving…' : `Move ${formatCurrency(parsedAmount)}`}
-            </Text>
-          </Pressable>
+          <SuccessPill success={moveSuccess} onDone={() => router.back()} style={styles.confirmButton}>
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!canSubmit || saving}
+              style={[styles.confirmButton, { backgroundColor: tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
+            >
+              <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                {saving ? 'Moving…' : `Move ${formatCurrency(parsedAmount, hideAmounts)}`}
+              </Text>
+            </Pressable>
+          </SuccessPill>
         </ScrollView>
       )}
     </KeyboardAvoidingView>

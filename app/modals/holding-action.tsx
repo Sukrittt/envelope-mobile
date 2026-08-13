@@ -3,9 +3,11 @@ import { View, Text, TextInput, Pressable, Alert, StyleSheet, KeyboardAvoidingVi
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 
 type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 
@@ -27,6 +29,7 @@ const isActionType = (v: unknown): v is ActionType =>
 // pick-inside-the-modal alternative — the sheet already picks the action.)
 export default function HoldingActionModal() {
   const { tokens } = useTheme()
+  const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const rawParams = useLocalSearchParams()
@@ -39,6 +42,7 @@ export default function HoldingActionModal() {
   const currentValue = Number(holding?.value) || 0
 
   const [amount, setAmount] = useState(action === 'market_update' && holding ? String(currentValue) : '')
+  const [confirmSuccess, setConfirmSuccess] = useState(false)
   const month = useMemo(() => new Date().toISOString().slice(0, 7), [])
 
   const parsed = Number(amount)
@@ -49,11 +53,7 @@ export default function HoldingActionModal() {
     performAction.mutate(
       { name, action, amount: parsed, month },
       {
-        onSuccess: ({ previousValue, newValue }) => {
-          Alert.alert('Done', `${formatCurrency(previousValue)} → ${formatCurrency(newValue)}`, [
-            { text: 'OK', onPress: () => router.back() },
-          ])
-        },
+        onSuccess: () => setConfirmSuccess(true),
         onError: (e) => {
           Alert.alert('Failed', e instanceof Error ? e.message : String(e))
         },
@@ -82,7 +82,7 @@ export default function HoldingActionModal() {
         <Text style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{name}</Text>
         {holding && (
           <Text style={[styles.currentValue, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Current value: {formatCurrency(currentValue)}
+            Current value: {formatCurrency(currentValue, hideAmounts)}
           </Text>
         )}
         <Text style={[styles.description, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
@@ -102,18 +102,20 @@ export default function HoldingActionModal() {
           />
         </View>
 
-        <Pressable
-          onPress={handleConfirm}
-          disabled={!canSubmit || performAction.isPending}
-          style={[
-            styles.confirmButton,
-            { backgroundColor: tokens.gold, opacity: !canSubmit || performAction.isPending ? 0.5 : 1 },
-          ]}
-        >
-          <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-            {performAction.isPending ? 'Saving…' : 'Confirm'}
-          </Text>
-        </Pressable>
+        <SuccessPill success={confirmSuccess} onDone={() => router.back()} style={styles.confirmButton}>
+          <Pressable
+            onPress={handleConfirm}
+            disabled={!canSubmit || performAction.isPending}
+            style={[
+              styles.confirmButton,
+              { backgroundColor: tokens.gold, opacity: !canSubmit || performAction.isPending ? 0.5 : 1 },
+            ]}
+          >
+            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {performAction.isPending ? 'Saving…' : 'Confirm'}
+            </Text>
+          </Pressable>
+        </SuccessPill>
       </View>
     </KeyboardAvoidingView>
   )

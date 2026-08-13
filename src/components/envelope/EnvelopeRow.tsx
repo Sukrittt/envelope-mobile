@@ -5,6 +5,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { ProgressBar } from './ProgressBar'
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 import type { Envelope } from '@/src/lib/envelope'
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
   /** Overrides the displayed name (used for the Credit Card Payment special envelope). */
   displayName?: string
   onMoveMoney: (category: string) => void
-  onEditAmount: (category: string, newAssigned: number) => void
+  onEditAmount: (category: string, newAssigned: number) => Promise<void>
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount). */
@@ -23,6 +24,9 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [amountText, setAmountText] = useState(String(envelope.assigned))
+  const [editSaving, setEditSaving] = useState(false)
+  const [editSuccess, setEditSuccess] = useState(false)
+  const [editError, setEditError] = useState('')
 
   function openSheet() {
     setAmountText(String(envelope.assigned))
@@ -33,12 +37,22 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
   function closeSheet() {
     setSheetOpen(false)
     setEditing(false)
+    setEditSuccess(false)
+    setEditError('')
   }
 
-  function submitEdit() {
+  async function submitEdit() {
     const value = Math.round(Number(amountText)) || 0
-    onEditAmount(envelope.category, value)
-    closeSheet()
+    setEditSaving(true)
+    setEditError('')
+    try {
+      await onEditAmount(envelope.category, value)
+      setEditSuccess(true)
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : 'Failed to save')
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   const availableColor = envelope.isOverspent ? tokens.coral : tokens.mint
@@ -94,18 +108,31 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
                 </Pressable>
               </>
             ) : (
-              <View style={styles.editRow}>
-                <TextInput
-                  style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
-                  keyboardType="number-pad"
-                  value={amountText}
-                  onChangeText={setAmountText}
-                  autoFocus
-                />
-                <Pressable style={[styles.confirmBtn, { backgroundColor: tokens.gold }]} onPress={submitEdit}>
-                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>Save</Text>
-                </Pressable>
-              </View>
+              <>
+                <View style={styles.editRow}>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
+                    keyboardType="number-pad"
+                    value={amountText}
+                    onChangeText={setAmountText}
+                    autoFocus
+                  />
+                  <SuccessPill success={editSuccess} onDone={closeSheet} style={styles.confirmBtn}>
+                    <Pressable
+                      style={[styles.confirmBtn, { backgroundColor: tokens.gold, opacity: editSaving ? 0.5 : 1 }]}
+                      onPress={submitEdit}
+                      disabled={editSaving}
+                    >
+                      <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
+                        {editSaving ? 'Saving…' : 'Save'}
+                      </Text>
+                    </Pressable>
+                  </SuccessPill>
+                </View>
+                {editError !== '' && (
+                  <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 6 }}>{editError}</Text>
+                )}
+              </>
             )}
           </Pressable>
         </Pressable>

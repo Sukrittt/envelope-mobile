@@ -4,11 +4,39 @@ import {
   deleteCategory,
   getCategories,
   moveCategory,
-  reorderCategory,
   updateCategory,
 } from '@/src/api/categories'
+import type { CategoryRow } from '@/src/types'
 
 const key = ['categories'] as const
+
+// Categories sharing a group are stored contiguously; toIndex is the target position
+// within that group's slice, matching how moveCategory/the backend interpret it.
+function reorderWithinGroup(categories: CategoryRow[], name: string, toIndex: number): CategoryRow[] {
+  const moved = categories.find((c) => c.name === name)
+  if (!moved) return categories
+  const group = moved.group || ''
+  const groupItems = categories.filter((c) => (c.group || '') === group)
+  const fromIndex = groupItems.findIndex((c) => c.name === name)
+  if (fromIndex === -1) return categories
+  const reordered = [...groupItems]
+  const [item] = reordered.splice(fromIndex, 1)
+  reordered.splice(toIndex, 0, item)
+
+  const result: CategoryRow[] = []
+  let inserted = false
+  for (const c of categories) {
+    if ((c.group || '') === group) {
+      if (!inserted) {
+        result.push(...reordered)
+        inserted = true
+      }
+    } else {
+      result.push(c)
+    }
+  }
+  return result
+}
 
 export function useCategories() {
   return useQuery({ queryKey: key, queryFn: getCategories, staleTime: 30_000 })
@@ -39,19 +67,23 @@ export function useDeleteCategory() {
   })
 }
 
-export function useReorderCategory() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (params: { name: string; direction: 'up' | 'down' }) =>
-      reorderCategory(params.name, params.direction),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
-  })
-}
-
 export function useMoveCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (params: { name: string; toIndex: number }) => moveCategory(params.name, params.toIndex),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onMutate: (params) => {
+      // Don't await cancelQueries — the optimistic write must land in the same tick as the
+      // drop, or the list flashes back to the old order for a frame before this applies.
+      qc.cancelQueries({ queryKey: key })
+      const previous = qc.getQueryData<CategoryRow[]>(key)
+      if (previous) {
+        qc.setQueryData<CategoryRow[]>(key, reorderWithinGroup(previous, params.name, params.toIndex))
+      }
+      return { previous }
+    },
+    onError: (_err, _params, context) => {
+      if (context?.previous) qc.setQueryData(key, context.previous)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   })
 }

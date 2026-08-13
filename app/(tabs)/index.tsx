@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
 import { useExpenses } from '@/src/hooks/useExpenses'
@@ -11,6 +13,7 @@ import { useGroups } from '@/src/hooks/useGroups'
 import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { computeEnvelopeState, currentMonthKey, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
+import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { TrendChart, type TrendPoint } from '@/src/components/charts/TrendChart'
@@ -45,7 +48,7 @@ export default function HomeScreen() {
   const updateBudget = useUpdateBudget()
   const addBudget = useAddBudget()
 
-  const hideAmounts = false
+  const { hideAmounts } = usePrivacy()
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
 
@@ -135,14 +138,10 @@ export default function HomeScreen() {
 
   async function handleEditAmount(category: string, newAssigned: number) {
     const exists = budgets.some((b) => b.month === month && b.category === category)
-    try {
-      if (exists) {
-        await updateBudget.mutateAsync({ month, category, updates: { assigned: String(newAssigned) } })
-      } else {
-        await addBudget.mutateAsync({ month, category, assigned: String(newAssigned) })
-      }
-    } catch {
-      // Fire-and-forget, mirrors the web dashboard's optimistic budget edits.
+    if (exists) {
+      await updateBudget.mutateAsync({ month, category, updates: { assigned: String(newAssigned) } })
+    } else {
+      await addBudget.mutateAsync({ month, category, assigned: String(newAssigned) })
     }
   }
 
@@ -156,7 +155,7 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <ActivityIndicator color={tokens.gold} />
+        <LoadingCaption />
       </View>
     )
   }
@@ -194,7 +193,8 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <AnimatedTabContent>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
         {showRolloverBanner && (
           <View style={[styles.card, styles.rolloverCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
@@ -307,7 +307,11 @@ export default function HomeScreen() {
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Insights</Text>
           <View style={{ marginTop: 12 }}>
-            <Heatmap cells={heatmapCells} todayDate={todayIso} />
+            <Heatmap
+              cells={heatmapCells}
+              todayDate={todayIso}
+              onSelectDate={(date) => router.push({ pathname: '/(tabs)/activity', params: { date } })}
+            />
           </View>
           <Text style={{ color: tokens.mint, fontSize: 12, marginTop: 12, fontFamily: fontFamily.bodyMedium }}>
             {insightText}
@@ -328,6 +332,7 @@ export default function HomeScreen() {
           </Text>
         </View>
       </ScrollView>
+      </AnimatedTabContent>
     </View>
   )
 }

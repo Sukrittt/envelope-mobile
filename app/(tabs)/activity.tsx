@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
+import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { useExpenses, useDeleteExpense } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import type { ExpenseRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
@@ -47,6 +50,7 @@ type TimelineItem = { kind: 'header'; date: string; label: string; total: number
 
 export default function ActivityScreen() {
   const { tokens } = useTheme()
+  const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
@@ -56,6 +60,14 @@ export default function ActivityScreen() {
 
   const expenses = expensesQ.data ?? []
   const categories = categoriesQ.data ?? []
+
+  const params = useLocalSearchParams<{ date?: string }>()
+  const paramDate = typeof params.date === 'string' ? params.date : ''
+  // Date drill-in from the Insights heatmap: show only that day's transactions.
+  const [selectedDate, setSelectedDate] = useState(paramDate)
+  useEffect(() => {
+    if (paramDate) setSelectedDate(paramDate)
+  }, [paramDate])
 
   const [period, setPeriod] = useState<PeriodKey>('week')
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -77,20 +89,24 @@ export default function ActivityScreen() {
 
   const filtered = useMemo(() => {
     let rows = expenses
-    const end = new Date(latestDate)
-    let start: Date
-    if (period === 'week') {
-      start = new Date(end)
-      const diffToMonday = (start.getDay() + 6) % 7
-      start.setDate(end.getDate() - diffToMonday)
-      start.setHours(0, 0, 0, 0)
+    if (selectedDate) {
+      rows = rows.filter((e) => e.date === selectedDate)
     } else {
-      start = new Date(end.getFullYear(), end.getMonth(), 1)
+      const end = new Date(latestDate)
+      let start: Date
+      if (period === 'week') {
+        start = new Date(end)
+        const diffToMonday = (start.getDay() + 6) % 7
+        start.setDate(end.getDate() - diffToMonday)
+        start.setHours(0, 0, 0, 0)
+      } else {
+        start = new Date(end.getFullYear(), end.getMonth(), 1)
+      }
+      rows = rows.filter((e) => {
+        const d = new Date(e.date)
+        return d >= start && d <= end
+      })
     }
-    rows = rows.filter((e) => {
-      const d = new Date(e.date)
-      return d >= start && d <= end
-    })
     if (selectedCategory) rows = rows.filter((e) => e.category === selectedCategory)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -100,7 +116,7 @@ export default function ActivityScreen() {
       const cmp = b.date.localeCompare(a.date)
       return cmp !== 0 ? cmp : b.timestamp.localeCompare(a.timestamp)
     })
-  }, [expenses, period, selectedCategory, search, latestDate])
+  }, [expenses, period, selectedDate, selectedCategory, search, latestDate])
 
   const grouped: TimelineItem[] = useMemo(() => {
     const byDate = new Map<string, ExpenseRow[]>()
@@ -154,7 +170,7 @@ export default function ActivityScreen() {
   if (isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <ActivityIndicator color={tokens.gold} />
+        <LoadingCaption />
       </View>
     )
   }
@@ -177,7 +193,8 @@ export default function ActivityScreen() {
         <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Activity</Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}>
+      <AnimatedTabContent>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}>
         <Pressable onPress={() => router.push('/modals/log-expense')} style={[styles.addButton, { backgroundColor: tokens.gold }]}>
           <Text style={[styles.addButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>+ Log expense</Text>
         </Pressable>
@@ -199,6 +216,17 @@ export default function ActivityScreen() {
           })}
         </View>
 
+        {selectedDate ? (
+          <Pressable
+            onPress={() => setSelectedDate('')}
+            style={[styles.dateChip, { backgroundColor: tokens.chipActiveBg, borderColor: tokens.border }]}
+          >
+            <Text style={[styles.chipText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+              {formatDateHeader(selectedDate)} ✕
+            </Text>
+          </Pressable>
+        ) : null}
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
           <CategoryChip label="All" active={selectedCategory === ''} onPress={() => setSelectedCategory('')} tokens={tokens} />
           {categories.map((c) => (
@@ -215,7 +243,7 @@ export default function ActivityScreen() {
         />
 
         {grouped.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+          <View style={[styles.card, styles.emptyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
               No transactions for this filter.
             </Text>
@@ -230,7 +258,7 @@ export default function ActivityScreen() {
                 >
                   <Text style={[styles.dateHeaderLabel, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{item.label}</Text>
                   <Text style={[styles.dateHeaderTotal, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                    {formatCurrency(item.total)}
+                    {formatCurrency(item.total, hideAmounts)}
                   </Text>
                 </View>
               ) : (
@@ -253,7 +281,7 @@ export default function ActivityScreen() {
                     ]}
                   >
                     {INCOME_CATEGORIES.has(item.txn.category) ? '+' : '-'}
-                    {formatCurrency(Number(item.txn.amount_inr) || 0)}
+                    {formatCurrency(Number(item.txn.amount_inr) || 0, hideAmounts)}
                   </Text>
                 </Pressable>
               ),
@@ -266,10 +294,11 @@ export default function ActivityScreen() {
             {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}
           </Text>
           <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyMedium }}>
-            Total: {formatCurrency(totalSpend)}
+            Total: {formatCurrency(totalSpend, hideAmounts)}
           </Text>
         </View>
       </ScrollView>
+      </AnimatedTabContent>
 
       <BottomSheet visible={sheetTxn !== null} onClose={() => setSheetTxn(null)}>
         <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
@@ -321,12 +350,14 @@ const styles = StyleSheet.create({
   addButton: { borderRadius: 100, paddingVertical: 13, alignItems: 'center' },
   addButtonText: { fontSize: 14 },
   filterRow: { flexDirection: 'row', gap: 8 },
+  dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   periodChip: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 9 },
   categoryRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
   categoryChip: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 12 },
   search: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14 },
+  emptyCard: { paddingVertical: 24, minHeight: 96, justifyContent: 'center' },
   dateHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingTop: 14 },
   dateHeaderLabel: { fontSize: 12 },
   dateHeaderTotal: { fontSize: 12 },

@@ -1,21 +1,185 @@
-import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, Pressable, Modal, TextInput, StyleSheet, ActivityIndicator, Alert } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Modal,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Animated,
+  PanResponder,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
 import {
   useCategories,
   useAddCategory,
   useUpdateCategory,
   useDeleteCategory,
-  useReorderCategory,
+  useMoveCategory,
 } from '@/src/hooks/useCategories'
 import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup } from '@/src/hooks/useGroups'
 import { groupEmoji, splitEmoji } from '@/src/lib/emoji'
+import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
+const ROW_HEIGHT = 45
+
+function DraggableCategoryList({
+  items,
+  tokens,
+  onReorder,
+  onRename,
+  onDelete,
+  deleteSuccessName,
+}: {
+  items: CategoryRow[]
+  tokens: ThemeTokens
+  onReorder: (name: string, toIndex: number) => void
+  onRename: (name: string) => void
+  onDelete: (name: string) => void
+  deleteSuccessName: string | null
+}) {
+  // react-query's cache notifications land on a setTimeout(0), a tick after React's own
+  // state updates commit — clearing drag state on drop would flash the old order for a
+  // frame before the query catches up. Keep a local order, synced from items, and reorder
+  // it synchronously on drop so both updates land in the same render.
+  const [order, setOrder] = useState(() => items.map((c) => c.name))
+  useEffect(() => {
+    setOrder(items.map((c) => c.name))
+  }, [items])
+  const byName = useMemo(() => new Map(items.map((c) => [c.name, c])), [items])
+
+  const rowHeight = useRef(ROW_HEIGHT)
+  const dragY = useRef(new Animated.Value(0)).current
+  const [drag, setDrag] = useState<{ name: string; start: number; target: number } | null>(null)
+  const dragRef = useRef(drag)
+  dragRef.current = drag
+
+  // Index of each row by name, kept current every render so responders (created once, below)
+  // always know the row's latest position without needing to be recreated mid-gesture.
+  const indexRefs = useRef(new Map<string, { current: number }>())
+  order.forEach((name, i) => {
+    const ref = indexRefs.current.get(name)
+    if (ref) ref.current = i
+    else indexRefs.current.set(name, { current: i })
+  })
+  const orderLengthRef = useRef(order.length)
+  orderLengthRef.current = order.length
+
+  // PanResponder holds gesture-tracking state internally, so each row's instance must stay
+  // stable across re-renders — recreating it mid-drag desyncs it from the live touch.
+  const respondersRef = useRef(new Map<string, ReturnType<typeof PanResponder.create>>())
+  function responderFor(name: string) {
+    const existing = respondersRef.current.get(name)
+    if (existing) return existing
+    const indexRef = indexRefs.current.get(name)!
+    const responder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        dragY.setValue(0)
+        setDrag({ name, start: indexRef.current, target: indexRef.current })
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        dragY.setValue(gesture.dy)
+        const prev = dragRef.current
+        if (!prev || prev.name !== name) return
+        const offset = Math.round(gesture.dy / rowHeight.current)
+        const target = Math.min(orderLengthRef.current - 1, Math.max(0, prev.start + offset))
+        if (target === prev.target) return
+        setDrag({ ...prev, target })
+      },
+      onPanResponderRelease: () => {
+        dragY.setValue(0)
+        const prev = dragRef.current
+        setDrag(null)
+        if (prev && prev.name === name && prev.target !== prev.start) {
+          setOrder((cur) => {
+            const idx = cur.indexOf(prev.name)
+            if (idx === -1) return cur
+            const next = [...cur]
+            next.splice(idx, 1)
+            next.splice(prev.target, 0, prev.name)
+            return next
+          })
+          onReorder(prev.name, prev.target)
+        }
+      },
+      onPanResponderTerminate: () => {
+        dragY.setValue(0)
+        setDrag(null)
+      },
+    })
+    respondersRef.current.set(name, responder)
+    return responder
+  }
+
+  return (
+    <>
+      {order.map((name, i) => {
+        const cat = byName.get(name)
+        if (!cat) return null
+        const isDragging = drag?.name === cat.name
+        let shift = 0
+        if (drag && !isDragging) {
+          if (drag.target > drag.start && i > drag.start && i <= drag.target) shift = -1
+          else if (drag.target < drag.start && i >= drag.target && i < drag.start) shift = 1
+        }
+        const responder = responderFor(cat.name)
+        return (
+          <Animated.View
+            key={cat.name}
+            onLayout={(e) => {
+              rowHeight.current = e.nativeEvent.layout.height
+            }}
+            style={[
+              styles.catRow,
+              { borderTopColor: tokens.border },
+              isDragging
+                ? {
+                    transform: [{ translateY: dragY }],
+                    zIndex: 10,
+                    elevation: 4,
+                    backgroundColor: tokens.chipActiveBg,
+                  }
+                : shift !== 0
+                  ? { transform: [{ translateY: shift * rowHeight.current }] }
+                  : null,
+            ]}
+          >
+            <Text
+              style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+              numberOfLines={1}
+            >
+              {cat.name}
+            </Text>
+            <View style={styles.catActions}>
+              <Pressable onPress={() => onRename(cat.name)} hitSlop={6}>
+                <Text style={{ fontSize: 13 }}>✏️</Text>
+              </Pressable>
+              <SuccessPill success={deleteSuccessName === cat.name} style={styles.deleteIconPill} checkSize={12}>
+                <Pressable onPress={() => onDelete(cat.name)} hitSlop={6}>
+                  <Text style={{ fontSize: 13 }}>🗑️</Text>
+                </Pressable>
+              </SuccessPill>
+              <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
+                <Text style={{ color: tokens.text2, fontSize: 16 }}>≡</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )
+      })}
+    </>
+  )
+}
 
 type ModalState =
   | { kind: 'addCategory' }
@@ -33,7 +197,7 @@ export default function EnvelopesScreen() {
   const addCategory = useAddCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
-  const reorderCategory = useReorderCategory()
+  const moveCategory = useMoveCategory()
   const addGroup = useAddGroup()
   const updateGroup = useUpdateGroup()
   const deleteGroup = useDeleteGroup()
@@ -42,6 +206,9 @@ export default function EnvelopesScreen() {
   const [nameInput, setNameInput] = useState('')
   const [groupInput, setGroupInput] = useState('')
   const [modalError, setModalError] = useState('')
+  const [modalSuccess, setModalSuccess] = useState(false)
+  const [categoryDeleteSuccess, setCategoryDeleteSuccess] = useState<string | null>(null)
+  const [groupDeleteSuccess, setGroupDeleteSuccess] = useState<string | null>(null)
 
   const categories = categoriesQ.data ?? []
   const groups = groupsQ.data ?? []
@@ -63,26 +230,31 @@ export default function EnvelopesScreen() {
     setNameInput('')
     setGroupInput('')
     setModalError('')
+    setModalSuccess(false)
     setModal({ kind: 'addCategory' })
   }
   function openRenameCategory(name: string) {
     setNameInput(name)
     setModalError('')
+    setModalSuccess(false)
     setModal({ kind: 'renameCategory', name })
   }
   function openAddGroup() {
     setNameInput('')
     setModalError('')
+    setModalSuccess(false)
     setModal({ kind: 'addGroup' })
   }
   function openRenameGroup(name: string) {
     setNameInput(name)
     setModalError('')
+    setModalSuccess(false)
     setModal({ kind: 'renameGroup', name })
   }
   function closeModal() {
     setModal(null)
     setModalError('')
+    setModalSuccess(false)
   }
 
   const submitting =
@@ -106,7 +278,7 @@ export default function EnvelopesScreen() {
           await updateGroup.mutateAsync({ name: modal.name, newName: trimmed })
         }
       }
-      closeModal()
+      setModalSuccess(true)
     } catch (err) {
       setModalError(
         err instanceof Error && err.message.includes('409')
@@ -119,14 +291,22 @@ export default function EnvelopesScreen() {
   function confirmDeleteCategory(name: string) {
     Alert.alert('Remove category', `Remove "${name}"? Past transactions are kept.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteCategory.mutate(name) },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => deleteCategory.mutate(name, { onSuccess: () => setCategoryDeleteSuccess(name) }),
+      },
     ])
   }
 
   function confirmDeleteGroup(name: string) {
     Alert.alert('Delete group', `Delete "${name}"? Its categories move to Other.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteGroup.mutate(name) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => deleteGroup.mutate(name, { onSuccess: () => setGroupDeleteSuccess(name) }),
+      },
     ])
   }
 
@@ -136,7 +316,7 @@ export default function EnvelopesScreen() {
   if (isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <ActivityIndicator color={tokens.gold} />
+        <LoadingCaption />
       </View>
     )
   }
@@ -161,11 +341,6 @@ export default function EnvelopesScreen() {
       >
         <View style={styles.headerTop}>
           <View style={styles.headerTitleRow}>
-            <Pressable onPress={() => router.back()} hitSlop={12}>
-              <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                ‹ Back
-              </Text>
-            </Pressable>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Envelopes
             </Text>
@@ -185,7 +360,8 @@ export default function EnvelopesScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <AnimatedTabContent>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
         {groupedCategories.map(({ name, items }) => (
           <View key={name || OTHER_LABEL} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <View style={styles.groupHeader}>
@@ -206,9 +382,11 @@ export default function EnvelopesScreen() {
                   <Pressable onPress={() => openRenameGroup(name)} hitSlop={8}>
                     <Text style={{ fontSize: 14 }}>✏️</Text>
                   </Pressable>
-                  <Pressable onPress={() => confirmDeleteGroup(name)} hitSlop={8}>
-                    <Text style={{ fontSize: 14 }}>🗑️</Text>
-                  </Pressable>
+                  <SuccessPill success={groupDeleteSuccess === name} style={styles.deleteIconPill} checkSize={12}>
+                    <Pressable onPress={() => confirmDeleteGroup(name)} hitSlop={8}>
+                      <Text style={{ fontSize: 14 }}>🗑️</Text>
+                    </Pressable>
+                  </SuccessPill>
                 </View>
               )}
             </View>
@@ -219,40 +397,14 @@ export default function EnvelopesScreen() {
               </Text>
             )}
 
-            {items.map((cat, i) => (
-              <View key={cat.name} style={[styles.catRow, { borderTopColor: tokens.border }]}>
-                <Text
-                  style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
-                  numberOfLines={1}
-                >
-                  {cat.name}
-                </Text>
-                <View style={styles.catActions}>
-                  <Pressable
-                    disabled={i === 0}
-                    onPress={() => reorderCategory.mutate({ name: cat.name, direction: 'up' })}
-                    style={{ opacity: i === 0 ? 0.3 : 1 }}
-                    hitSlop={6}
-                  >
-                    <Text style={{ color: tokens.text2, fontSize: 13 }}>▲</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={i === items.length - 1}
-                    onPress={() => reorderCategory.mutate({ name: cat.name, direction: 'down' })}
-                    style={{ opacity: i === items.length - 1 ? 0.3 : 1 }}
-                    hitSlop={6}
-                  >
-                    <Text style={{ color: tokens.text2, fontSize: 13 }}>▼</Text>
-                  </Pressable>
-                  <Pressable onPress={() => openRenameCategory(cat.name)} hitSlop={6}>
-                    <Text style={{ fontSize: 13 }}>✏️</Text>
-                  </Pressable>
-                  <Pressable onPress={() => confirmDeleteCategory(cat.name)} hitSlop={6}>
-                    <Text style={{ fontSize: 13 }}>🗑️</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+            <DraggableCategoryList
+              items={items}
+              tokens={tokens}
+              onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
+              onRename={openRenameCategory}
+              onDelete={confirmDeleteCategory}
+              deleteSuccessName={categoryDeleteSuccess}
+            />
           </View>
         ))}
 
@@ -265,6 +417,7 @@ export default function EnvelopesScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      </AnimatedTabContent>
 
       <Modal visible={modal !== null} transparent animationType="fade" onRequestClose={closeModal}>
         <Pressable style={styles.backdrop} onPress={closeModal}>
@@ -318,15 +471,17 @@ export default function EnvelopesScreen() {
               <Pressable style={styles.cancelBtn} onPress={closeModal}>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>Cancel</Text>
               </Pressable>
-              <Pressable
-                style={[styles.confirmBtn, { backgroundColor: tokens.gold, opacity: submitting || !nameInput.trim() ? 0.5 : 1 }]}
-                onPress={submitModal}
-                disabled={submitting || !nameInput.trim()}
-              >
-                <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
-                  {submitting ? 'Saving…' : 'Save'}
-                </Text>
-              </Pressable>
+              <SuccessPill success={modalSuccess} onDone={closeModal} style={styles.confirmBtn}>
+                <Pressable
+                  style={[styles.confirmBtn, { backgroundColor: tokens.gold, opacity: submitting || !nameInput.trim() ? 0.5 : 1 }]}
+                  onPress={submitModal}
+                  disabled={submitting || !nameInput.trim()}
+                >
+                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
+                    {submitting ? 'Saving…' : 'Save'}
+                  </Text>
+                </Pressable>
+              </SuccessPill>
             </View>
           </Pressable>
         </Pressable>
@@ -341,7 +496,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerAction: { fontSize: 14 },
+  headerAction: { fontSize: 30 },
   title: { fontSize: 20 },
   addCategoryBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100 },
   scrollContent: { padding: 16, paddingBottom: 110, gap: 14 },
@@ -353,6 +508,7 @@ const styles = StyleSheet.create({
   catRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingVertical: 10, marginTop: 4 },
   catName: { fontSize: 13, flex: 1, flexShrink: 1, marginRight: 8 },
   catActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dragHandle: { paddingLeft: 2 },
   addGroupBtn: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, padding: 18, paddingBottom: 32 },
@@ -363,4 +519,5 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
   cancelBtn: { paddingHorizontal: 8, justifyContent: 'center' },
   confirmBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  deleteIconPill: { width: 20, height: 20, borderRadius: 10 },
 })

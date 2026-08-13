@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, Pressable, TextInput, Switch, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -54,23 +55,37 @@ export default function MoreScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: tokens.bg }}
-      contentContainerStyle={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 40 }]}
-    >
-      <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>More</Text>
+    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: insets.top + 14, backgroundColor: tokens.headerBg, borderBottomColor: tokens.border },
+        ]}
+      >
+        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>More</Text>
+      </View>
 
+    <AnimatedTabContent>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: tokens.bg }}
+      contentContainerStyle={[styles.container, { paddingTop: 12, paddingBottom: insets.bottom + 40 }]}
+    >
       {/* Investments */}
       <Pressable
         onPress={() => router.push('/investments')}
         style={[styles.row, styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
       >
-        <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>📈 Investments</Text>
+        <View style={styles.rowLeft}>
+          <View style={[styles.iconChip, { backgroundColor: tokens.pillBg }]}>
+            <Text style={{ fontSize: 15 }}>📈</Text>
+          </View>
+          <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Investments</Text>
+        </View>
         <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
       </Pressable>
 
       {/* Appearance */}
-      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>APPEARANCE</Text>
+      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>Appearance</Text>
       <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
         <View style={styles.segmented}>
           {THEME_OPTIONS.map((opt) => {
@@ -99,7 +114,7 @@ export default function MoreScreen() {
       </View>
 
       {/* Privacy */}
-      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>PRIVACY</Text>
+      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>Privacy</Text>
       <View style={[styles.row, styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
         <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Hide amounts</Text>
         <Switch
@@ -111,7 +126,7 @@ export default function MoreScreen() {
       </View>
 
       {/* Session */}
-      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>SESSION</Text>
+      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>Session</Text>
       <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
@@ -177,7 +192,7 @@ export default function MoreScreen() {
         )}
       </View>
 
-      <Pressable onPress={() => clearAccess()} style={[styles.card, styles.logoutButton, { backgroundColor: tokens.coralSoft }]}>
+      <Pressable onPress={() => clearAccess()} style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral }]}>
         <Text style={[styles.logoutText, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>Log out</Text>
       </Pressable>
 
@@ -185,17 +200,22 @@ export default function MoreScreen() {
         Version {appJson.expo.version}
       </Text>
     </ScrollView>
+    </AnimatedTabContent>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
+  header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
   container: { paddingHorizontal: 20, gap: 8 },
-  title: { fontSize: 22, marginBottom: 12 },
+  title: { fontSize: 20 },
   sectionLabel: { fontSize: 12, letterSpacing: 0.5, marginTop: 16, marginBottom: 6, marginLeft: 4 },
-  card: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16 },
+  card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16 },
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowLabel: { fontSize: 15 },
-  chevron: { fontSize: 16 },
+  iconChip: { width: 34, height: 34, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  chevron: { fontSize: 16, lineHeight: 20, textAlignVertical: 'center' },
   segmented: { flexDirection: 'row', gap: 6, paddingVertical: 10 },
   segment: { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   segmentText: { fontSize: 13 },

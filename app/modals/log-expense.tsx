@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  Animated,
-  Easing,
   View,
   Text,
   TextInput,
@@ -11,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
-import Svg, { Path } from 'react-native-svg'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -20,8 +17,7 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
-
-const AnimatedPath = Animated.createAnimatedComponent(Path)
+import { SuccessPill } from '@/src/components/shared/SuccessPill'
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -85,10 +81,6 @@ export default function LogExpenseModal() {
   )
   const [error, setError] = useState('')
   const [logSuccess, setLogSuccess] = useState(false)
-  const successScale = useRef(new Animated.Value(0.6)).current
-  // Length of the "M5 13l4 4L19 7" checkmark path: sqrt(32) + sqrt(200) ≈ 19.8
-  const CHECK_PATH_LENGTH = 19.8
-  const checkDashoffset = useRef(new Animated.Value(CHECK_PATH_LENGTH)).current
 
   // Debounced auto-suggest while typing the description, only until the user
   // manually picks a category (so we never fight a deliberate choice).
@@ -104,26 +96,6 @@ export default function LogExpenseModal() {
   const parsedAmount = Number(amount)
   const canSubmit = item.trim() !== '' && category !== '' && !Number.isNaN(parsedAmount) && parsedAmount > 0
   const saving = addExpense.isPending || updateExpense.isPending
-
-  function playSuccessAndClose() {
-    successScale.setValue(0.6)
-    checkDashoffset.setValue(CHECK_PATH_LENGTH)
-    setLogSuccess(true)
-    Animated.timing(successScale, {
-      toValue: 1,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start()
-    Animated.timing(checkDashoffset, {
-      toValue: 0,
-      duration: 350,
-      delay: 220,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: false,
-    }).start()
-    setTimeout(() => router.back(), 1100)
-  }
 
   function handleSubmit() {
     if (!canSubmit) return
@@ -142,7 +114,7 @@ export default function LogExpenseModal() {
           },
         },
         {
-          onSuccess: () => router.back(),
+          onSuccess: () => setLogSuccess(true),
           onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save'),
         },
       )
@@ -157,7 +129,7 @@ export default function LogExpenseModal() {
           payment_method: paymentMethod,
         },
         {
-          onSuccess: () => playSuccessAndClose(),
+          onSuccess: () => setLogSuccess(true),
           onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save'),
         },
       )
@@ -300,32 +272,14 @@ export default function LogExpenseModal() {
             </View>
           </>
         )}
+      </ScrollView>
 
+      <View style={[styles.footer, { borderTopColor: tokens.border }]}>
         {error !== '' && (
           <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
         )}
 
-        {logSuccess ? (
-          <Animated.View
-            style={[
-              styles.confirmButton,
-              styles.successPill,
-              { backgroundColor: tokens.mint, transform: [{ scale: successScale }] },
-            ]}
-          >
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-              <AnimatedPath
-                d="M5 13l4 4L19 7"
-                stroke={tokens.onAccent}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray={[CHECK_PATH_LENGTH, CHECK_PATH_LENGTH]}
-                strokeDashoffset={checkDashoffset}
-              />
-            </Svg>
-          </Animated.View>
-        ) : (
+        <SuccessPill success={logSuccess} onDone={() => router.back()} style={styles.confirmButton}>
           <Pressable
             onPress={handleSubmit}
             disabled={!canSubmit || saving}
@@ -335,8 +289,8 @@ export default function LogExpenseModal() {
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add transaction'}
             </Text>
           </Pressable>
-        )}
-      </ScrollView>
+        </SuccessPill>
+      </View>
     </KeyboardAvoidingView>
   )
 }
@@ -354,6 +308,7 @@ const styles = StyleSheet.create({
   headerAction: { fontSize: 14, width: 52 },
   headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 16 },
+  footer: { padding: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
@@ -368,5 +323,4 @@ const styles = StyleSheet.create({
   error: { fontSize: 12 },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
-  successPill: { justifyContent: 'center' },
 })
