@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   innerButton: { paddingVertical: 12, alignItems: 'center' },
   innerButtonText: { fontSize: 14 },
   switchForm: { paddingBottom: 14, gap: 8 },
-  switchFormActions: { flexDirection: 'row' },
+  switchFormActions: { flexDirection: 'row', gap: 16 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
   error: { fontSize: 12 },
   logoutButton: { alignItems: 'center', paddingVertical: 16, marginTop: 20 },

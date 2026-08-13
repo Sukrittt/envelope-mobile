@@ -19,7 +19,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 
 /** Verifies a password works as a bearer token against the real API before storing it. */
 export async function verifyToken(candidateToken: string): Promise<boolean> {
-  const resp = await fetch(`${BASE_URL}/api/categories`, {
+  const resp = await fetch(`${BASE_URL}/api/auth/verify`, {
     headers: { Authorization: `Bearer ${candidateToken}` },
   })
   return resp.ok

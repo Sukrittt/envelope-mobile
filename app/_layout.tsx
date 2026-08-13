@@ -31,10 +31,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       setHasSession(restored !== null)
       setAuthReady(true)
     })
-    return accessMode.subscribeLogout(() => {
+    // unlock.tsx persists a session (real or guest) then navigates straight to
+    // (tabs) — without this, hasSession stayed stale until the next app boot
+    // and the segments effect below bounced the user right back to /unlock.
+    const unsubscribe = accessMode.subscribe(() => setHasSession(true))
+    const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
       router.replace('/unlock')
     })
+    return () => {
+      unsubscribe()
+      unsubscribeLogout()
+    }
   }, [])
 
   useEffect(() => {
