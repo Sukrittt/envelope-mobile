@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, Alert, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddHolding } from '@/src/hooks/useHoldings'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
 const TYPES = ['Equity', 'FD', 'Mutual Fund', 'Gold', 'Crypto', 'Bonds', 'Other']
 
@@ -22,6 +22,14 @@ export default function AddHoldingModal() {
 
   const parsedValue = Number(value)
   const canSubmit = name.trim() !== '' && value.trim() !== '' && !Number.isNaN(parsedValue) && parsedValue >= 0
+
+  // Let the inline checkmark finish drawing before navigating back.
+  useEffect(() => {
+    if (!addSuccess) return
+    const timer = setTimeout(() => router.back(), 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addSuccess])
 
   function handleAdd() {
     if (!canSubmit) return
@@ -112,20 +120,25 @@ export default function AddHoldingModal() {
           </View>
         </View>
 
-        <SuccessPill success={addSuccess} onDone={() => router.back()} style={styles.confirmButton}>
-          <Pressable
-            onPress={handleAdd}
-            disabled={!canSubmit || addHolding.isPending}
-            style={[
-              styles.confirmButton,
-              { backgroundColor: tokens.gold, opacity: !canSubmit || addHolding.isPending ? 0.5 : 1 },
-            ]}
-          >
+        <Pressable
+          onPress={handleAdd}
+          disabled={!canSubmit || addHolding.isPending || addSuccess}
+          style={[
+            styles.confirmButton,
+            {
+              backgroundColor: addSuccess ? tokens.mint : tokens.gold,
+              opacity: !canSubmit || addHolding.isPending ? 0.5 : 1,
+            },
+          ]}
+        >
+          {addSuccess ? (
+            <CheckIcon color={tokens.onAccent} />
+          ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {addHolding.isPending ? 'Adding…' : 'Add Holding'}
             </Text>
-          </Pressable>
-        </SuccessPill>
+          )}
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   )

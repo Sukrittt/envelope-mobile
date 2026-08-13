@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -6,7 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
@@ -80,6 +80,14 @@ export default function MoveMoneyModal() {
 
   const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
   const saving = updateBudget.isPending || addBudget.isPending
+
+  // Let the inline checkmark finish drawing before navigating back.
+  useEffect(() => {
+    if (!moveSuccess) return
+    const timer = setTimeout(() => router.back(), 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveSuccess])
 
   async function setAssigned(category: string, newAssigned: number) {
     const exists = budgets.some((b) => b.month === month && b.category === category)
@@ -214,17 +222,22 @@ export default function MoveMoneyModal() {
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
 
-          <SuccessPill success={moveSuccess} onDone={() => router.back()} style={styles.confirmButton}>
-            <Pressable
-              onPress={handleSubmit}
-              disabled={!canSubmit || saving}
-              style={[styles.confirmButton, { backgroundColor: tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
-            >
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!canSubmit || saving || moveSuccess}
+            style={[
+              styles.confirmButton,
+              { backgroundColor: moveSuccess ? tokens.mint : tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 },
+            ]}
+          >
+            {moveSuccess ? (
+              <CheckIcon color={tokens.onAccent} />
+            ) : (
               <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
                 {saving ? 'Moving…' : `Move ${formatCurrency(parsedAmount, hideAmounts)}`}
               </Text>
-            </Pressable>
-          </SuccessPill>
+            )}
+          </Pressable>
         </ScrollView>
       )}
     </KeyboardAvoidingView>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -7,7 +7,7 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
 type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 
@@ -47,6 +47,14 @@ export default function HoldingActionModal() {
 
   const parsed = Number(amount)
   const canSubmit = amount.trim() !== '' && !Number.isNaN(parsed) && parsed >= 0
+
+  // Let the inline checkmark finish drawing before navigating back.
+  useEffect(() => {
+    if (!confirmSuccess) return
+    const timer = setTimeout(() => router.back(), 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmSuccess])
 
   function handleConfirm() {
     if (!canSubmit) return
@@ -102,20 +110,25 @@ export default function HoldingActionModal() {
           />
         </View>
 
-        <SuccessPill success={confirmSuccess} onDone={() => router.back()} style={styles.confirmButton}>
-          <Pressable
-            onPress={handleConfirm}
-            disabled={!canSubmit || performAction.isPending}
-            style={[
-              styles.confirmButton,
-              { backgroundColor: tokens.gold, opacity: !canSubmit || performAction.isPending ? 0.5 : 1 },
-            ]}
-          >
+        <Pressable
+          onPress={handleConfirm}
+          disabled={!canSubmit || performAction.isPending || confirmSuccess}
+          style={[
+            styles.confirmButton,
+            {
+              backgroundColor: confirmSuccess ? tokens.mint : tokens.gold,
+              opacity: !canSubmit || performAction.isPending ? 0.5 : 1,
+            },
+          ]}
+        >
+          {confirmSuccess ? (
+            <CheckIcon color={tokens.onAccent} />
+          ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {performAction.isPending ? 'Saving…' : 'Confirm'}
             </Text>
-          </Pressable>
-        </SuccessPill>
+          )}
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   )

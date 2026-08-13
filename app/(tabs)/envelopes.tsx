@@ -27,7 +27,7 @@ import {
 import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup } from '@/src/hooks/useGroups'
 import { groupEmoji, splitEmoji } from '@/src/lib/emoji'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
@@ -165,11 +165,13 @@ function DraggableCategoryList({
               <Pressable onPress={() => onRename(cat.name)} hitSlop={6}>
                 <Text style={{ fontSize: 13 }}>✏️</Text>
               </Pressable>
-              <SuccessPill success={deleteSuccessName === cat.name} style={styles.deleteIconPill} checkSize={12}>
-                <Pressable onPress={() => onDelete(cat.name)} hitSlop={6}>
+              <Pressable onPress={() => onDelete(cat.name)} hitSlop={6} disabled={deleteSuccessName === cat.name}>
+                {deleteSuccessName === cat.name ? (
+                  <CheckIcon color={tokens.mint} size={13} />
+                ) : (
                   <Text style={{ fontSize: 13 }}>🗑️</Text>
-                </Pressable>
-              </SuccessPill>
+                )}
+              </Pressable>
               <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
                 <Text style={{ color: tokens.text2, fontSize: 16 }}>≡</Text>
               </View>
@@ -259,6 +261,14 @@ export default function EnvelopesScreen() {
 
   const submitting =
     addCategory.isPending || updateCategory.isPending || addGroup.isPending || updateGroup.isPending
+
+  // Let the inline checkmark finish drawing before closing the modal.
+  useEffect(() => {
+    if (!modalSuccess) return
+    const timer = setTimeout(closeModal, 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalSuccess])
 
   async function submitModal() {
     if (!modal) return
@@ -382,11 +392,13 @@ export default function EnvelopesScreen() {
                   <Pressable onPress={() => openRenameGroup(name)} hitSlop={8}>
                     <Text style={{ fontSize: 14 }}>✏️</Text>
                   </Pressable>
-                  <SuccessPill success={groupDeleteSuccess === name} style={styles.deleteIconPill} checkSize={12}>
-                    <Pressable onPress={() => confirmDeleteGroup(name)} hitSlop={8}>
+                  <Pressable onPress={() => confirmDeleteGroup(name)} hitSlop={8} disabled={groupDeleteSuccess === name}>
+                    {groupDeleteSuccess === name ? (
+                      <CheckIcon color={tokens.mint} size={14} />
+                    ) : (
                       <Text style={{ fontSize: 14 }}>🗑️</Text>
-                    </Pressable>
-                  </SuccessPill>
+                    )}
+                  </Pressable>
                 </View>
               )}
             </View>
@@ -471,17 +483,22 @@ export default function EnvelopesScreen() {
               <Pressable style={styles.cancelBtn} onPress={closeModal}>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>Cancel</Text>
               </Pressable>
-              <SuccessPill success={modalSuccess} onDone={closeModal} style={styles.confirmBtn}>
-                <Pressable
-                  style={[styles.confirmBtn, { backgroundColor: tokens.gold, opacity: submitting || !nameInput.trim() ? 0.5 : 1 }]}
-                  onPress={submitModal}
-                  disabled={submitting || !nameInput.trim()}
-                >
+              <Pressable
+                style={[
+                  styles.confirmBtn,
+                  { backgroundColor: modalSuccess ? tokens.mint : tokens.gold, opacity: submitting || !nameInput.trim() ? 0.5 : 1 },
+                ]}
+                onPress={submitModal}
+                disabled={submitting || !nameInput.trim() || modalSuccess}
+              >
+                {modalSuccess ? (
+                  <CheckIcon color={tokens.onAccent} />
+                ) : (
                   <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
                     {submitting ? 'Saving…' : 'Save'}
                   </Text>
-                </Pressable>
-              </SuccessPill>
+                )}
+              </Pressable>
             </View>
           </Pressable>
         </Pressable>
@@ -519,5 +536,4 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
   cancelBtn: { paddingHorizontal: 8, justifyContent: 'center' },
   confirmBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
-  deleteIconPill: { width: 20, height: 20, borderRadius: 10 },
 })

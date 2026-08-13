@@ -1,12 +1,58 @@
-import { useRef, useState } from 'react'
-import { Animated, View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
-import Svg, { Path, Circle } from 'react-native-svg'
+import { useEffect, useRef, useState } from 'react'
+import { Animated, Easing, View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
+import Svg, { Path, Circle, Rect } from 'react-native-svg'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { verifyToken } from '@/src/api/client'
 import { persistAccess } from '@/src/api/accessMode'
+
+// Renders inline in place of the button's "Unlock" text (the button itself keeps
+// its gold background and shape). Fades in, and the shackle tilts open on its
+// right foot — like 🔓. The shackle is a plain (non-animated) SVG layered under
+// a real Animated.View: RN-SVG's own `rotation`/`origin` props are JS-side
+// convenience props that don't repaint correctly when fed a live Animated.Value,
+// so the rotation lives in RN's transform/transformOrigin instead.
+function UnlockIcon({ color, size = 20 }: { color: string; size?: number }) {
+  const opacity = useRef(new Animated.Value(0)).current
+  const shackleRotate = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    opacity.setValue(0)
+    shackleRotate.setValue(0)
+    Animated.timing(opacity, { toValue: 1, duration: 200, easing: Easing.ease, useNativeDriver: true }).start()
+    Animated.timing(shackleRotate, {
+      toValue: 1,
+      duration: 350,
+      delay: 150,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start()
+  }, [])
+
+  return (
+    <Animated.View style={{ width: size, height: size, opacity }}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={StyleSheet.absoluteFill}>
+        <Rect x={3} y={11} width={18} height={11} rx={2} ry={2} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            // Pivot at the shackle's right foot (17,11) in the 24x24 icon box.
+            transformOrigin: ['70.8%', '45.8%', 0],
+            transform: [{ rotate: shackleRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '20deg'] }) }],
+          },
+        ]}
+      >
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      </Animated.View>
+    </Animated.View>
+  )
+}
 
 function EyeIcon({ open, color }: { open: boolean; color: string }) {
   return (
@@ -36,6 +82,7 @@ export default function UnlockScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [unlocked, setUnlocked] = useState(false)
   const shake = useRef(new Animated.Value(0)).current
 
   // Mirrors web's @keyframes auth-shake: 0.4s, 10 steps of 40ms, same px amplitude.
@@ -58,8 +105,7 @@ export default function UnlockScreen() {
         triggerShake()
         return
       }
-      await persistAccess('real', password.trim())
-      router.replace('/(tabs)')
+      setUnlocked(true)
     } catch {
       setError('Could not reach the server — check your connection')
       triggerShake()
@@ -73,6 +119,18 @@ export default function UnlockScreen() {
     router.replace('/(tabs)')
   }
 
+  // Let the inline unlock icon finish its animation before persisting +
+  // navigating away — same 1100ms beat as CheckIcon usages elsewhere in the app.
+  useEffect(() => {
+    if (!unlocked) return
+    const timer = setTimeout(async () => {
+      await persistAccess('real', password.trim())
+      router.replace('/(tabs)')
+    }, 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlocked])
+
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <Animated.View style={{ transform: [{ translateX: shake }] }}>
@@ -80,7 +138,7 @@ export default function UnlockScreen() {
           Hey Sukrit 👋
         </Text>
         <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          Enter your password to unlock Mission Control
+          Enter your password to unlock your dashboard
         </Text>
 
         <View style={styles.inputWrap}>
@@ -115,14 +173,14 @@ export default function UnlockScreen() {
 
       <Pressable
         onPress={handleUnlock}
-        disabled={loading}
-        style={[styles.button, { backgroundColor: tokens.gold }]}
+        disabled={loading || unlocked}
+        style={[styles.button, { backgroundColor: unlocked ? tokens.mint : tokens.gold }]}
       >
-        {loading ? (
-          <ActivityIndicator color={tokens.onAccent} />
+        {unlocked ? (
+          <UnlockIcon color={tokens.onAccent} />
         ) : (
           <Text style={[styles.buttonText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-            Unlock
+            {loading ? 'Unlocking...' : 'Unlock'}
           </Text>
         )}
       </Pressable>

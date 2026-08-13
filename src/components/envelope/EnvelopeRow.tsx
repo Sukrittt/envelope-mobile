@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, Modal, TextInput, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { ProgressBar } from './ProgressBar'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import type { Envelope } from '@/src/lib/envelope'
 
 interface Props {
@@ -54,6 +54,14 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
       setEditSaving(false)
     }
   }
+
+  // Let the inline checkmark finish drawing before closing the sheet.
+  useEffect(() => {
+    if (!editSuccess) return
+    const timer = setTimeout(closeSheet, 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSuccess])
 
   const availableColor = envelope.isOverspent ? tokens.coral : tokens.mint
   const name = displayName ?? splitEmoji(envelope.category).text
@@ -117,17 +125,22 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
                     onChangeText={setAmountText}
                     autoFocus
                   />
-                  <SuccessPill success={editSuccess} onDone={closeSheet} style={styles.confirmBtn}>
-                    <Pressable
-                      style={[styles.confirmBtn, { backgroundColor: tokens.gold, opacity: editSaving ? 0.5 : 1 }]}
-                      onPress={submitEdit}
-                      disabled={editSaving}
-                    >
+                  <Pressable
+                    style={[
+                      styles.confirmBtn,
+                      { backgroundColor: editSuccess ? tokens.mint : tokens.gold, opacity: editSaving ? 0.5 : 1 },
+                    ]}
+                    onPress={submitEdit}
+                    disabled={editSaving || editSuccess}
+                  >
+                    {editSuccess ? (
+                      <CheckIcon color={tokens.onAccent} size={16} />
+                    ) : (
                       <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
                         {editSaving ? 'Saving…' : 'Save'}
                       </Text>
-                    </Pressable>
-                  </SuccessPill>
+                    )}
+                  </Pressable>
                 </View>
                 {editError !== '' && (
                   <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 6 }}>{editError}</Text>

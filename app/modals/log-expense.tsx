@@ -17,7 +17,7 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
-import { SuccessPill } from '@/src/components/shared/SuccessPill'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -96,6 +96,15 @@ export default function LogExpenseModal() {
   const parsedAmount = Number(amount)
   const canSubmit = item.trim() !== '' && category !== '' && !Number.isNaN(parsedAmount) && parsedAmount > 0
   const saving = addExpense.isPending || updateExpense.isPending
+
+  // Let the inline checkmark finish drawing before navigating back — same
+  // 1100ms beat used by CheckIcon elsewhere in the app.
+  useEffect(() => {
+    if (!logSuccess) return
+    const timer = setTimeout(() => router.back(), 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logSuccess])
 
   function handleSubmit() {
     if (!canSubmit) return
@@ -279,17 +288,19 @@ export default function LogExpenseModal() {
           <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
         )}
 
-        <SuccessPill success={logSuccess} onDone={() => router.back()} style={styles.confirmButton}>
-          <Pressable
-            onPress={handleSubmit}
-            disabled={!canSubmit || saving}
-            style={[styles.confirmButton, { backgroundColor: tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
-          >
+        <Pressable
+          onPress={handleSubmit}
+          disabled={!canSubmit || saving || logSuccess}
+          style={[styles.confirmButton, { backgroundColor: logSuccess ? tokens.mint : tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
+        >
+          {logSuccess ? (
+            <CheckIcon color={tokens.onAccent} />
+          ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add transaction'}
             </Text>
-          </Pressable>
-        </SuccessPill>
+          )}
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   )
