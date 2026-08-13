@@ -45,7 +45,7 @@ export default function HomeScreen() {
   const updateBudget = useUpdateBudget()
   const addBudget = useAddBudget()
 
-  const [hideAmounts, setHideAmounts] = useState(false)
+  const hideAmounts = false
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
 
@@ -183,12 +183,6 @@ export default function HomeScreen() {
           <Text style={[styles.greeting, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
             Hey Sukrit 👋
           </Text>
-          <Pressable
-            onPress={() => setHideAmounts((v) => !v)}
-            style={[styles.hideToggle, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
-          >
-            <Text style={{ fontSize: 14 }}>{hideAmounts ? '🙈' : '👁️'}</Text>
-          </Pressable>
         </View>
         <View style={styles.headerSub}>
           <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyMedium }}>
@@ -344,7 +338,6 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   greeting: { fontSize: 20 },
-  hideToggle: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerSub: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   scrollContent: { padding: 16, paddingBottom: 110, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 4 },
