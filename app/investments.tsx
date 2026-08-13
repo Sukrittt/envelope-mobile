@@ -1,0 +1,316 @@
+import { useMemo, useState } from 'react'
+import { View, Text, Pressable, ScrollView, Modal, ActivityIndicator, Alert, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
+import { formatCurrency, formatDateTime } from '@/src/lib/format'
+import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
+import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
+import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
+import type { HoldingRow, HoldingEventRow } from '@/src/types'
+import type { ThemeTokens } from '@/src/theme/tokens'
+
+// Fixed colors for common asset types (mirrors Web's ASSET_COLORS intent);
+// unrecognized types cycle through the remaining palette so every segment
+// still gets a distinct, theme-adaptive color.
+const FIXED_TYPE_COLOR: Record<string, keyof ThemeTokens> = {
+  Equity: 'blue',
+  FD: 'mint',
+  'Mutual Fund': 'violet',
+  Gold: 'gold',
+  Crypto: 'coral',
+  Bonds: 'warn',
+}
+const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'gold', 'coral', 'warn']
+
+function colorForType(type: string, index: number, tokens: ThemeTokens): string {
+  const key = FIXED_TYPE_COLOR[type] ?? COLOR_CYCLE[index % COLOR_CYCLE.length]
+  return tokens[key]
+}
+
+function eventLabel(type: string): string {
+  switch (type) {
+    case 'market_update':
+      return 'Market update'
+    case 'contribution':
+      return 'Contribution'
+    case 'withdrawal':
+      return 'Withdrawal'
+    default:
+      return type
+  }
+}
+
+function eventColor(type: string, tokens: ThemeTokens): string {
+  if (type === 'market_update') return tokens.gold
+  if (type === 'contribution') return tokens.mint
+  if (type === 'withdrawal') return tokens.coral
+  return tokens.text2
+}
+
+type ActionType = 'market_update' | 'contribution' | 'withdrawal'
+
+export default function InvestmentsScreen() {
+  const { tokens } = useTheme()
+  const insets = useSafeAreaInsets()
+  const router = useRouter()
+  const holdingsQuery = useHoldings()
+  const eventsQuery = useHoldingEvents()
+  const deleteHolding = useDeleteHolding()
+
+  const [sheetHolding, setSheetHolding] = useState<HoldingRow | null>(null)
+
+  const holdings = holdingsQuery.data ?? []
+  const events = eventsQuery.data ?? []
+
+  const netWorth = useMemo(
+    () => holdings.reduce((sum, h) => sum + (Number(h.value) || 0), 0),
+    [holdings],
+  )
+
+  const segments: AllocationSegment[] = useMemo(() => {
+    const byType = new Map<string, number>()
+    for (const h of holdings) {
+      const val = Number(h.value) || 0
+      byType.set(h.type, (byType.get(h.type) ?? 0) + val)
+    }
+    return Array.from(byType.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, value], i) => ({ label: type, value, color: colorForType(type, i, tokens) }))
+  }, [holdings, tokens])
+
+  const reversedEvents = useMemo(() => events.slice().reverse(), [events])
+
+  const isLoading = holdingsQuery.isLoading || eventsQuery.isLoading
+  const errorMessage =
+    (holdingsQuery.error instanceof Error && holdingsQuery.error.message) ||
+    (eventsQuery.error instanceof Error && eventsQuery.error.message) ||
+    (deleteHolding.error instanceof Error && deleteHolding.error.message) ||
+    null
+
+  function openAction(action: ActionType) {
+    if (!sheetHolding) return
+    const name = sheetHolding.name
+    setSheetHolding(null)
+    router.push({ pathname: '/modals/holding-action', params: { name, action } })
+  }
+
+  function confirmDelete() {
+    if (!sheetHolding) return
+    const name = sheetHolding.name
+    setSheetHolding(null)
+    Alert.alert('Delete holding', `Remove "${name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteHolding.mutate(name) },
+    ])
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
+      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+            ‹ Back
+          </Text>
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          Investments
+        </Text>
+        <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12}>
+          <Text style={[styles.headerAction, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
+            + Add
+          </Text>
+        </Pressable>
+      </View>
+
+      {isLoading ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator color={tokens.text2} />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
+          {errorMessage && (
+            <Text style={[styles.errorText, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
+              {errorMessage}
+            </Text>
+          )}
+
+          <View style={styles.netWorthBlock}>
+            <Text style={[styles.nwLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+              Net Worth
+            </Text>
+            <Text style={[styles.nwAmount, { color: tokens.text, fontFamily: fontFamily.displayBold }]}>
+              {formatCurrency(netWorth)}
+            </Text>
+          </View>
+
+          {segments.length > 0 && (
+            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <AllocationBar segments={segments} />
+            </View>
+          )}
+
+          <Text style={[styles.sectionTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+            Holdings
+          </Text>
+
+          {holdings.length === 0 ? (
+            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <Text style={[styles.emptyText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                No holdings yet. Add one to get started.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {holdings.map((h) => (
+                <Pressable
+                  key={h.name}
+                  onPress={() => setSheetHolding(h)}
+                  style={[styles.holdingRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+                      numberOfLines={1}
+                    >
+                      {h.name}
+                    </Text>
+                    <Text
+                      style={[styles.holdingMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+                    >
+                      {h.type} · Updated {formatDateTime(h.updated_at)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+                    {formatCurrency(Number(h.value) || 0)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {events.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+                Activity ({events.length})
+              </Text>
+              <View style={{ gap: 8 }}>
+                {reversedEvents.map((e, i) => (
+                  <EventRow key={i} event={e} tokens={tokens} />
+                ))}
+              </View>
+            </>
+          )}
+        </ScrollView>
+      )}
+
+      <Modal
+        visible={sheetHolding !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSheetHolding(null)}
+      >
+        <Pressable style={styles.scrim} onPress={() => setSheetHolding(null)}>
+          <Pressable
+            style={[styles.sheet, { backgroundColor: tokens.modalStrong, paddingBottom: insets.bottom + 16 }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+              {sheetHolding?.name}
+            </Text>
+            <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
+            <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} />
+            <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} />
+            <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
+            <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
+            <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  )
+}
+
+function SheetOption({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.sheetOption}>
+      <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+    </Pressable>
+  )
+}
+
+function EventRow({ event, tokens }: { event: HoldingEventRow; tokens: ThemeTokens }) {
+  const amount = Number(event.amount) || 0
+  const prev = Number(event.previous_value) || 0
+  const next = Number(event.new_value) || 0
+  const sign = event.event_type === 'withdrawal' ? '-' : '+'
+  return (
+    <View style={[styles.eventRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <View style={{ flex: 1 }}>
+        <View style={styles.eventTopRow}>
+          <Text style={[styles.eventType, { color: eventColor(event.event_type, tokens), fontFamily: fontFamily.bodySemiBold }]}>
+            {eventLabel(event.event_type)}
+          </Text>
+          <Text style={[styles.eventAmount, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+            {sign}{formatCurrency(amount)}
+          </Text>
+        </View>
+        <Text style={[styles.eventMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+          {event.holding_name} · {formatDateTime(event.timestamp)}
+        </Text>
+        <Text style={[styles.eventDelta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+          {formatCurrency(prev)} → {formatCurrency(next)}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerAction: { fontSize: 14 },
+  headerTitle: { fontSize: 17 },
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { padding: 16, gap: 16 },
+  errorText: { fontSize: 13 },
+  netWorthBlock: { gap: 4 },
+  nwLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  nwAmount: { fontSize: 34 },
+  card: { borderWidth: 1, borderRadius: 16, padding: 16 },
+  emptyText: { fontSize: 13, textAlign: 'center' },
+  sectionTitle: { fontSize: 16, marginTop: 4 },
+  holdingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  holdingName: { fontSize: 15 },
+  holdingMeta: { fontSize: 12, marginTop: 2 },
+  holdingValue: { fontSize: 15 },
+  eventRow: { borderWidth: 1, borderRadius: 14, padding: 12 },
+  eventTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eventType: { fontSize: 13 },
+  eventAmount: { fontSize: 13 },
+  eventMeta: { fontSize: 12, marginTop: 2 },
+  eventDelta: { fontSize: 11, marginTop: 2 },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 16, paddingHorizontal: 16 },
+  sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
+  sheetOption: { paddingVertical: 14, alignItems: 'center' },
+  sheetOptionText: { fontSize: 16 },
+  sheetDivider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
+})

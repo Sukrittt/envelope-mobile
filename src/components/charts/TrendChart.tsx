@@ -1,0 +1,105 @@
+import { useMemo } from 'react'
+import { View, Text, StyleSheet } from 'react-native'
+import Svg, { Path, Rect, Defs, LinearGradient, Stop } from 'react-native-svg'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
+
+export interface TrendPoint {
+  date: string
+  value: number
+}
+
+interface Props {
+  data: TrendPoint[]
+  variant: 'area' | 'bar'
+  height?: number
+}
+
+const VIEW_W = 800
+const VIEW_H = 240
+const PAD = 12
+
+/** Hand-rolled area/bar spending trend chart, matching dc.html's mobile "Spending trend" panel. */
+export function TrendChart({ data, variant, height = 130 }: Props) {
+  const { tokens } = useTheme()
+
+  const chart = useMemo(() => {
+    if (data.length === 0) return null
+    const max = Math.max(...data.map((d) => d.value), 1)
+    const n = data.length
+    const stepX = n > 1 ? (VIEW_W - PAD * 2) / (n - 1) : 0
+
+    const points = data.map((d, i) => ({
+      x: PAD + stepX * i,
+      y: VIEW_H - PAD - (d.value / max) * (VIEW_H - PAD * 2),
+    }))
+    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+    const area = `${path} L${points[points.length - 1].x.toFixed(1)},${VIEW_H - PAD} L${points[0].x.toFixed(1)},${VIEW_H - PAD} Z`
+
+    const barGap = 6
+    const barW = Math.max(4, (VIEW_W - PAD * 2) / n - barGap)
+    const bars = data.map((d, i) => {
+      const barH = Math.max(2, (d.value / max) * (VIEW_H - PAD * 2))
+      return {
+        x: PAD + (i * (VIEW_W - PAD * 2)) / n,
+        y: VIEW_H - PAD - barH,
+        w: barW,
+        h: barH,
+      }
+    })
+
+    const tickCount = Math.min(5, n)
+    const tickIdx = Array.from({ length: tickCount }, (_, i) =>
+      Math.round((i * (n - 1)) / Math.max(1, tickCount - 1)),
+    )
+    const labels = tickIdx.map((i) => data[i].date.slice(5))
+
+    return { path, area, bars, labels }
+  }, [data])
+
+  if (!chart) {
+    return (
+      <View style={[styles.empty, { height }]}>
+        <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>
+          No spending data yet
+        </Text>
+      </View>
+    )
+  }
+
+  return (
+    <View>
+      <Svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height={height}>
+        <Defs>
+          <LinearGradient id="trendAreaFill" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={tokens.gold} stopOpacity={0.45} />
+            <Stop offset="100%" stopColor={tokens.gold} stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        {variant === 'area' ? (
+          <>
+            <Path d={chart.area} fill="url(#trendAreaFill)" stroke="none" />
+            <Path d={chart.path} fill="none" stroke={tokens.gold} strokeWidth={4} strokeLinecap="round" />
+          </>
+        ) : (
+          chart.bars.map((b, i) => (
+            <Rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx={4} fill="url(#trendAreaFill)" stroke={tokens.gold} />
+          ))
+        )}
+      </Svg>
+      <View style={styles.labelRow}>
+        {chart.labels.map((l, i) => (
+          <Text key={i} style={[styles.label, { color: tokens.text3 }]}>
+            {l}
+          </Text>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  empty: { alignItems: 'center', justifyContent: 'center' },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 4 },
+  label: { fontSize: 9 },
+})

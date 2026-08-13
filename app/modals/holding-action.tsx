@@ -1,0 +1,143 @@
+import { useMemo, useState } from 'react'
+import { View, Text, TextInput, Pressable, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
+import { formatCurrency } from '@/src/lib/format'
+import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
+
+type ActionType = 'market_update' | 'contribution' | 'withdrawal'
+
+const TITLES: Record<ActionType, string> = {
+  market_update: 'Update market value',
+  contribution: 'Add contribution',
+  withdrawal: 'Withdraw',
+}
+const DESCRIPTIONS: Record<ActionType, string> = {
+  market_update: 'Set the new current value.',
+  contribution: 'Amount being invested (deducted from Ready to Assign).',
+  withdrawal: 'Amount to withdraw (added to Ready to Assign).',
+}
+const isActionType = (v: unknown): v is ActionType =>
+  v === 'market_update' || v === 'contribution' || v === 'withdrawal'
+
+// Route-param driven per the plan's primary approach: investments.tsx passes
+// {name, action} when a row's action sheet option is tapped. (Not the
+// pick-inside-the-modal alternative — the sheet already picks the action.)
+export default function HoldingActionModal() {
+  const { tokens } = useTheme()
+  const insets = useSafeAreaInsets()
+  const router = useRouter()
+  const rawParams = useLocalSearchParams()
+  const name = typeof rawParams.name === 'string' ? rawParams.name : ''
+  const action: ActionType = isActionType(rawParams.action) ? rawParams.action : 'market_update'
+
+  const holdingsQuery = useHoldings()
+  const performAction = usePerformHoldingAction()
+  const holding = holdingsQuery.data?.find((h) => h.name === name)
+  const currentValue = Number(holding?.value) || 0
+
+  const [amount, setAmount] = useState(action === 'market_update' && holding ? String(currentValue) : '')
+  const month = useMemo(() => new Date().toISOString().slice(0, 7), [])
+
+  const parsed = Number(amount)
+  const canSubmit = amount.trim() !== '' && !Number.isNaN(parsed) && parsed >= 0
+
+  function handleConfirm() {
+    if (!canSubmit) return
+    performAction.mutate(
+      { name, action, amount: parsed, month },
+      {
+        onSuccess: ({ previousValue, newValue }) => {
+          Alert.alert('Done', `${formatCurrency(previousValue)} → ${formatCurrency(newValue)}`, [
+            { text: 'OK', onPress: () => router.back() },
+          ])
+        },
+        onError: (e) => {
+          Alert.alert('Failed', e instanceof Error ? e.message : String(e))
+        },
+      },
+    )
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: tokens.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
+        <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+            Cancel
+          </Text>
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          {TITLES[action]}
+        </Text>
+        <View style={{ width: 52 }} />
+      </View>
+
+      <View style={styles.body}>
+        <Text style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{name}</Text>
+        {holding && (
+          <Text style={[styles.currentValue, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+            Current value: {formatCurrency(currentValue)}
+          </Text>
+        )}
+        <Text style={[styles.description, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          {DESCRIPTIONS[action]}
+        </Text>
+
+        <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+          <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
+          <TextInput
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor={tokens.text3}
+            style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+            autoFocus
+          />
+        </View>
+
+        <Pressable
+          onPress={handleConfirm}
+          disabled={!canSubmit || performAction.isPending}
+          style={[
+            styles.confirmButton,
+            { backgroundColor: tokens.gold, opacity: !canSubmit || performAction.isPending ? 0.5 : 1 },
+          ]}
+        >
+          <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+            {performAction.isPending ? 'Saving…' : 'Confirm'}
+          </Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerAction: { fontSize: 14, width: 52 },
+  headerTitle: { fontSize: 16 },
+  body: { padding: 20, gap: 8 },
+  holdingName: { fontSize: 18 },
+  currentValue: { fontSize: 13, marginBottom: 4 },
+  description: { fontSize: 13, marginBottom: 12 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, gap: 6 },
+  currency: { fontSize: 20 },
+  input: { flex: 1, fontSize: 20, paddingVertical: 14 },
+  confirmButton: { marginTop: 20, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  confirmText: { fontSize: 16 },
+})
