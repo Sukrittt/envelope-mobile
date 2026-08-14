@@ -20,11 +20,19 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 })
 
+const MIN_SPLASH_DURATION_MS = 3000
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const segments = useSegments()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMinSplashElapsed(true), MIN_SPLASH_DURATION_MS)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -63,7 +71,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     })
   }, [router])
 
-  if (!authReady) {
+  if (!authReady || !minSplashElapsed) {
     return <AppSplash />
   }
 

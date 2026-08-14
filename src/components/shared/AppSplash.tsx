@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native'
+import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -119,7 +119,7 @@ export function AppSplash() {
             <Rect width={ICON_SIZE} height={ICON_SIZE} rx={ICON_RADIUS} fill="url(#icon)" />
           </Svg>
           <View style={styles.iconGlyph}>
-            <Text style={styles.emoji}>💵</Text>
+            <Image source={require('@/assets/splash-emoji.png')} style={styles.emoji} resizeMode="contain" />
           </View>
         </Animated.View>
       </View>
@@ -171,7 +171,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emoji: {
-    fontSize: 48,
+    width: 56,
+    height: 56,
   },
   textBlock: {
     alignItems: 'center',
