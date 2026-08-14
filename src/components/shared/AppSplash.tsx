@@ -130,7 +130,7 @@ export function AppSplash() {
           { opacity: wordmarkOpacity, transform: [{ translateY: wordmarkTranslateY }] },
         ]}
       >
-        <Text style={styles.wordmark}>Mission Control</Text>
+        <Text style={styles.wordmark}>Envelope</Text>
         <Text style={styles.tagline}>Envelope budgeting, simplified.</Text>
       </Animated.View>
 
