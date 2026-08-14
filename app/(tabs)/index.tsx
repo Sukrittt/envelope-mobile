@@ -18,6 +18,7 @@ import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { TrendChart, type TrendPoint } from '@/src/components/charts/TrendChart'
 import { Heatmap, type HeatmapCell } from '@/src/components/charts/Heatmap'
+import { SubscriptionsPanel } from '@/src/components/subscriptions/SubscriptionsPanel'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -35,6 +36,46 @@ function daysLeftInMonth(): number {
   return daysInMonth - now.getDate()
 }
 
+function shiftMonth(monthKey: string, delta: number): string {
+  const [y, m] = monthKey.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function weekStartKey(dateStr: string): string {
+  const d = new Date(dateStr)
+  const day = (d.getDay() + 6) % 7 // Monday = 0
+  d.setDate(d.getDate() - day)
+  return d.toISOString().slice(0, 10)
+}
+
+function monthRangeFromKey(key: string): { start: string; end: string } {
+  const [y, m] = key.split('-').map(Number)
+  const start = `${key}-01`
+  const end = new Date(y, m, 0).toISOString().slice(0, 10)
+  return { start, end }
+}
+
+function weekRangeFromKey(startIso: string): { start: string; end: string } {
+  const d = new Date(startIso)
+  d.setDate(d.getDate() + 6)
+  return { start: startIso, end: d.toISOString().slice(0, 10) }
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function formatDrillRange(start: string, end: string): string {
+  const s = new Date(start)
+  const e = new Date(end)
+  const fmt = (d: Date) => `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`
+  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+    return `${s.getDate()}–${e.getDate()} ${SHORT_MONTHS[e.getMonth()]}`
+  }
+  return `${fmt(s)} – ${fmt(e)}`
+}
+
+type DrillFilter = { start: string; end: string; parentView: 'monthly' | 'weekly' } | null
+
 export default function HomeScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -50,6 +91,9 @@ export default function HomeScreen() {
 
   const { hideAmounts } = usePrivacy()
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
+  const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [drillFilter, setDrillFilter] = useState<DrillFilter>(null)
+  const [insightMonth, setInsightMonth] = useState(() => currentMonthKey())
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
 
   const budgets = budgetsQ.data ?? []
@@ -81,31 +125,82 @@ export default function HomeScreen() {
   const creditCardEnvelope = envelopeState.envelopes.find((e) => e.isCreditCardPayment)
 
   const trendData: TrendPoint[] = useMemo(() => {
+    const source = drillFilter
+      ? expenses.filter((e) => e.date >= drillFilter.start && e.date <= drillFilter.end)
+      : expenses
+
+    if (trendPeriod === 'weekly') {
+      const totals = new Map<string, number>()
+      for (const e of source) {
+        const key = weekStartKey(e.date)
+        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0))
+      }
+      const weeks = [...totals.keys()].sort()
+      const trimmed = drillFilter ? weeks : weeks.slice(-10)
+      return trimmed.map((date) => ({ date, value: totals.get(date) ?? 0 }))
+    }
+    if (trendPeriod === 'monthly') {
+      const totals = new Map<string, number>()
+      for (const e of source) {
+        const key = e.date.slice(0, 7)
+        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0))
+      }
+      const months = [...totals.keys()].sort().slice(-6)
+      return months.map((date) => ({ date, value: totals.get(date) ?? 0 }))
+    }
     const totals = new Map<string, number>()
-    for (const e of expenses) {
+    for (const e of source) {
       totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0))
+    }
+    if (drillFilter) {
+      // Fill every day in the drilled week, including zero-spend days, so the chart isn't sparse.
+      const dates: string[] = []
+      const cursor = new Date(drillFilter.start)
+      const end = new Date(drillFilter.end)
+      while (cursor <= end) {
+        dates.push(cursor.toISOString().slice(0, 10))
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }))
     }
     const dates = [...totals.keys()].sort().slice(-14)
     return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }))
-  }, [expenses])
+  }, [expenses, trendPeriod, drillFilter])
+
+  function selectTrendPeriod(p: 'daily' | 'weekly' | 'monthly') {
+    setTrendPeriod(p)
+    setDrillFilter(null)
+  }
+
+  function handleTrendDrill(index: number) {
+    const key = trendData[index]?.date
+    if (!key) return
+    if (trendPeriod === 'monthly') {
+      setDrillFilter({ ...monthRangeFromKey(key), parentView: 'monthly' })
+      setTrendPeriod('weekly')
+    } else if (trendPeriod === 'weekly') {
+      setDrillFilter({ ...weekRangeFromKey(key), parentView: 'weekly' })
+      setTrendPeriod('daily')
+    }
+  }
 
   const heatmapCells: HeatmapCell[] = useMemo(() => {
     const totals = new Map<string, number>()
     for (const e of expenses) {
-      if (!e.date.startsWith(month)) continue
+      if (!e.date.startsWith(insightMonth)) continue
       totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0))
     }
-    const [y, m] = month.split('-').map(Number)
+    const [y, m] = insightMonth.split('-').map(Number)
     const daysInMonth = new Date(y, m, 0).getDate()
     const firstWeekday = (new Date(y, m - 1, 1).getDay() + 6) % 7 // Monday = 0
     const cells: HeatmapCell[] = []
     for (let i = 0; i < firstWeekday; i++) cells.push({ date: `pad-${i}`, day: 0, value: 0 })
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${month}-${String(d).padStart(2, '0')}`
+      const date = `${insightMonth}-${String(d).padStart(2, '0')}`
       cells.push({ date, day: d, value: totals.get(date) ?? 0 })
     }
     return cells
-  }, [expenses, month])
+  }, [expenses, insightMonth])
 
   const todayIso = new Date().toISOString().slice(0, 10)
 
@@ -126,9 +221,6 @@ export default function HomeScreen() {
     }
     return 'No spending data yet this month.'
   }, [envelopeState, creditCardEnvelope, hideAmounts])
-
-  const activeSubs = subscriptions.filter((s) => /^active/i.test(s.status))
-  const subsMonthlyTotal = activeSubs.reduce((s, sub) => s + (Number(sub.amount_inr) || 0), 0)
 
   const nonCcEnvelopes = envelopeState.envelopes.filter((e) => !e.isCreditCardPayment)
   const overspentCount = nonCcEnvelopes.filter((e) => e.isOverspent).length
@@ -263,7 +355,42 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </View>
-          <TrendChart data={trendData} variant={chartVariant} />
+          <View style={[styles.periodToggle, { backgroundColor: tokens.inputBg }]}>
+            {(['daily', 'weekly', 'monthly'] as const).map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => selectTrendPeriod(p)}
+                style={[styles.periodBtn, trendPeriod === p && { backgroundColor: tokens.chipActiveBg }]}
+              >
+                <Text
+                  style={[
+                    styles.periodBtnText,
+                    { color: tokens.text, fontFamily: trendPeriod === p ? fontFamily.bodyBold : fontFamily.bodyMedium },
+                  ]}
+                >
+                  {p[0].toUpperCase() + p.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {drillFilter && (
+            <Pressable
+              style={styles.drillBack}
+              onPress={() => {
+                setTrendPeriod(drillFilter.parentView)
+                setDrillFilter(null)
+              }}
+            >
+              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
+                ‹ {formatDrillRange(drillFilter.start, drillFilter.end)}
+              </Text>
+            </Pressable>
+          )}
+          <TrendChart
+            data={trendData}
+            variant={chartVariant}
+            onSelectIndex={trendPeriod !== 'daily' ? handleTrendDrill : undefined}
+          />
         </View>
 
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -305,7 +432,26 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Insights</Text>
+          <View style={styles.cardHeadRow}>
+            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+              Insights
+            </Text>
+            <View style={styles.monthNav}>
+              <Pressable onPress={() => setInsightMonth((m) => shiftMonth(m, -1))} hitSlop={8}>
+                <Text style={{ color: tokens.text2, fontSize: 16 }}>‹</Text>
+              </Pressable>
+              <Text style={{ color: tokens.text, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
+                {monthLabel(insightMonth)}
+              </Text>
+              <Pressable
+                onPress={() => insightMonth < month && setInsightMonth((m) => shiftMonth(m, 1))}
+                disabled={insightMonth >= month}
+                hitSlop={8}
+              >
+                <Text style={{ color: insightMonth < month ? tokens.text2 : tokens.text3, fontSize: 16 }}>›</Text>
+              </Pressable>
+            </View>
+          </View>
           <View style={{ marginTop: 12 }}>
             <Heatmap
               cells={heatmapCells}
@@ -323,13 +469,11 @@ export default function HomeScreen() {
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Subscriptions
             </Text>
-            <Text style={{ color: tokens.text2, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
-              {formatCurrency(subsMonthlyTotal, hideAmounts)}/mo
-            </Text>
+            <Pressable onPress={() => router.push('/modals/subscription')}>
+              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>+ Add</Text>
+            </Pressable>
           </View>
-          <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 8, fontFamily: fontFamily.bodyMedium }}>
-            {activeSubs.length} active subscription{activeSubs.length === 1 ? '' : 's'}
-          </Text>
+          <SubscriptionsPanel subscriptions={subscriptions} hideAmounts={hideAmounts} />
         </View>
       </ScrollView>
       </AnimatedTabContent>
@@ -357,6 +501,11 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, marginTop: 4 },
   toggleGroup: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 100 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100 },
+  periodToggle: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 100, marginTop: 12 },
+  periodBtn: { flex: 1, paddingVertical: 8, borderRadius: 100, alignItems: 'center' },
+  periodBtnText: { fontSize: 12 },
+  drillBack: { marginTop: 10, alignSelf: 'flex-start' },
+  monthNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   ccWrap: { borderTopWidth: 1, paddingTop: 8, marginTop: 8 },
   ccBadgeRow: { flexDirection: 'row' },
 })

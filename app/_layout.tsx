@@ -98,6 +98,7 @@ function RootNavigator() {
       <Stack.Screen name="modals/category-manager" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
     </Stack>
   )
 }

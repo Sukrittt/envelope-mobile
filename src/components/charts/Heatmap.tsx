@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
@@ -16,7 +17,21 @@ interface Props {
 /** Calendar heatmap of daily spend — 7-column grid, 5 shading levels, matching dc.html's Insights panel. */
 export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
   const { tokens } = useTheme()
-  const max = Math.max(...cells.map((c) => c.value), 1)
+
+  // Percentile rank among non-zero days, not value/max — a single outlier day
+  // would otherwise squash every other day into the "no color" bucket.
+  const levels = useMemo(() => {
+    const nonZero = cells.filter((c) => c.day > 0 && c.value > 0).map((c) => c.value).sort((a, b) => a - b)
+    const map = new Map<string, number>()
+    for (const c of cells) {
+      if (c.day === 0 || c.value <= 0) continue
+      const rank = nonZero.findIndex((v) => v >= c.value)
+      const percentile = rank / nonZero.length
+      map.set(c.date, Math.min(Math.floor(percentile * 4), 3) + 1)
+    }
+    return map
+  }, [cells])
+
   const rows: HeatmapCell[][] = []
   for (let i = 0; i < cells.length; i += 7) {
     const row = cells.slice(i, i + 7)
@@ -32,7 +47,7 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
             if (c.day === 0) return <View key={c.date} style={styles.cell} />
             const isToday = c.date === todayDate
             const isFuture = !!todayDate && c.date > todayDate
-            const level = c.value === 0 ? 0 : Math.ceil((c.value / max) * 4)
+            const level = levels.get(c.date) ?? 0
             const bg = isFuture
               ? tokens.card
               : level <= 1
