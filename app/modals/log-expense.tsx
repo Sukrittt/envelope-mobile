@@ -15,6 +15,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
+import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -86,11 +87,24 @@ export default function LogExpenseModal() {
   // manually picks a category (so we never fight a deliberate choice).
   useEffect(() => {
     if (categoryTouched || !item.trim() || !categoryMapQ.data) return
+    let cancelled = false
     const timer = setTimeout(() => {
-      const suggested = suggestCategory(item, categoryMapQ.data!.words, categories.map((c) => c.name))
-      if (suggested) setCategory(suggested)
+      const categoryNames = categories.map((c) => c.name)
+      const suggested = suggestCategory(item, categoryMapQ.data!.words, categoryNames)
+      if (suggested) {
+        setCategory(suggested)
+        return
+      }
+      // No local match — fall back to the LLM suggestion endpoint.
+      suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
+        if (cancelled || !llmSuggested) return
+        setCategory(llmSuggested)
+      })
     }, 300)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [item, categoryMapQ.data, categories, categoryTouched])
 
   const parsedAmount = Number(amount)

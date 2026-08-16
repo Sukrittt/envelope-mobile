@@ -8,8 +8,15 @@ import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, initAccessMode, type AccessMode } from '@/src/api/accessMode'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { AppSplash } from '@/src/components/shared/AppSplash'
+import {
+  configureNotificationHandler,
+  registerForPushNotificationsAsync,
+  addPushTokenListener,
+  addNotificationResponseListener,
+} from '@/src/lib/notifications'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
+configureNotificationHandler()
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : ''
@@ -42,7 +49,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // unlock.tsx persists a session (real or guest) then navigates straight to
     // (tabs) — without this, hasSession stayed stale until the next app boot
     // and the segments effect below bounced the user right back to /unlock.
-    const unsubscribe = accessMode.subscribe(() => setHasSession(true))
+    const unsubscribe = accessMode.subscribe((m) => {
+      setHasSession(true)
+      // Fire-and-forget: registration failures must never block app usage.
+      if (m === 'real') registerForPushNotificationsAsync()
+    })
     const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
       router.replace('/unlock')
@@ -109,6 +120,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {})
   }, [fontsLoaded])
+
+  useEffect(() => {
+    const tokenSub = addPushTokenListener()
+    const responseSub = addNotificationResponseListener()
+    return () => {
+      tokenSub.remove()
+      responseSub.remove()
+    }
+  }, [])
 
   if (!fontsLoaded) return null
 

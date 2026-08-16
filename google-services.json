@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "899195516126",
+    "project_id": "envelope-20125",
+    "storage_bucket": "envelope-20125.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899195516126:android:67169ff47018b2d1993e4f",
+        "android_client_info": {
+          "package_name": "com.sukrit04.Mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlc6VnyP3AmRJKwT2Ezy4hh-KfHLLqt-k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
