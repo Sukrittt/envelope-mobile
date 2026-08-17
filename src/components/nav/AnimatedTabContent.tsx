@@ -24,6 +24,7 @@ export function AnimatedTabContent({ children }: { children: React.ReactNode }) 
 
   return (
     <Animated.View
+      needsOffscreenAlphaCompositing
       style={{
         flex: 1,
         opacity: progress,
