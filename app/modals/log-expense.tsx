@@ -164,6 +164,13 @@ export default function LogExpenseModal() {
       style={[styles.container, { backgroundColor: tokens.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {Platform.OS === 'android' && (
+        // sheetGrabberVisible is iOS-only (react-native-screens), so Android's formSheet
+        // has no built-in drag handle — draw one so the drawer reads as a sheet, not a page.
+        <View style={styles.grabberWrap}>
+          <View style={[styles.grabber, { backgroundColor: tokens.borderStrong }]} />
+        </View>
+      )}
       <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} disabled={logSuccess}>
           <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
@@ -322,6 +329,8 @@ export default function LogExpenseModal() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  grabberWrap: { alignItems: 'center', paddingTop: 8 },
+  grabber: { width: 40, height: 5, borderRadius: 3 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

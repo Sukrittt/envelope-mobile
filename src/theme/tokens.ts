@@ -8,6 +8,7 @@ export interface ThemeTokens {
   text3: string
   onAccent: string
   card: string
+  cardSolid: string
   sidebarBox: string
   inputBg: string
   pillBg: string
@@ -44,6 +45,7 @@ export const darkTokens: ThemeTokens = {
   text3: '#5d5d5d',
   onAccent: '#020202',
   card: 'rgba(3, 3, 3, 0.7)',
+  cardSolid: '#030303',
   sidebarBox: 'rgba(2, 2, 2, 0.6)',
   inputBg: '#020202',
   pillBg: 'rgba(6, 6, 6, 0.9)',
@@ -80,6 +82,7 @@ export const lightTokens: ThemeTokens = {
   text3: '#717171',
   onAccent: '#fcfcfc',
   card: 'rgba(245, 245, 245, 0.85)',
+  cardSolid: '#f5f5f5',
   sidebarBox: 'rgba(238, 238, 238, 0.7)',
   inputBg: '#eeeeee',
   pillBg: 'rgba(255, 255, 255, 0.9)',
