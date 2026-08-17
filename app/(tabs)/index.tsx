@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -509,6 +510,16 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
       </AnimatedTabContent>
+
+      <Pressable
+        style={[styles.brainFab, { backgroundColor: tokens.gold }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
+          router.push('/modals/money-brain')
+        }}
+      >
+        <Text style={[styles.brainFabIcon, { color: tokens.onAccent }]}>✨</Text>
+      </Pressable>
     </View>
   )
 }
@@ -541,4 +552,20 @@ const styles = StyleSheet.create({
   monthNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   ccWrap: { borderTopWidth: 1, paddingTop: 8, marginTop: 8 },
   ccBadgeRow: { flexDirection: 'row' },
+  brainFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 96,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  brainFabIcon: { fontSize: 24 },
 })
