@@ -1,12 +1,26 @@
 import { Platform } from 'react-native'
 import * as Device from 'expo-device'
-import * as Notifications from 'expo-notifications'
-import Constants from 'expo-constants'
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { router } from 'expo-router'
 import { registerPushToken } from '@/src/api/notifications'
+import type * as NotificationsType from 'expo-notifications'
+
+// expo-notifications throws on Android *just from being imported* inside Expo Go
+// (remote notifications were removed from Expo Go as of SDK 53) — a static `import`
+// at the top of this file would crash the app before any guard could run. So the
+// module is required lazily, only once we know we're not running under Expo Go.
+const PUSH_SUPPORTED = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient
+
+function getNotifications(): typeof NotificationsType | null {
+  if (!PUSH_SUPPORTED) return null
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('expo-notifications') as typeof NotificationsType
+}
 
 /** Show alert + sound for notifications received while the app is foregrounded. */
 export function configureNotificationHandler(): void {
+  const Notifications = getNotifications()
+  if (!Notifications) return
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -28,7 +42,8 @@ async function registerToken(token: string): Promise<void> {
  */
 export async function registerForPushNotificationsAsync(): Promise<void> {
   try {
-    if (!Device.isDevice) return
+    const Notifications = getNotifications()
+    if (!Notifications || !Device.isDevice) return
 
     let { status } = await Notifications.getPermissionsAsync()
     if (status !== 'granted') {
@@ -51,7 +66,9 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
  * Re-register whenever Expo rotates the push token (rare, but happens).
  * Returns the subscription so callers can `.remove()` it on unmount.
  */
-export function addPushTokenListener(): Notifications.Subscription {
+export function addPushTokenListener(): NotificationsType.Subscription | undefined {
+  const Notifications = getNotifications()
+  if (!Notifications) return undefined
   return Notifications.addPushTokenListener((token) => {
     registerToken(token.data).catch((err) => console.warn('Push token re-registration failed', err))
   })
@@ -61,7 +78,9 @@ export function addPushTokenListener(): Notifications.Subscription {
  * Deep-link into the Activity tab for a given day when the user taps a
  * notification, reusing the existing `?date=` param the tab already reads.
  */
-export function addNotificationResponseListener(): Notifications.Subscription {
+export function addNotificationResponseListener(): NotificationsType.Subscription | undefined {
+  const Notifications = getNotifications()
+  if (!Notifications) return undefined
   return Notifications.addNotificationResponseReceivedListener((response) => {
     const date = response.notification.request.content.data?.date
     if (typeof date === 'string' && date) {
