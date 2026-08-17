@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter, useLocalSearchParams } from 'expo-router'
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useAudioPlayer } from 'expo-audio'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -116,6 +116,17 @@ export default function ActivityScreen() {
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null)
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
+  // Currently swiped-open row's close fn, if any — snapped shut on blur so the
+  // edit/delete panel is never left revealed when the user returns to this tab.
+  const openRowRef = useRef<(() => void) | null>(null)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        openRowRef.current?.()
+        openRowRef.current = null
+      }
+    }, []),
+  )
 
   const filteredCategories = useMemo(() => {
     if (!categorySearch.trim()) return groupedCategories
@@ -322,7 +333,14 @@ export default function ActivityScreen() {
                     setPendingDelete(null)
                   }}
                 >
-                  <SwipeableRow onDelete={() => confirmDelete(item.txn)} onEdit={() => openEdit(item.txn)}>
+                  <SwipeableRow
+                    onDelete={() => confirmDelete(item.txn)}
+                    onEdit={() => openEdit(item.txn)}
+                    onOpen={(close) => {
+                      openRowRef.current?.()
+                      openRowRef.current = close
+                    }}
+                  >
                     <Pressable onPress={() => setSheetTxn(item.txn)} style={[styles.row, { backgroundColor: tokens.cardSolid }]}>
                       <View style={[styles.icon, { backgroundColor: tokens.pillBg }]}>
                         <Text style={{ fontSize: 15 }}>{categoryEmoji(item.txn.category)}</Text>

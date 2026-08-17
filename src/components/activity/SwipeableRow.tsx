@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Pressable, StyleSheet, Text } from 'react-native'
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable'
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated'
@@ -37,18 +38,23 @@ export function SwipeableRow({
   children,
   onDelete,
   onEdit,
+  onOpen,
 }: {
   children: React.ReactNode
   onDelete: () => void
   onEdit: () => void
+  onOpen?: (close: () => void) => void
 }) {
   const { tokens } = useTheme()
+  const ref = useRef<SwipeableMethods>(null)
 
   return (
     <Swipeable
+      ref={ref}
       friction={2}
       leftThreshold={ACTION_WIDTH / 2}
       rightThreshold={ACTION_WIDTH / 2}
+      onSwipeableWillOpen={() => onOpen?.(() => ref.current?.close())}
       renderLeftActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
           icon="✏️"
