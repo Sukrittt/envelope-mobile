@@ -10,7 +10,6 @@ import {
   Platform,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -29,7 +28,6 @@ import { streamChat, type ChatMessage } from '@/src/api/ai'
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
-  const router = useRouter()
   const { hideAmounts } = usePrivacy()
 
   const budgetsQ = useBudgets()
@@ -118,7 +116,7 @@ export default function MoneyBrainModal() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerLeft}>
           <View style={[styles.badge, { backgroundColor: tokens.goldSoft }]}>
-            <Text style={{ fontSize: 18 }}>✨</Text>
+            <Text style={{ fontSize: 18 }}>🧠</Text>
           </View>
           <View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -129,9 +127,6 @@ export default function MoneyBrainModal() {
             </Text>
           </View>
         </View>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={[styles.close, { color: tokens.text2 }]}>✕</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -208,7 +203,9 @@ export default function MoneyBrainModal() {
 
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>
-            {messages.map((m, i) => (
+            {messages.map((m, i) => {
+              if (!m.text) return null // empty placeholder while streaming hasn't started — LoadingCaption covers it below
+              return (
               <View
                 key={i}
                 style={[
@@ -222,7 +219,8 @@ export default function MoneyBrainModal() {
                   {m.text}
                 </Text>
               </View>
-            ))}
+              )
+            })}
             {awaitingFirstDelta && <LoadingCaption />}
           </View>
         )}
@@ -255,15 +253,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 14,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
-  close: { fontSize: 18 },
   body: { padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
   cardLabel: { fontSize: 10, letterSpacing: 0.6 },
