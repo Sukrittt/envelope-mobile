@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -13,7 +12,9 @@ interface Props {
   hideAmounts: boolean
   onMoveMoney: (category: string) => void
   onEditAmount: (category: string, newAssigned: number) => Promise<void>
-  defaultExpanded?: boolean
+  onViewTransactions: (category: string) => void
+  expanded: boolean
+  onToggle: (group: string) => void
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -23,15 +24,16 @@ export function EnvelopeGroup({
   hideAmounts,
   onMoveMoney,
   onEditAmount,
-  defaultExpanded = true,
+  onViewTransactions,
+  expanded,
+  onToggle,
 }: Props) {
   const { tokens } = useTheme()
-  const [expanded, setExpanded] = useState(defaultExpanded)
   const totalAvailable = envelopes.reduce((s, e) => s + e.available, 0)
 
   return (
     <View style={[styles.wrap, { borderTopColor: tokens.border }]}>
-      <Pressable style={styles.header} onPress={() => setExpanded((v) => !v)}>
+      <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Text style={[styles.chevron, { color: tokens.text2 }, expanded && styles.chevronOpen]}>▸</Text>
           <Text style={{ fontSize: 14 }}>{groupEmoji(group)}</Text>
@@ -44,16 +46,18 @@ export function EnvelopeGroup({
         </Text>
       </Pressable>
       {expanded && (
-        <View style={styles.rows}>
-          {envelopes.map((e) => (
-            <EnvelopeRow
-              key={e.category}
-              envelope={e}
-              emoji={categoryEmoji(e.category, group)}
-              hideAmounts={hideAmounts}
-              onMoveMoney={onMoveMoney}
-              onEditAmount={onEditAmount}
-            />
+        <View style={[styles.rows, { borderLeftColor: tokens.border }]}>
+          {envelopes.map((e, i) => (
+            <View key={e.category} style={i > 0 && [styles.rowDivider, { borderTopColor: tokens.border }]}>
+              <EnvelopeRow
+                envelope={e}
+                emoji={categoryEmoji(e.category, group)}
+                hideAmounts={hideAmounts}
+                onMoveMoney={onMoveMoney}
+                onEditAmount={onEditAmount}
+                onViewTransactions={onViewTransactions}
+              />
+            </View>
           ))}
         </View>
       )}
@@ -69,5 +73,8 @@ const styles = StyleSheet.create({
   chevronOpen: { transform: [{ rotate: '90deg' }] },
   name: { fontSize: 13 },
   available: { fontSize: 12 },
-  rows: { paddingLeft: 4 },
+  rows: { paddingLeft: 12, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
+  // Pulled back to x=0 (rows' own left border) then repadded, so the horizontal
+  // line meets the vertical group line instead of starting after paddingLeft.
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, marginLeft: -12, paddingLeft: 12 },
 })

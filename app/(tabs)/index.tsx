@@ -95,6 +95,7 @@ export default function HomeScreen() {
   const [drillFilter, setDrillFilter] = useState<DrillFilter>(null)
   const [insightMonth, setInsightMonth] = useState(() => currentMonthKey())
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   const budgets = budgetsQ.data ?? []
   const expenses = expensesQ.data ?? []
@@ -123,6 +124,21 @@ export default function HomeScreen() {
   }, [envelopeState])
 
   const creditCardEnvelope = envelopeState.envelopes.find((e) => e.isCreditCardPayment)
+
+  const allGroupNames = groupedEnvelopes.map((g) => g.group)
+  const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
+
+  function toggleGroup(group: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      next.has(group) ? next.delete(group) : next.add(group)
+      return next
+    })
+  }
+
+  function toggleCollapseAll() {
+    setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
+  }
 
   const trendData: TrendPoint[] = useMemo(() => {
     const source = drillFilter
@@ -239,6 +255,10 @@ export default function HomeScreen() {
 
   function handleMoveMoney(category: string) {
     router.push({ pathname: '/modals/move-money', params: { fromCategory: category } })
+  }
+
+  function handleViewTransactions(category: string) {
+    router.push({ pathname: '/(tabs)/activity', params: { category } })
   }
 
   const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
@@ -389,6 +409,7 @@ export default function HomeScreen() {
           <TrendChart
             data={trendData}
             variant={chartVariant}
+            hideAmounts={hideAmounts}
             onSelectIndex={trendPeriod !== 'daily' ? handleTrendDrill : undefined}
           />
         </View>
@@ -398,9 +419,16 @@ export default function HomeScreen() {
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Envelopes
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/envelopes')}>
-              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Manage →</Text>
-            </Pressable>
+            <View style={styles.headerLinks}>
+              <Pressable onPress={toggleCollapseAll}>
+                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
+                  {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => router.push('/(tabs)/envelopes')}>
+                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Manage →</Text>
+              </Pressable>
+            </View>
           </View>
           <View style={{ marginTop: 4 }}>
             {groupedEnvelopes.map(({ group, envelopes }) => (
@@ -411,6 +439,9 @@ export default function HomeScreen() {
                 hideAmounts={hideAmounts}
                 onMoveMoney={handleMoveMoney}
                 onEditAmount={handleEditAmount}
+                onViewTransactions={handleViewTransactions}
+                expanded={!collapsedGroups.has(group)}
+                onToggle={toggleGroup}
               />
             ))}
             {creditCardEnvelope && (
@@ -425,6 +456,7 @@ export default function HomeScreen() {
                   hideAmounts={hideAmounts}
                   onMoveMoney={handleMoveMoney}
                   onEditAmount={handleEditAmount}
+                  onViewTransactions={handleViewTransactions}
                 />
               </View>
             )}
@@ -492,6 +524,7 @@ const styles = StyleSheet.create({
   card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 4 },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerLinks: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   cardTitle: { fontSize: 16 },
   statRow: { flexDirection: 'row', gap: 10, paddingBottom: 2 },
   statCard: { minWidth: 120, padding: 16, borderRadius: 20, borderWidth: 1 },

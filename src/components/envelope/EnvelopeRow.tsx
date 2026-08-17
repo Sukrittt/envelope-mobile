@@ -8,6 +8,30 @@ import { ProgressBar } from './ProgressBar'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import type { Envelope } from '@/src/lib/envelope'
 
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Mirrors Web's EnvelopeGrid usedPct(): spend as % of assigned, ∞ if spending with nothing assigned. */
+function usedPctLabel(e: Envelope): string {
+  if (e.assigned > 0) return `${Math.round((e.spent / e.assigned) * 100)}%`
+  return e.spent > 0 ? '∞' : '—'
+}
+
+/** Mirrors Web's EnvelopeGrid lastSpentLabel(), written by hand (no Intl) per this app's date-formatting convention. */
+function lastSpentLabel(iso: string | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const today = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+  if (iso === todayStr) return 'Today'
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (iso === yesterday.toISOString().slice(0, 10)) return 'Yesterday'
+  const days = Math.round((today.getTime() - d.getTime()) / 86400000)
+  if (days >= 1 && days <= 31) return `${days}d ago`
+  return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`
+}
+
 interface Props {
   envelope: Envelope
   emoji: string
@@ -16,10 +40,11 @@ interface Props {
   displayName?: string
   onMoveMoney: (category: string) => void
   onEditAmount: (category: string, newAssigned: number) => Promise<void>
+  onViewTransactions: (category: string) => void
 }
 
-/** A single envelope row + its tap-to-open action sheet (move money / edit amount). */
-export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveMoney, onEditAmount }: Props) {
+/** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
+export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveMoney, onEditAmount, onViewTransactions }: Props) {
   const { tokens } = useTheme()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -82,6 +107,11 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
           </Text>
         </View>
         <ProgressBar pct={envelope.spentPct} />
+        {!envelope.isCreditCardPayment && (
+          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+            Used {usedPctLabel(envelope)} · Last spent {lastSpentLabel(envelope.lastSpentDate)}
+          </Text>
+        )}
       </Pressable>
       <Text style={[styles.available, { color: availableColor, fontFamily: fontFamily.bodySemiBold }]}>
         {formatCurrency(envelope.available, hideAmounts)}
@@ -114,6 +144,19 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
                     Edit assigned amount
                   </Text>
                 </Pressable>
+                {!envelope.isCreditCardPayment && (
+                  <Pressable
+                    style={styles.sheetBtn}
+                    onPress={() => {
+                      closeSheet()
+                      onViewTransactions(envelope.category)
+                    }}
+                  >
+                    <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                      View transactions
+                    </Text>
+                  </Pressable>
+                )}
               </>
             ) : (
               <>
@@ -159,6 +202,7 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 6 },
   topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13, flexShrink: 1 },
+  metaLine: { fontSize: 10, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12 },
   available: { fontSize: 12, minWidth: 60, textAlign: 'right' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
