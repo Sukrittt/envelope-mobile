@@ -1,8 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Svg, { Path, Rect, Defs, LinearGradient, Stop } from 'react-native-svg'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { formatCurrency } from '@/src/lib/format'
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export interface TrendPoint {
   date: string
@@ -13,7 +16,8 @@ interface Props {
   data: TrendPoint[]
   variant: 'area' | 'bar'
   height?: number
-  /** Tapping a column drills into that point (e.g. month → its weeks). Omit to disable. */
+  hideAmounts?: boolean
+  /** Tapping a column drills into that point (e.g. month → its weeks). Omit to show a point-detail tooltip on tap instead. */
   onSelectIndex?: (index: number) => void
 }
 
@@ -42,8 +46,10 @@ function smoothPath(points: { x: number; y: number }[]): string {
 }
 
 /** Hand-rolled area/bar spending trend chart, matching dc.html's mobile "Spending trend" panel. */
-export function TrendChart({ data, variant, height = 200, onSelectIndex }: Props) {
+export function TrendChart({ data, variant, height = 200, hideAmounts = false, onSelectIndex }: Props) {
   const { tokens } = useTheme()
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null)
+  useEffect(() => setTooltipIndex(null), [data])
 
   const chart = useMemo(() => {
     if (data.length === 0) return null
@@ -76,8 +82,32 @@ export function TrendChart({ data, variant, height = 200, onSelectIndex }: Props
     )
     const labels = tickIdx.map((i) => data[i].date.slice(5))
 
-    return { path, area, bars, labels }
+    return { path, area, bars, labels, points }
   }, [data])
+
+  const tooltip = useMemo(() => {
+    if (tooltipIndex == null || !chart) return null
+    const row = data[tooltipIndex]
+    const point = chart.points[tooltipIndex]
+    if (!row || !point) return null
+
+    const next = data[tooltipIndex + 1]
+    const fmt = (d: Date) => `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+    let rangeLabel: string
+    if (next) {
+      const start = new Date(row.date)
+      const end = new Date(next.date)
+      end.setDate(end.getDate() - 1)
+      rangeLabel = `${fmt(start)} – ${fmt(end)}`
+    } else {
+      rangeLabel = fmt(new Date(row.date))
+    }
+
+    const prev = data[tooltipIndex - 1]
+    const deltaPct = prev && prev.value !== 0 ? ((row.value - prev.value) / prev.value) * 100 : null
+
+    return { rangeLabel, value: row.value, deltaPct, x: point.x, y: point.y }
+  }, [tooltipIndex, data, chart])
 
   if (!chart) {
     return (
@@ -110,13 +140,49 @@ export function TrendChart({ data, variant, height = 200, onSelectIndex }: Props
             ))
           )}
         </Svg>
-        {onSelectIndex && (
-          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <View style={styles.columnRow}>
-              {data.map((_, i) => (
-                <Pressable key={i} style={{ flex: 1 }} onPress={() => onSelectIndex(i)} />
-              ))}
-            </View>
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <View style={styles.columnRow}>
+            {data.map((_, i) => (
+              <Pressable
+                key={i}
+                style={{ flex: 1 }}
+                onPress={() => {
+                  if (onSelectIndex) onSelectIndex(i)
+                  else setTooltipIndex((cur) => (cur === i ? null : i))
+                }}
+              />
+            ))}
+          </View>
+        </View>
+        {tooltip && !onSelectIndex && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.tooltip,
+              {
+                left: `${(tooltip.x / VIEW_W) * 100}%`,
+                top: Math.max(4, (tooltip.y / VIEW_H) * height - 74),
+                backgroundColor: tokens.modalBg,
+                borderColor: tokens.borderStrong,
+              },
+            ]}
+          >
+            <Text style={[styles.tooltipTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+              {tooltip.rangeLabel}
+            </Text>
+            <Text style={[styles.tooltipLine, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              Total: {formatCurrency(tooltip.value, hideAmounts)}
+            </Text>
+            {tooltip.deltaPct != null && (
+              <Text
+                style={[
+                  styles.tooltipLine,
+                  { color: tooltip.deltaPct > 0 ? tokens.coral : tokens.mint, fontFamily: fontFamily.bodySemiBold },
+                ]}
+              >
+                vs previous: {tooltip.deltaPct > 0 ? '▲' : '▼'} {Math.abs(tooltip.deltaPct).toFixed(1)}%
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -136,4 +202,15 @@ const styles = StyleSheet.create({
   columnRow: { flex: 1, flexDirection: 'row' },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 4 },
   label: { fontSize: 9 },
+  tooltip: {
+    position: 'absolute',
+    marginLeft: -70,
+    width: 140,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    gap: 3,
+  },
+  tooltipTitle: { fontSize: 12 },
+  tooltipLine: { fontSize: 11 },
 })
