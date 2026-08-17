@@ -31,7 +31,15 @@
       "expo-secure-store",
       "expo-font",
       "expo-splash-screen",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "extra": {
       "router": {},
