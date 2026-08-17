@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, Alert, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router'
+import * as Haptics from 'expo-haptics'
+import { useAudioPlayer } from 'expo-audio'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
-import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { categoryEmoji, groupEmoji, splitEmoji } from '@/src/lib/emoji'
 import { useExpenses, useDeleteExpense } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
+import { useGroups } from '@/src/hooks/useGroups'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { SwipeableRow } from '@/src/components/activity/SwipeableRow'
+import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
-import type { ExpenseRow } from '@/src/types'
-import type { ThemeTokens } from '@/src/theme/tokens'
+import type { CategoryRow, ExpenseRow } from '@/src/types'
 
 type PeriodKey = 'week' | 'month'
 
@@ -48,6 +52,10 @@ function formatDateHeader(iso: string): string {
 
 type TimelineItem = { kind: 'header'; date: string; label: string; total: number } | { kind: 'txn'; txn: ExpenseRow }
 
+function keyOf(t: ExpenseRow): string {
+  return `t-${t.timestamp}-${t.item}`
+}
+
 export default function ActivityScreen() {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
@@ -56,13 +64,34 @@ export default function ActivityScreen() {
 
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
+  const groupsQ = useGroups()
   const deleteExpense = useDeleteExpense()
+  // ponytail: delete.mp3 is a silent 300ms placeholder — swap the file for a real
+  // effect (same filename/path) once one is provided, no code change needed.
+  const deleteSound = useAudioPlayer(require('@/assets/sounds/delete.mp3'))
 
   const expenses = expensesQ.data ?? []
   const categories = categoriesQ.data ?? []
+  const groups = groupsQ.data ?? []
 
-  const params = useLocalSearchParams<{ date?: string }>()
+  // Grouped so the filter sheet can be scanned by group instead of one long
+  // flat scroll of every category (mirrors envelopes.tsx's groupedCategories).
+  const groupedCategories = useMemo(() => {
+    const byGroup = new Map<string, CategoryRow[]>()
+    for (const c of categories) {
+      const g = c.group || ''
+      const arr = byGroup.get(g) ?? []
+      arr.push(c)
+      byGroup.set(g, arr)
+    }
+    const named = groups.map((g) => ({ name: g, items: byGroup.get(g) ?? [] }))
+    const other = byGroup.get('') ?? []
+    return other.length > 0 ? [...named, { name: '', items: other }] : named
+  }, [categories, groups])
+
+  const params = useLocalSearchParams<{ date?: string; category?: string }>()
   const paramDate = typeof params.date === 'string' ? params.date : ''
+  const paramCategory = typeof params.category === 'string' ? params.category : ''
   // Date drill-in from the Insights heatmap: show only that day's transactions.
   const [selectedDate, setSelectedDate] = useState(paramDate)
   useEffect(() => {
@@ -70,12 +99,31 @@ export default function ActivityScreen() {
   }, [paramDate])
 
   const [period, setPeriod] = useState<PeriodKey>('week')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  // Category drill-in from an envelope's "View transactions" action.
+  const [selectedCategory, setSelectedCategory] = useState(paramCategory)
+  useEffect(() => {
+    if (paramCategory) setSelectedCategory(paramCategory)
+  }, [paramCategory])
   const [search, setSearch] = useState('')
-  // Tap a row to open an Edit/Delete action sheet (mirrors investments.tsx's
-  // row-tap-to-sheet pattern) rather than building swipe gestures with no
-  // gesture library installed.
+  // Row supports swipe-left (delete) / swipe-right (edit) via SwipeableRow;
+  // tap still opens this Edit/Delete action sheet as a non-swipe fallback.
   const [sheetTxn, setSheetTxn] = useState<ExpenseRow | null>(null)
+  const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null)
+  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
+  // animation in DeletingRow. The actual mutate() call is deferred until that
+  // animation finishes (see its onDone), so the refetch-driven removal never
+  // pops a still-visible row.
+  const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null)
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch.trim()) return groupedCategories
+    const q = categorySearch.trim().toLowerCase()
+    return groupedCategories
+      .map((g) => ({ ...g, items: g.items.filter((c) => c.name.toLowerCase().includes(q)) }))
+      .filter((g) => g.items.length > 0)
+  }, [groupedCategories, categorySearch])
 
   const latestDate = useMemo(() => {
     if (expenses.length === 0) return new Date()
@@ -154,14 +202,15 @@ export default function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null)
-    Alert.alert('Delete transaction', `Remove "${t.item}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteExpense.mutate({ timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 }),
-      },
-    ])
+    setDeleteTxn(t)
+  }
+
+  function runDelete(t: ExpenseRow) {
+    setDeleteTxn(null)
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
+    deleteSound.seekTo(0)
+    deleteSound.play()
+    deleteExpense.mutate({ timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 })
   }
 
   const isLoading = expensesQ.isLoading || categoriesQ.isLoading
@@ -227,12 +276,15 @@ export default function ActivityScreen() {
           </Pressable>
         ) : null}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-          <CategoryChip label="All" active={selectedCategory === ''} onPress={() => setSelectedCategory('')} tokens={tokens} />
-          {categories.map((c) => (
-            <CategoryChip key={c.name} label={c.name} active={selectedCategory === c.name} onPress={() => setSelectedCategory(c.name)} tokens={tokens} />
-          ))}
-        </ScrollView>
+        <Pressable
+          onPress={() => setCategorySheetOpen(true)}
+          style={[styles.categoryTrigger, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+        >
+          <Text style={[styles.chipText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+            {selectedCategory ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}` : 'All categories'}
+          </Text>
+          <Text style={{ color: tokens.text2, fontSize: 12 }}>▾</Text>
+        </Pressable>
 
         <TextInput
           value={search}
@@ -262,28 +314,39 @@ export default function ActivityScreen() {
                   </Text>
                 </View>
               ) : (
-                <Pressable key={`t-${item.txn.timestamp}-${item.txn.item}`} onPress={() => setSheetTxn(item.txn)} style={styles.row}>
-                  <View style={[styles.icon, { backgroundColor: tokens.pillBg }]}>
-                    <Text style={{ fontSize: 15 }}>{categoryEmoji(item.txn.category)}</Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                      {item.txn.item}
-                    </Text>
-                    <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                      {formatTime(item.txn.timestamp)} · {splitEmoji(item.txn.category).text}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.rowAmount,
-                      { color: INCOME_CATEGORIES.has(item.txn.category) ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodySemiBold },
-                    ]}
-                  >
-                    {INCOME_CATEGORIES.has(item.txn.category) ? '+' : '-'}
-                    {formatCurrency(Number(item.txn.amount_inr) || 0, hideAmounts)}
-                  </Text>
-                </Pressable>
+                <DeletingRow
+                  key={keyOf(item.txn)}
+                  active={pendingDelete !== null && keyOf(pendingDelete) === keyOf(item.txn)}
+                  onDone={() => {
+                    if (pendingDelete) runDelete(pendingDelete)
+                    setPendingDelete(null)
+                  }}
+                >
+                  <SwipeableRow onDelete={() => confirmDelete(item.txn)} onEdit={() => openEdit(item.txn)}>
+                    <Pressable onPress={() => setSheetTxn(item.txn)} style={[styles.row, { backgroundColor: tokens.cardSolid }]}>
+                      <View style={[styles.icon, { backgroundColor: tokens.pillBg }]}>
+                        <Text style={{ fontSize: 15 }}>{categoryEmoji(item.txn.category)}</Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+                          {item.txn.item}
+                        </Text>
+                        <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+                          {formatTime(item.txn.timestamp)} · {splitEmoji(item.txn.category).text}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.rowAmount,
+                          { color: INCOME_CATEGORIES.has(item.txn.category) ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodySemiBold },
+                        ]}
+                      >
+                        {INCOME_CATEGORIES.has(item.txn.category) ? '+' : '-'}
+                        {formatCurrency(Number(item.txn.amount_inr) || 0, hideAmounts)}
+                      </Text>
+                    </Pressable>
+                  </SwipeableRow>
+                </DeletingRow>
               ),
             )}
           </View>
@@ -308,28 +371,84 @@ export default function ActivityScreen() {
         <SheetOption label="Delete" color={tokens.coral} onPress={() => sheetTxn && confirmDelete(sheetTxn)} />
         <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetTxn(null)} />
       </BottomSheet>
-    </View>
-  )
-}
 
-function CategoryChip({
-  label,
-  active,
-  onPress,
-  tokens,
-}: {
-  label: string
-  active: boolean
-  onPress: () => void
-  tokens: ThemeTokens
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.categoryChip, { backgroundColor: active ? tokens.gold : tokens.pillBg, borderColor: active ? tokens.gold : tokens.border }]}
-    >
-      <Text style={[styles.chipText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-    </Pressable>
+      <BottomSheet visible={deleteTxn !== null} onClose={() => setDeleteTxn(null)}>
+        <Text style={[styles.confirmTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          Delete transaction
+        </Text>
+        <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={2}>
+          Remove "{deleteTxn?.item}"? This cannot be undone.
+        </Text>
+        <SheetOption
+          label="Delete"
+          color={tokens.coral}
+          onPress={() => {
+            if (!deleteTxn) return
+            setPendingDelete(deleteTxn)
+            setDeleteTxn(null)
+          }}
+        />
+        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setDeleteTxn(null)} />
+      </BottomSheet>
+
+      <BottomSheet visible={categorySheetOpen} onClose={() => { setCategorySheetOpen(false); setCategorySearch('') }}>
+        <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+          Filter by category
+        </Text>
+        <TextInput
+          value={categorySearch}
+          onChangeText={setCategorySearch}
+          placeholder="Search categories…"
+          placeholderTextColor={tokens.text3}
+          autoCorrect={false}
+          style={[styles.categorySearch, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+        />
+        <ScrollView style={styles.categorySheetScroll} showsVerticalScrollIndicator={false}>
+          <Pressable
+            style={[styles.categoryOption, selectedCategory === '' && { backgroundColor: tokens.chipActiveBg }]}
+            onPress={() => {
+              setSelectedCategory('')
+              setCategorySheetOpen(false)
+              setCategorySearch('')
+            }}
+          >
+            <Text style={[styles.categoryOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+              All categories
+            </Text>
+          </Pressable>
+          {filteredCategories.map(
+            (group) =>
+              group.items.length > 0 && (
+                <View key={group.name || 'other'}>
+                  <Text style={[styles.categoryGroupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+                    {group.name ? `${groupEmoji(group.name)} ${splitEmoji(group.name).text}` : 'Other'}
+                  </Text>
+                  {group.items.map((c) => (
+                    <Pressable
+                      key={c.name}
+                      style={[styles.categoryOption, selectedCategory === c.name && { backgroundColor: tokens.chipActiveBg }]}
+                      onPress={() => {
+                        setSelectedCategory(c.name)
+                        setCategorySheetOpen(false)
+                        setCategorySearch('')
+                      }}
+                    >
+                      <Text style={[styles.categoryOptionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                        {categoryEmoji(c.name, group.name)} {splitEmoji(c.name).text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ),
+          )}
+          {categorySearch.trim() && filteredCategories.length === 0 && (
+            <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, textAlign: 'center', paddingTop: 32 }}>
+              No categories found
+            </Text>
+          )}
+        </ScrollView>
+      </BottomSheet>
+    </View>
   )
 }
 
@@ -352,8 +471,21 @@ const styles = StyleSheet.create({
   filterRow: { flexDirection: 'row', gap: 8 },
   dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   periodChip: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 9 },
-  categoryRow: { flexDirection: 'row', gap: 8, paddingVertical: 2 },
-  categoryChip: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
+  categoryTrigger: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  categorySheetScroll: { height: 420 },
+  categorySearch: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, marginBottom: 8 },
+  categoryOption: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  categoryOptionText: { fontSize: 14 },
+  categoryGroupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
   chipText: { fontSize: 12 },
   search: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14 },
@@ -361,13 +493,15 @@ const styles = StyleSheet.create({
   dateHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingTop: 14 },
   dateHeaderLabel: { fontSize: 12 },
   dateHeaderTotal: { fontSize: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderRadius: 16 },
   icon: { width: 34, height: 34, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   rowItem: { fontSize: 13 },
   rowMeta: { fontSize: 11, marginTop: 2 },
   rowAmount: { fontSize: 13 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 4 },
   sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
+  confirmTitle: { fontSize: 17, textAlign: 'center', marginBottom: 6 },
+  confirmBody: { fontSize: 13, textAlign: 'center', marginBottom: 8 },
   sheetOption: { paddingVertical: 14, alignItems: 'center' },
   sheetOptionText: { fontSize: 16 },
 })
