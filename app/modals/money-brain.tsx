@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -28,6 +29,7 @@ import { streamChat, type ChatMessage } from '@/src/api/ai'
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
+  const router = useRouter()
   const { hideAmounts } = usePrivacy()
 
   const budgetsQ = useBudgets()
@@ -127,6 +129,9 @@ export default function MoneyBrainModal() {
             </Text>
           </View>
         </View>
+        <Pressable onPress={() => router.push('/(tabs)')} hitSlop={12}>
+          <Text style={[styles.home, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>Go Home</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -260,6 +265,7 @@ const styles = StyleSheet.create({
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
+  home: { fontSize: 14 },
   body: { padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
   cardLabel: { fontSize: 10, letterSpacing: 0.6 },

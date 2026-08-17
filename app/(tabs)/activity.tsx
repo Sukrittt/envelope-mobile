@@ -116,13 +116,13 @@ export default function ActivityScreen() {
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null)
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
-  // Currently swiped-open row's close fn, if any — snapped shut on blur so the
+  // Currently swiped-open row's close fn + key — snapped shut on blur so the
   // edit/delete panel is never left revealed when the user returns to this tab.
-  const openRowRef = useRef<(() => void) | null>(null)
+  const openRowRef = useRef<{ key: string; close: () => void } | null>(null)
   useFocusEffect(
     useCallback(() => {
       return () => {
-        openRowRef.current?.()
+        openRowRef.current?.close()
         openRowRef.current = null
       }
     }, []),
@@ -334,11 +334,14 @@ export default function ActivityScreen() {
                   }}
                 >
                   <SwipeableRow
+                    rowKey={keyOf(item.txn)}
                     onDelete={() => confirmDelete(item.txn)}
                     onEdit={() => openEdit(item.txn)}
-                    onOpen={(close) => {
-                      openRowRef.current?.()
-                      openRowRef.current = close
+                    onOpen={(key, close) => {
+                      if (openRowRef.current && openRowRef.current.key !== key) {
+                        openRowRef.current.close()
+                      }
+                      openRowRef.current = { key, close }
                     }}
                   >
                     <Pressable onPress={() => setSheetTxn(item.txn)} style={[styles.row, { backgroundColor: tokens.cardSolid }]}>

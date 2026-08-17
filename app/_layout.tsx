@@ -107,7 +107,7 @@ function RootNavigator() {
       <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/money-brain" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
     </Stack>
   )
 }
