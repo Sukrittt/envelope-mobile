@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import * as SplashScreen from 'expo-splash-screen'
+import { setAudioModeAsync } from 'expo-audio'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, initAccessMode, type AccessMode } from '@/src/api/accessMode'
@@ -17,6 +19,9 @@ import {
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 configureNotificationHandler()
+// Default playsInSilentMode is false — success/delete sound effects would be
+// silently muted whenever the iOS ring switch is off.
+setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : ''
@@ -27,19 +32,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 })
 
-const MIN_SPLASH_DURATION_MS = 3000
-
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const segments = useSegments()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const [minSplashElapsed, setMinSplashElapsed] = useState(false)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setMinSplashElapsed(true), MIN_SPLASH_DURATION_MS)
-    return () => clearTimeout(timer)
-  }, [])
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -82,7 +79,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     })
   }, [router])
 
-  if (!authReady || !minSplashElapsed) {
+  if (!authReady) {
     return <AppSplash />
   }
 
@@ -125,24 +122,26 @@ export default function RootLayout() {
     const tokenSub = addPushTokenListener()
     const responseSub = addNotificationResponseListener()
     return () => {
-      tokenSub.remove()
-      responseSub.remove()
+      tokenSub?.remove()
+      responseSub?.remove()
     }
   }, [])
 
   if (!fontsLoaded) return null
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <PrivacyProvider>
-            <AuthGate>
-              <RootNavigator />
-            </AuthGate>
-          </PrivacyProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <PrivacyProvider>
+              <AuthGate>
+                <RootNavigator />
+              </AuthGate>
+            </PrivacyProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   )
 }
