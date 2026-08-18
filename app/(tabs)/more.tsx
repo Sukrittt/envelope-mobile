@@ -70,6 +70,20 @@ export default function MoreScreen() {
       style={{ flex: 1, backgroundColor: tokens.bg }}
       contentContainerStyle={[styles.container, { paddingTop: 12, paddingBottom: insets.bottom + 40 }]}
     >
+      {/* Expense Wrapped */}
+      <Pressable
+        onPress={() => router.push('/wrapped')}
+        style={[styles.row, styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+      >
+        <View style={styles.rowLeft}>
+          <View style={[styles.iconChip, { backgroundColor: tokens.coral }]}>
+            <Text style={{ fontSize: 15 }}>🎁</Text>
+          </View>
+          <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Expense Wrapped</Text>
+        </View>
+        <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
+      </Pressable>
+
       {/* Money Brain */}
       <Pressable
         onPress={() => router.push('/modals/money-brain')}

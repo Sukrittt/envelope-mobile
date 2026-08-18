@@ -93,6 +93,7 @@ function RootNavigator() {
       <Stack.Screen name="unlock" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
       <Stack.Screen
         name="modals/log-expense"
         options={{
