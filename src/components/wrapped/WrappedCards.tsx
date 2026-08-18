@@ -60,12 +60,17 @@ export function CoverCard({
       </WRise>
       <WRise delay={300} style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
         <Pressable onPress={onStart} style={[styles.coverButton, { backgroundColor: onColor }]}>
-          <Text style={[styles.coverButtonText, { color, fontFamily: fontFamily.displaySemiBold }]}>Play with sound ♫</Text>
+          <Text style={[styles.coverButtonText, { color: '#ffffff', fontFamily: fontFamily.displaySemiBold }]}>Play with sound ♫</Text>
         </Pressable>
         <Pressable onPress={onStartMuted} style={[styles.coverButtonGhost, { borderColor: `${onColor}66` }]}>
           <Text style={[styles.coverButtonGhostText, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>Silent</Text>
         </Pressable>
       </WRise>
+      <WFade delay={420}>
+        <Text style={[styles.coverHint, { color: onColor, fontFamily: fontFamily.bodyMedium }]}>
+          Tap right to skip ahead · tap the middle to pause
+        </Text>
+      </WFade>
     </WrappedCard>
   )
 }
@@ -489,7 +494,7 @@ export function ArchetypeCard({ data, color, onColor }: CardProps) {
         <Text style={styles.archetypeEmoji}>{archetype.emoji}</Text>
       </WPop>
       <WPop delay={160}>
-        <Text style={[styles.coverTitle, { color: onColor, fontFamily: fontFamily.displayBold, fontSize: 40 }]}>
+        <Text style={[styles.coverTitle, { color: onColor, fontFamily: fontFamily.displayBold, fontSize: 40, lineHeight: 44 }]}>
           {archetype.title}
         </Text>
       </WPop>
@@ -516,11 +521,12 @@ const styles = StyleSheet.create({
   legendLabel: { flex: 1, fontSize: 14 },
   legendPct: { fontSize: 14 },
   eyebrowInline: { fontSize: 12, letterSpacing: 2, opacity: 0.8 },
-  coverTitle: { fontSize: 54, lineHeight: 50, marginTop: 4, letterSpacing: -1.5 },
-  coverButton: { paddingVertical: 14, paddingHorizontal: 20, borderRadius: 100 },
+  coverTitle: { fontSize: 66, lineHeight: 64, marginTop: 6, letterSpacing: -2 },
+  coverButton: { paddingVertical: 15, paddingHorizontal: 22, borderRadius: 100 },
   coverButtonText: { fontSize: 15 },
-  coverButtonGhost: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 100, borderWidth: 1 },
+  coverButtonGhost: { paddingVertical: 15, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
   coverButtonGhostText: { fontSize: 13 },
+  coverHint: { fontSize: 11, letterSpacing: 0.2, opacity: 0.65, marginTop: 16 },
   panel: { borderRadius: 22, borderWidth: 1, padding: 20, gap: 8, marginTop: 8 },
   panelBig: { fontSize: 40, lineHeight: 42, letterSpacing: -1 },
   panelBigSmall: { fontSize: 32, lineHeight: 34, letterSpacing: -0.5 },
