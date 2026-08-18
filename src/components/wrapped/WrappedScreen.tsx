@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, Easing, PanResponder, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -38,6 +38,8 @@ const CARDS: CardDef[] = [
 ]
 
 const ACCENT_KEYS = ['gold', 'mint', 'coral', 'violet', 'blue', 'warn'] as const
+const CARD_DURATION_MS = 5000
+const SWIPE_DOWN_CLOSE_THRESHOLD = 80
 
 export function WrappedScreen() {
   const router = useRouter()
@@ -47,6 +49,16 @@ export function WrappedScreen() {
 
   const [index, setIndex] = useState(0)
   const opacity = useRef(new Animated.Value(1)).current
+  const progress = useRef(new Animated.Value(0)).current
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > SWIPE_DOWN_CLOSE_THRESHOLD) router.back()
+      },
+    }),
+  ).current
 
   // Skip cards a near-empty dataset can't back (e.g. no biggest-purchase row).
   const visibleCards = useMemo(() => {
@@ -59,6 +71,22 @@ export function WrappedScreen() {
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
   }, [index])
+
+  // Story-style top bar: current segment fills over CARD_DURATION_MS, then auto-advances.
+  useEffect(() => {
+    if (visibleCards.length === 0) return
+    progress.setValue(0)
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration: CARD_DURATION_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    })
+    anim.start(({ finished }) => {
+      if (finished) goTo(index + 1)
+    })
+    return () => anim.stop()
+  }, [index, visibleCards.length])
 
   function goTo(next: number) {
     if (next === index || next < 0 || next >= visibleCards.length) return
@@ -96,14 +124,22 @@ export function WrappedScreen() {
   const onColor = tokens.onAccent
 
   return (
-    <View style={[styles.container, { backgroundColor: color, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: color, paddingTop: insets.top }]} {...panResponder.panHandlers}>
       <View style={styles.progressRow}>
         {visibleCards.map((_, i) => (
           <View key={i} style={[styles.progressTrack, { backgroundColor: `${onColor}33` }]}>
-            <View
+            <Animated.View
               style={[
                 styles.progressFill,
-                { backgroundColor: onColor, width: i < index ? '100%' : i === index ? '100%' : '0%' },
+                {
+                  backgroundColor: onColor,
+                  width:
+                    i < index
+                      ? '100%'
+                      : i === index
+                        ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
+                        : '0%',
+                },
               ]}
             />
           </View>
