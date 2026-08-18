@@ -109,12 +109,14 @@ export function WrappedCard({
         />
       )}
       {blobs?.map((b, i) => <Blob key={i} spec={b} />)}
-      {eyebrow && (
-        <WFade style={styles.eyebrow}>
-          <Text style={[styles.eyebrowText, { color: onColor, fontFamily: fontFamily.bodyBold }]}>{eyebrow}</Text>
-        </WFade>
-      )}
-      <View style={styles.body}>{children}</View>
+      <View style={styles.body}>
+        {eyebrow && (
+          <WFade>
+            <Text style={[styles.eyebrowText, { color: onColor, fontFamily: fontFamily.bodyBold }]}>{eyebrow}</Text>
+          </WFade>
+        )}
+        {children}
+      </View>
     </View>
   )
 }
@@ -211,7 +213,7 @@ export function WrappedBigNumber({ value, onColor }: { value: string; onColor: s
 
 export function WrappedCaption({ value, onColor }: { value: string; onColor: string }) {
   return (
-    <Text style={[styles.caption, { color: onColor, fontFamily: fontFamily.bodySemiBold }]}>{value}</Text>
+    <Text style={[styles.caption, { color: onColor, fontFamily: fontFamily.bodyBold }]}>{value}</Text>
   )
 }
 
@@ -224,24 +226,22 @@ const styles = StyleSheet.create({
   },
   blob: { position: 'absolute' },
   glow: { position: 'absolute', alignSelf: 'center', top: '18%' },
-  eyebrow: {
-    position: 'absolute',
-    top: 28,
-    left: 28,
-  },
   eyebrowText: {
     fontSize: 13,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     opacity: 0.85,
   },
   body: {
     gap: 14,
   },
+  // Same descender trap as coverTitle: tight leading needs paddingBottom on Android.
   bigNumber: {
-    fontSize: 46,
-    lineHeight: 52,
-    letterSpacing: -1,
+    fontSize: 64,
+    lineHeight: 64,
+    letterSpacing: -1.5,
+    paddingBottom: 14,
+    includeFontPadding: false,
   },
   caption: {
     fontSize: 17,
