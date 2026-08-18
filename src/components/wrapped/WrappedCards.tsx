@@ -521,7 +521,8 @@ const styles = StyleSheet.create({
   legendLabel: { flex: 1, fontSize: 14 },
   legendPct: { fontSize: 14 },
   eyebrowInline: { fontSize: 12, letterSpacing: 2, opacity: 0.8 },
-  coverTitle: { fontSize: 66, lineHeight: 64, marginTop: 6, letterSpacing: -2 },
+  // lineHeight must stay above fontSize or Fredoka's descenders (the p in "Wrapped") clip.
+  coverTitle: { fontSize: 72, lineHeight: 80, marginTop: 6, letterSpacing: -2 },
   coverButton: { paddingVertical: 15, paddingHorizontal: 22, borderRadius: 100 },
   coverButtonText: { fontSize: 15 },
   coverButtonGhost: { paddingVertical: 15, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
