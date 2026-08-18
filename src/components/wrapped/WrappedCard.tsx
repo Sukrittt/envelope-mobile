@@ -89,6 +89,7 @@ export function WrappedCard({
   eyebrow,
   children,
   style,
+  interactive = false,
 }: {
   color: string
   onColor: string
@@ -97,9 +98,13 @@ export function WrappedCard({
   eyebrow?: string
   children: React.ReactNode
   style?: StyleProp<ViewStyle>
+  /** Set true only when `children` contains real Pressables (e.g. CoverCard's start
+   * buttons) — otherwise the card is pointerEvents="none" so taps fall through to the
+   * WrappedScreen tap-navigation zones rendered underneath it. */
+  interactive?: boolean
 }) {
   return (
-    <View style={[styles.card, { backgroundColor: color }, style]}>
+    <View style={[styles.card, { backgroundColor: color }, style]} pointerEvents={interactive ? 'box-none' : 'none'}>
       {gradientColors && (
         <LinearGradient
           colors={gradientColors}
@@ -205,7 +210,7 @@ export function WNudge({ durationMs = 2600, amplitude = 7, style, children }: { 
 
 export function WrappedBigNumber({ value, onColor }: { value: string; onColor: string }) {
   return (
-    <Text style={[styles.bigNumber, { color: onColor, fontFamily: fontFamily.bodyBlack }]} numberOfLines={2} adjustsFontSizeToFit>
+    <Text style={[styles.bigNumber, { color: onColor, fontFamily: fontFamily.displayBold }]} numberOfLines={1} adjustsFontSizeToFit>
       {value}
     </Text>
   )

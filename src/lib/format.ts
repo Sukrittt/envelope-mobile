@@ -37,3 +37,10 @@ export function formatDate(dateStr: string): string {
   if (Number.isNaN(d.getTime())) return dateStr
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
+
+export function formatDateShort(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return dateStr
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`
+}

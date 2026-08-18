@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
+import Svg, { Path } from 'react-native-svg'
+import { BlurView } from 'expo-blur'
+import { LinearGradient } from 'expo-linear-gradient'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -27,11 +30,29 @@ import { ShareCard } from './ShareCard'
 import type { WrappedData } from '@/src/api/wrapped'
 
 const CARD_DURATION_MS = 5000
+const SEGMENT_COMPLETE_MS = 200
 const SWIPE_DOWN_CLOSE_DISTANCE = 120
 const SWIPE_DOWN_CLOSE_VELOCITY = 800
 /** progress row (10 + 3) + top bar (10 + 30) — cards start below it so the eyebrow never collides. */
 const OVERLAY_HEIGHT = 53
 const END_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123']
+
+function PlayIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d="M5 3 L17 10 L5 17 Z" fill={color} strokeLinejoin="round" />
+    </Svg>
+  )
+}
+
+function ChevronIcon({ color, direction }: { color: string; direction: 'left' | 'right' }) {
+  const d = direction === 'left' ? 'M13 3 L6 10 L13 17' : 'M7 3 L14 10 L7 17'
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d={d} stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  )
+}
 
 interface Slide {
   bg: string
@@ -102,7 +123,7 @@ function buildSlides(
       gradient: END_GRADIENT,
       visible: true,
       render: () => (
-        <ShareCard data={data} color="#5055d3" onColor="#ffffff" gradientColors={END_GRADIENT} onRestart={restart} />
+        <ShareCard data={data} onColor="#ffffff" onRestart={restart} />
       ),
     },
   ].filter((s) => s.visible)
@@ -121,7 +142,6 @@ export function WrappedScreen() {
   const [paused, setPaused] = useState(false)
   const [hint, setHint] = useState<'prev' | 'next' | 'play' | null>(null)
   const opacity = useRef(new Animated.Value(1)).current
-  const progress = useRef(new Animated.Value(0)).current
   const translateY = useRef(new Animated.Value(0)).current
   const hintOpacity = useRef(new Animated.Value(0)).current
 
@@ -162,6 +182,14 @@ export function WrappedScreen() {
   }
 
   const slides = useMemo(() => (data ? buildSlides(data, moneySaved, begin, restart) : []), [data, moneySaved])
+  const contentSlides = slides.slice(1)
+
+  // One Animated.Value per story-bar segment, so a segment already played can smoothly
+  // finish filling instead of snapping to 100% the instant the active index moves past it.
+  const progressValuesRef = useRef<Animated.Value[]>([])
+  if (progressValuesRef.current.length !== contentSlides.length) {
+    progressValuesRef.current = contentSlides.map((_, i) => progressValuesRef.current[i] ?? new Animated.Value(0))
+  }
 
   // Vertical-only + a real offset before activating, so this never steals
   // taps from the tap-zone Pressables underneath (RNGH negotiates the two
@@ -202,22 +230,53 @@ export function WrappedScreen() {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
   }, [index])
 
-  // Story-style top bar: current segment fills over CARD_DURATION_MS, then auto-advances.
+  // Whenever the active index changes: the segment just passed smoothly finishes filling
+  // (instead of snapping to 100%), older segments stay filled, later ones reset to empty.
   useEffect(() => {
-    if (!started || slides.length === 0) return
+    if (!started || contentSlides.length === 0) return
+    const activeContentIdx = index - 1
+    if (activeContentIdx < 0) return
+    const values = progressValuesRef.current
+    values.forEach((v, i) => {
+      if (i === activeContentIdx - 1) {
+        Animated.timing(v, {
+          toValue: 1,
+          duration: SEGMENT_COMPLETE_MS,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: false,
+        }).start()
+      } else if (i < activeContentIdx - 1) {
+        v.setValue(1)
+      } else if (i > activeContentIdx) {
+        v.setValue(0)
+      }
+    })
+    values[activeContentIdx]?.setValue(0)
+  }, [index, started, contentSlides.length])
+
+  // Story-style top bar: current segment fills over CARD_DURATION_MS, then auto-advances.
+  // Resuming from pause continues from wherever the segment was left, rather than
+  // restarting it — only an actual index change (the effect above) resets to 0.
+  useEffect(() => {
+    if (!started || contentSlides.length === 0) return
+    const activeContentIdx = index - 1
+    if (activeContentIdx < 0) return
     if (paused) return
-    progress.setValue(0)
-    const anim = Animated.timing(progress, {
-      toValue: 1,
-      duration: CARD_DURATION_MS,
-      easing: Easing.linear,
-      useNativeDriver: false,
+    const activeValue = progressValuesRef.current[activeContentIdx]
+    let anim: Animated.CompositeAnimation | undefined
+    activeValue.stopAnimation((current) => {
+      anim = Animated.timing(activeValue, {
+        toValue: 1,
+        duration: CARD_DURATION_MS * (1 - current),
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+      anim.start(({ finished }) => {
+        if (finished) goTo(index + 1)
+      })
     })
-    anim.start(({ finished }) => {
-      if (finished) goTo(index + 1)
-    })
-    return () => anim.stop()
-  }, [index, started, slides.length, paused])
+    return () => anim?.stop()
+  }, [index, started, contentSlides.length, paused])
 
   function goTo(next: number) {
     if (!started || next === index || next < 1 || next >= slides.length) return false
@@ -252,13 +311,25 @@ export function WrappedScreen() {
   }
 
   const slide = slides[index]
-  const contentSlides = slides.slice(1)
 
   return (
     <GestureDetector gesture={swipeDownGesture}>
       <Animated.View
         style={[styles.container, { backgroundColor: slide.bg, paddingTop: insets.top, transform: [{ translateY }] }]}
       >
+        {/* Full-bleed, unpadded — cardWrap below is inset by the top/bottom overlay padding,
+            so a gradient set only on the card would leave slide.bg's flat color visible in
+            that margin. This layer covers the whole screen regardless of that padding. */}
+        {slide.gradient && (
+          <LinearGradient
+            pointerEvents="none"
+            colors={slide.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+
         {/* Tap zones sit under the card so real interactive children (ShareCard's button,
             CoverCard's start buttons) still win the touch. */}
         {started && (
@@ -278,30 +349,22 @@ export function WrappedScreen() {
           {slide.render()}
         </Animated.View>
 
+        {started && paused && <BlurView pointerEvents="none" intensity={35} tint="dark" style={StyleSheet.absoluteFill} />}
+
         {started && (
           <View pointerEvents="box-none" style={[styles.overlayControls, { top: insets.top }]}>
             <View style={styles.progressRow}>
-              {contentSlides.map((_, i) => {
-                const slideIndex = i + 1
-                return (
-                  <View key={i} style={[styles.progressTrack, { backgroundColor: `${slide.text}33` }]}>
-                    <Animated.View
-                      style={[
-                        styles.progressFill,
-                        {
-                          backgroundColor: slide.text,
-                          width:
-                            slideIndex < index
-                              ? '100%'
-                              : slideIndex === index
-                                ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-                                : '0%',
-                        },
-                      ]}
-                    />
-                  </View>
-                )
-              })}
+              {contentSlides.map((_, i) => (
+                <View key={i} style={styles.progressTrack}>
+                  <Animated.View
+                    style={[
+                      styles.progressFill,
+                      styles.progressFillOrigin,
+                      { transform: [{ scaleX: progressValuesRef.current[i] }] },
+                    ]}
+                  />
+                </View>
+              ))}
             </View>
 
             <View style={styles.topBar}>
@@ -320,16 +383,17 @@ export function WrappedScreen() {
 
         {started && paused && (
           <View pointerEvents="none" style={styles.centerIndicator}>
-            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
-              <Text style={[styles.indicatorIcon, { color: slide.text }]}>❚❚</Text>
-            </View>
+            <BlurView intensity={60} tint="light" style={styles.pausedBubble}>
+              <PlayIcon color="#ffffff" />
+            </BlurView>
+            <Text style={styles.pausedLabel}>PAUSED</Text>
           </View>
         )}
 
         {started && hint === 'play' && (
           <Animated.View pointerEvents="none" style={[styles.centerIndicator, { opacity: hintOpacity }]}>
             <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
-              <Text style={[styles.indicatorIcon, { color: slide.text }]}>▶</Text>
+              <PlayIcon color={slide.text} />
             </View>
           </Animated.View>
         )}
@@ -340,7 +404,7 @@ export function WrappedScreen() {
             style={[styles.sideIndicator, hint === 'prev' ? styles.sideIndicatorLeft : styles.sideIndicatorRight, { opacity: hintOpacity }]}
           >
             <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
-              <Text style={[styles.indicatorIcon, { color: slide.text }]}>{hint === 'prev' ? '❮' : '❯'}</Text>
+              <ChevronIcon color={slide.text} direction={hint === 'prev' ? 'left' : 'right'} />
             </View>
           </Animated.View>
         )}
@@ -355,8 +419,9 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 14, textAlign: 'center' },
   overlayControls: { position: 'absolute', left: 0, right: 0 },
   progressRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingTop: 10 },
-  progressTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2 },
+  progressTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.35)' },
+  progressFill: { width: '100%', height: '100%', borderRadius: 2, backgroundColor: '#ffffff' },
+  progressFillOrigin: { transformOrigin: 'left' },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
   topBarButtons: { flexDirection: 'row', gap: 8 },
   topBarLabel: { fontSize: 10, letterSpacing: 2, fontWeight: '800' },
@@ -373,7 +438,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  indicatorIcon: { fontSize: 24, lineHeight: 28 },
+  pausedBubble: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pausedLabel: {
+    marginTop: 10,
+    fontSize: 11,
+    letterSpacing: 3,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.85)',
+  },
   iconButton: {
     width: 30,
     height: 30,

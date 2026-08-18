@@ -5,25 +5,28 @@ import * as Sharing from 'expo-sharing'
 import type { WrappedData } from '@/src/api/wrapped'
 import { formatCurrency } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
-import { WrappedCard, WrappedBigNumber, WRise } from './WrappedCard'
+import { WrappedCard, WRise } from './WrappedCard'
+import { getArchetype } from './WrappedCards'
+
+// Matches WrappedScreen's END_GRADIENT — kept local to avoid a circular import
+// (WrappedScreen already imports ShareCard).
+const SHARE_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123']
 
 export function ShareCard({
   data,
-  color,
   onColor,
-  gradientColors,
   onRestart,
 }: {
   data: WrappedData
-  color: string
   onColor: string
-  gradientColors?: [string, string, string]
   onRestart?: () => void
 }) {
   const captureTarget = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
 
   const top = data.topCategories[0]
+  const archetype = getArchetype(data)
+  const archetypeName = archetype.title.replace(/^The\s+/, '')
 
   async function handleShare() {
     if (!captureTarget.current || sharing) return
@@ -40,48 +43,46 @@ export function ShareCard({
     }
   }
 
+  const rows: Array<[string, string]> = [
+    ['Total spent', formatCurrency(data.totalSpent)],
+    ['Transactions', `${data.totalTransactions}`],
+  ]
+  if (top) rows.push(['Top category', `${top.category} · ${top.pct.toFixed(0)}%`])
+  if (data.longestStreak) rows.push(['Longest streak', `${data.longestStreak.days} days 🔥`])
+
   return (
-    <View style={{ flex: 1 }}>
-      <View ref={captureTarget} collapsable={false} style={{ flex: 1 }}>
-        <WrappedCard color={color} onColor={onColor} gradientColors={gradientColors} eyebrow="🎁 That's a wrap">
-          <View style={{ gap: 18 }}>
-            <WRise delay={60}>
-              <WrappedBigNumber value={formatCurrency(data.totalSpent)} onColor={onColor} />
-            </WRise>
-            <WRise delay={160} style={styles.statGrid}>
-              <View style={styles.statCell}>
-                <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>TRANSACTIONS</Text>
-                <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.displaySemiBold }]}>{data.totalTransactions}</Text>
-              </View>
-              {top && (
-                <View style={styles.statCell}>
-                  <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>TOP CATEGORY</Text>
-                  <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.displaySemiBold }]}>
-                    {top.category} · {top.pct.toFixed(0)}%
-                  </Text>
+    <View style={{ flex: 1, justifyContent: 'center' }}>
+      <View ref={captureTarget} collapsable={false}>
+        {/* Needs its own opaque gradient fill: captureRef only captures this subtree, so if it
+            were transparent (relying on WrappedScreen's full-bleed gradient behind it) the
+            shared PNG would come out with no background at all. */}
+        <WrappedCard
+          color="transparent"
+          onColor={onColor}
+          gradientColors={SHARE_GRADIENT}
+          eyebrow="🎁 That's a wrap"
+          style={styles.shareCard}
+        >
+          <WRise delay={60}>
+            <Text style={[styles.headline, { color: onColor, fontFamily: fontFamily.displayBold }]}>
+              {data.range.daysTracked} days, one {archetypeName}.
+            </Text>
+          </WRise>
+          <WRise delay={180}>
+            <View style={[styles.panel, { backgroundColor: `${onColor}18`, borderColor: `${onColor}33` }]}>
+              {rows.map(([label, value], i) => (
+                <View key={label} style={[styles.statRow, i > 0 && { borderTopColor: `${onColor}22`, borderTopWidth: 1 }]}>
+                  <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+                  <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>{value}</Text>
                 </View>
-              )}
-              {data.longestStreak && (
-                <View style={styles.statCell}>
-                  <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>STREAK</Text>
-                  <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.displaySemiBold }]}>{data.longestStreak.days} days 🔥</Text>
-                </View>
-              )}
-              {data.biggestPurchase && (
-                <View style={styles.statCell}>
-                  <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>BIGGEST HIT</Text>
-                  <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.displaySemiBold }]}>
-                    {formatCurrency(data.biggestPurchase.amountInr)}
-                  </Text>
-                </View>
-              )}
-            </WRise>
-          </View>
+              ))}
+            </View>
+          </WRise>
         </WrappedCard>
       </View>
-      <WRise delay={260} style={{ gap: 10, marginTop: 16, paddingHorizontal: 16 }}>
+      <WRise delay={260} style={{ gap: 10, marginTop: 16, paddingHorizontal: 16, paddingBottom: 16 }}>
         <Pressable onPress={handleShare} disabled={sharing} style={[styles.shareButton, { backgroundColor: onColor }]}>
-          <Text style={[styles.shareButtonText, { color, fontFamily: fontFamily.bodyBold }]}>
+          <Text style={[styles.shareButtonText, { fontFamily: fontFamily.bodyBlack }]}>
             {sharing ? 'Preparing…' : 'Share your wrapped'}
           </Text>
         </Pressable>
@@ -96,12 +97,14 @@ export function ShareCard({
 }
 
 const styles = StyleSheet.create({
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  statCell: { width: '45%', gap: 3 },
-  statLabel: { fontSize: 10, letterSpacing: 1, opacity: 0.8 },
-  statValue: { fontSize: 18 },
-  shareButton: { borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  shareButtonText: { fontSize: 16 },
-  restartButton: { borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
+  shareCard: { flex: 0 },
+  headline: { fontSize: 30, lineHeight: 34, letterSpacing: -0.5, marginBottom: 18 },
+  panel: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 16 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+  statLabel: { fontSize: 14, opacity: 0.85 },
+  statValue: { fontSize: 15 },
+  shareButton: { borderRadius: 100, paddingVertical: 16, alignItems: 'center' },
+  shareButtonText: { fontSize: 16, color: '#120a1f' },
+  restartButton: { borderRadius: 100, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
   restartButtonText: { fontSize: 13 },
 })
