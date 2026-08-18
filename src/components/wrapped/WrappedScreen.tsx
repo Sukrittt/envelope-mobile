@@ -29,7 +29,6 @@ import type { WrappedData } from '@/src/api/wrapped'
 const CARD_DURATION_MS = 5000
 const SWIPE_DOWN_CLOSE_DISTANCE = 120
 const SWIPE_DOWN_CLOSE_VELOCITY = 800
-const SWIPE_SIDE_DISTANCE = 45
 const END_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123']
 
 interface Slide {
@@ -118,9 +117,11 @@ export function WrappedScreen() {
   const [started, setStarted] = useState(false)
   const [muted, setMuted] = useState(true)
   const [paused, setPaused] = useState(false)
+  const [hint, setHint] = useState<'prev' | 'next' | 'play' | null>(null)
   const opacity = useRef(new Animated.Value(1)).current
   const progress = useRef(new Animated.Value(0)).current
   const translateY = useRef(new Animated.Value(0)).current
+  const hintOpacity = useRef(new Animated.Value(0)).current
 
   useWrappedMusic(started && !muted)
 
@@ -177,16 +178,23 @@ export function WrappedScreen() {
       }
     })
 
-  const swipeSideGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
-    .onEnd((e) => {
-      if (Math.abs(e.translationX) > SWIPE_SIDE_DISTANCE) {
-        runOnJS(goTo)(index + (e.translationX < 0 ? 1 : -1))
-      }
+  function flashHint(kind: 'prev' | 'next' | 'play') {
+    setHint(kind)
+    hintOpacity.setValue(1)
+    Animated.timing(hintOpacity, { toValue: 0, duration: 500, delay: 200, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) setHint(null)
     })
+  }
 
-  const composedGesture = Gesture.Race(swipeDownGesture, swipeSideGesture)
+  function tapSide(dir: 1 | -1) {
+    if (goTo(index + dir)) flashHint(dir === 1 ? 'next' : 'prev')
+  }
+
+  function tapCenter() {
+    const next = !paused
+    setPaused(next)
+    if (!next) flashHint('play')
+  }
 
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
@@ -210,9 +218,10 @@ export function WrappedScreen() {
   }, [index, started, slides.length, paused])
 
   function goTo(next: number) {
-    if (!started || next === index || next < 1 || next >= slides.length) return
+    if (!started || next === index || next < 1 || next >= slides.length) return false
     opacity.setValue(0)
     setIndex(next)
+    return true
   }
 
   if (isLoading) {
@@ -244,12 +253,31 @@ export function WrappedScreen() {
   const contentSlides = slides.slice(1)
 
   return (
-    <GestureDetector gesture={composedGesture}>
+    <GestureDetector gesture={swipeDownGesture}>
       <Animated.View
         style={[styles.container, { backgroundColor: slide.bg, paddingTop: insets.top, transform: [{ translateY }] }]}
       >
+        {/* Tap zones sit under the card so real interactive children (ShareCard's button,
+            CoverCard's start buttons) still win the touch. */}
         {started && (
-          <>
+          <View style={styles.tapZoneRow}>
+            <Pressable style={styles.tapZoneSide} onPress={() => tapSide(-1)} />
+            <Pressable style={styles.tapZoneCenter} onPress={tapCenter} />
+            <Pressable style={styles.tapZoneSide} onPress={() => tapSide(1)} />
+          </View>
+        )}
+
+        {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
+            work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
+        <Animated.View
+          pointerEvents="box-none"
+          style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
+        >
+          {slide.render()}
+        </Animated.View>
+
+        {started && (
+          <View pointerEvents="box-none" style={styles.overlayControls}>
             <View style={styles.progressRow}>
               {contentSlides.map((_, i) => {
                 const slideIndex = i + 1
@@ -276,52 +304,74 @@ export function WrappedScreen() {
 
             <View style={styles.topBar}>
               <Text style={[styles.topBarLabel, { color: `${slide.text}dd` }]}>EXPENSE WRAPPED</Text>
-              <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
-                <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
-              </Pressable>
+              <View style={styles.topBarButtons}>
+                <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
+                  <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
+                </Pressable>
+                <Pressable onPress={close} hitSlop={8} style={styles.iconButton}>
+                  <Text style={styles.iconButtonText}>✕</Text>
+                </Pressable>
+              </View>
             </View>
-          </>
-        )}
-
-        {started && (
-          <View style={styles.tapZones}>
-            <Pressable
-              style={styles.tapZoneLeft}
-              onPressIn={() => setPaused(true)}
-              onPressOut={() => setPaused(false)}
-              onPress={() => goTo(index - 1)}
-            />
-            <Pressable
-              style={styles.tapZoneRight}
-              onPressIn={() => setPaused(true)}
-              onPressOut={() => setPaused(false)}
-              onPress={() => goTo(index + 1)}
-            />
           </View>
         )}
 
-        {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
-            work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
-        <Animated.View
-          pointerEvents="box-none"
-          style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
-        >
-          {slide.render()}
-        </Animated.View>
+        {started && paused && (
+          <View pointerEvents="none" style={styles.centerIndicator}>
+            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
+              <Text style={[styles.indicatorIcon, { color: slide.text }]}>❚❚</Text>
+            </View>
+          </View>
+        )}
+
+        {started && hint === 'play' && (
+          <Animated.View pointerEvents="none" style={[styles.centerIndicator, { opacity: hintOpacity }]}>
+            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
+              <Text style={[styles.indicatorIcon, { color: slide.text }]}>▶</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {started && (hint === 'prev' || hint === 'next') && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.sideIndicator, hint === 'prev' ? styles.sideIndicatorLeft : styles.sideIndicatorRight, { opacity: hintOpacity }]}
+          >
+            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
+              <Text style={[styles.indicatorIcon, { color: slide.text }]}>{hint === 'prev' ? '❮' : '❯'}</Text>
+            </View>
+          </Animated.View>
+        )}
       </Animated.View>
     </GestureDetector>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, overflow: 'hidden' },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   errorText: { fontSize: 14, textAlign: 'center' },
+  overlayControls: { position: 'absolute', top: 0, left: 0, right: 0 },
   progressRow: { flexDirection: 'row', gap: 4, paddingLeft: 12, paddingRight: 44, paddingTop: 12 },
   progressTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
+  topBarButtons: { flexDirection: 'row', gap: 8 },
   topBarLabel: { fontSize: 10, letterSpacing: 2, fontWeight: '800' },
+  centerIndicator: { position: 'absolute', top: '44%', left: 0, right: 0, alignItems: 'center' },
+  sideIndicator: { position: 'absolute', top: '44%' },
+  sideIndicatorLeft: { left: 24 },
+  sideIndicatorRight: { right: 24 },
+  indicatorBubble: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  indicatorIcon: { fontSize: 24, lineHeight: 28 },
   iconButton: {
     width: 30,
     height: 30,
@@ -333,7 +383,7 @@ const styles = StyleSheet.create({
   iconButtonText: { fontSize: 13, color: '#fff' },
   closeText: { fontSize: 18 },
   cardWrap: { flex: 1 },
-  tapZones: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
-  tapZoneLeft: { flex: 1 },
-  tapZoneRight: { flex: 2 },
+  tapZoneRow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
+  tapZoneSide: { flex: 3 },
+  tapZoneCenter: { flex: 4 },
 })
