@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing'
 import type { WrappedData } from '@/src/api/wrapped'
 import { formatCurrency } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
-import { WrappedCard, WrappedBigNumber } from './WrappedCard'
+import { WrappedCard, WrappedBigNumber, WRise } from './WrappedCard'
 
 export function ShareCard({
   data,
@@ -45,8 +45,10 @@ export function ShareCard({
       <View ref={captureTarget} collapsable={false} style={{ flex: 1 }}>
         <WrappedCard color={color} onColor={onColor} gradientColors={gradientColors} eyebrow="🎁 That's a wrap">
           <View style={{ gap: 18 }}>
-            <WrappedBigNumber value={formatCurrency(data.totalSpent)} onColor={onColor} />
-            <View style={styles.statGrid}>
+            <WRise delay={60}>
+              <WrappedBigNumber value={formatCurrency(data.totalSpent)} onColor={onColor} />
+            </WRise>
+            <WRise delay={160} style={styles.statGrid}>
               <View style={styles.statCell}>
                 <Text style={[styles.statLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>TRANSACTIONS</Text>
                 <Text style={[styles.statValue, { color: onColor, fontFamily: fontFamily.displaySemiBold }]}>{data.totalTransactions}</Text>
@@ -73,11 +75,11 @@ export function ShareCard({
                   </Text>
                 </View>
               )}
-            </View>
+            </WRise>
           </View>
         </WrappedCard>
       </View>
-      <View style={{ gap: 10, marginTop: 16 }}>
+      <WRise delay={260} style={{ gap: 10, marginTop: 16 }}>
         <Pressable onPress={handleShare} disabled={sharing} style={[styles.shareButton, { backgroundColor: onColor }]}>
           <Text style={[styles.shareButtonText, { color, fontFamily: fontFamily.bodyBold }]}>
             {sharing ? 'Preparing…' : 'Share your wrapped'}
@@ -88,7 +90,7 @@ export function ShareCard({
             <Text style={[styles.restartButtonText, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>Watch it again</Text>
           </Pressable>
         )}
-      </View>
+      </WRise>
     </View>
   )
 }
