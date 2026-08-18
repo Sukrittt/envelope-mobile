@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, PanResponder, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -39,7 +41,8 @@ const CARDS: CardDef[] = [
 
 const ACCENT_KEYS = ['gold', 'mint', 'coral', 'violet', 'blue', 'warn'] as const
 const CARD_DURATION_MS = 5000
-const SWIPE_DOWN_CLOSE_THRESHOLD = 80
+const SWIPE_DOWN_CLOSE_DISTANCE = 120
+const SWIPE_DOWN_CLOSE_VELOCITY = 800
 
 export function WrappedScreen() {
   const router = useRouter()
@@ -50,15 +53,36 @@ export function WrappedScreen() {
   const [index, setIndex] = useState(0)
   const opacity = useRef(new Animated.Value(1)).current
   const progress = useRef(new Animated.Value(0)).current
+  const translateY = useRef(new Animated.Value(0)).current
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > SWIPE_DOWN_CLOSE_THRESHOLD) router.back()
-      },
-    }),
-  ).current
+  function setDragY(y: number) {
+    translateY.setValue(Math.max(0, y))
+  }
+
+  function snapBack() {
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start()
+  }
+
+  function close() {
+    router.back()
+  }
+
+  // Vertical-only + a real offset before activating, so this never steals
+  // taps from the tap-zone Pressables underneath (RNGH negotiates the two
+  // since GestureHandlerRootView wraps the whole app in _layout.tsx).
+  const swipeDownGesture = Gesture.Pan()
+    .activeOffsetY(15)
+    .failOffsetX([-20, 20])
+    .onUpdate((e) => {
+      runOnJS(setDragY)(e.translationY)
+    })
+    .onEnd((e) => {
+      if (e.translationY > SWIPE_DOWN_CLOSE_DISTANCE || e.velocityY > SWIPE_DOWN_CLOSE_VELOCITY) {
+        runOnJS(close)()
+      } else {
+        runOnJS(snapBack)()
+      }
+    })
 
   // Skip cards a near-empty dataset can't back (e.g. no biggest-purchase row).
   const visibleCards = useMemo(() => {
@@ -124,46 +148,50 @@ export function WrappedScreen() {
   const onColor = tokens.onAccent
 
   return (
-    <View style={[styles.container, { backgroundColor: color, paddingTop: insets.top }]} {...panResponder.panHandlers}>
-      <View style={styles.progressRow}>
-        {visibleCards.map((_, i) => (
-          <View key={i} style={[styles.progressTrack, { backgroundColor: `${onColor}33` }]}>
-            <Animated.View
-              style={[
-                styles.progressFill,
-                {
-                  backgroundColor: onColor,
-                  width:
-                    i < index
-                      ? '100%'
-                      : i === index
-                        ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-                        : '0%',
-                },
-              ]}
-            />
-          </View>
-        ))}
-      </View>
-
-      <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeButton}>
-        <Text style={[styles.closeText, { color: onColor }]}>✕</Text>
-      </Pressable>
-
-      <View style={styles.tapZones}>
-        <Pressable style={styles.tapZoneLeft} onPress={() => goTo(index - 1)} />
-        <Pressable style={styles.tapZoneRight} onPress={() => goTo(index + 1)} />
-      </View>
-
-      {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
-          work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
+    <GestureDetector gesture={swipeDownGesture}>
       <Animated.View
-        pointerEvents="box-none"
-        style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
+        style={[styles.container, { backgroundColor: color, paddingTop: insets.top, transform: [{ translateY }] }]}
       >
-        <Card data={data!} color={color} onColor={onColor} />
+        <View style={styles.progressRow}>
+          {visibleCards.map((_, i) => (
+            <View key={i} style={[styles.progressTrack, { backgroundColor: `${onColor}33` }]}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    backgroundColor: onColor,
+                    width:
+                      i < index
+                        ? '100%'
+                        : i === index
+                          ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
+                          : '0%',
+                  },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeButton}>
+          <Text style={[styles.closeText, { color: onColor }]}>✕</Text>
+        </Pressable>
+
+        <View style={styles.tapZones}>
+          <Pressable style={styles.tapZoneLeft} onPress={() => goTo(index - 1)} />
+          <Pressable style={styles.tapZoneRight} onPress={() => goTo(index + 1)} />
+        </View>
+
+        {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
+            work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
+        <Animated.View
+          pointerEvents="box-none"
+          style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
+        >
+          <Card data={data!} color={color} onColor={onColor} />
+        </Animated.View>
       </Animated.View>
-    </View>
+    </GestureDetector>
   )
 }
 
