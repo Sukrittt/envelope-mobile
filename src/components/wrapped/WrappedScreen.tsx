@@ -29,6 +29,8 @@ import type { WrappedData } from '@/src/api/wrapped'
 const CARD_DURATION_MS = 5000
 const SWIPE_DOWN_CLOSE_DISTANCE = 120
 const SWIPE_DOWN_CLOSE_VELOCITY = 800
+/** progress row (10 + 3) + top bar (10 + 30) — cards start below it so the eyebrow never collides. */
+const OVERLAY_HEIGHT = 53
 const END_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123']
 
 interface Slide {
@@ -271,13 +273,13 @@ export function WrappedScreen() {
             work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
         <Animated.View
           pointerEvents="box-none"
-          style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
+          style={[styles.cardWrap, { opacity, paddingTop: started ? OVERLAY_HEIGHT : 0, paddingBottom: insets.bottom + 24 }]}
         >
           {slide.render()}
         </Animated.View>
 
         {started && (
-          <View pointerEvents="box-none" style={styles.overlayControls}>
+          <View pointerEvents="box-none" style={[styles.overlayControls, { top: insets.top }]}>
             <View style={styles.progressRow}>
               {contentSlides.map((_, i) => {
                 const slideIndex = i + 1
@@ -351,8 +353,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   errorText: { fontSize: 14, textAlign: 'center' },
-  overlayControls: { position: 'absolute', top: 0, left: 0, right: 0 },
-  progressRow: { flexDirection: 'row', gap: 4, paddingLeft: 12, paddingRight: 44, paddingTop: 12 },
+  overlayControls: { position: 'absolute', left: 0, right: 0 },
+  progressRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingTop: 10 },
   progressTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
