@@ -7,53 +7,144 @@ import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useWrapped } from '@/src/hooks/useWrapped'
+import { useBudgets } from '@/src/hooks/useBudgets'
+import { useWrappedMusic } from '@/src/hooks/useWrappedMusic'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import {
+  CoverCard,
   IntroCard,
   TotalSpentCard,
   TopCategoryCard,
   BiggestPurchaseCard,
   TopWeekdayCard,
+  MonthRaceCard,
   CategoryBreakdownCard,
   StreakCard,
+  BadgesCard,
+  ArchetypeCard,
 } from './WrappedCards'
 import { ShareCard } from './ShareCard'
 import type { WrappedData } from '@/src/api/wrapped'
 
-interface CardDef {
-  Component: (props: { data: WrappedData; color: string; onColor: string }) => React.ReactElement | null
-  isVisible: (data: WrappedData) => boolean
-}
-
-// isVisible mirrors each card's own null-guard — kept separate so filtering
-// never has to invoke a component (ShareCard uses hooks; calling components
-// as plain functions outside render breaks Rules of Hooks).
-const CARDS: CardDef[] = [
-  { Component: IntroCard, isVisible: () => true },
-  { Component: TotalSpentCard, isVisible: () => true },
-  { Component: TopCategoryCard, isVisible: (d) => d.topCategories.length > 0 },
-  { Component: BiggestPurchaseCard, isVisible: (d) => d.biggestPurchase !== null },
-  { Component: TopWeekdayCard, isVisible: (d) => d.topWeekday !== null },
-  { Component: CategoryBreakdownCard, isVisible: (d) => d.topCategories.reduce((s, c) => s + c.total, 0) > 0 },
-  { Component: StreakCard, isVisible: (d) => d.longestStreak !== null },
-  { Component: ShareCard, isVisible: () => true },
-]
-
-const ACCENT_KEYS = ['gold', 'mint', 'coral', 'violet', 'blue', 'warn'] as const
 const CARD_DURATION_MS = 5000
 const SWIPE_DOWN_CLOSE_DISTANCE = 120
 const SWIPE_DOWN_CLOSE_VELOCITY = 800
+const SWIPE_SIDE_DISTANCE = 45
+const END_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123']
+
+interface Slide {
+  bg: string
+  text: string
+  gradient?: [string, string, string]
+  visible: boolean
+  render: () => React.ReactElement
+}
+
+function buildSlides(
+  data: WrappedData,
+  moneySaved: number | undefined,
+  begin: (muted: boolean) => void,
+  restart: () => void,
+): Slide[] {
+  return [
+    {
+      bg: '#cd7d00',
+      text: '#2e1200',
+      visible: true,
+      render: () => (
+        <CoverCard data={data} color="#cd7d00" onColor="#2e1200" onStart={() => begin(false)} onStartMuted={() => begin(true)} />
+      ),
+    },
+    { bg: '#4b4fcc', text: '#ffffff', visible: true, render: () => <IntroCard data={data} color="#4b4fcc" onColor="#ffffff" /> },
+    { bg: '#008140', text: '#ffffff', visible: true, render: () => <TotalSpentCard data={data} color="#008140" onColor="#ffffff" /> },
+    {
+      bg: '#c91f3a',
+      text: '#ffffff',
+      visible: data.topCategories.length > 0,
+      render: () => <TopCategoryCard data={data} color="#c91f3a" onColor="#ffffff" />,
+    },
+    {
+      bg: '#ad2ca7',
+      text: '#ffffff',
+      visible: data.biggestPurchase !== null,
+      render: () => <BiggestPurchaseCard data={data} color="#ad2ca7" onColor="#ffffff" />,
+    },
+    {
+      bg: '#008097',
+      text: '#ffffff',
+      visible: data.topWeekday !== null,
+      render: () => <TopWeekdayCard data={data} color="#008097" onColor="#ffffff" />,
+    },
+    {
+      bg: '#43368e',
+      text: '#ffffff',
+      visible: data.monthlyTotals.length > 0,
+      render: () => <MonthRaceCard data={data} color="#43368e" onColor="#ffffff" />,
+    },
+    {
+      bg: '#c87600',
+      text: '#2b1000',
+      visible: data.topCategories.reduce((s, c) => s + c.total, 0) > 0,
+      render: () => <CategoryBreakdownCard data={data} color="#c87600" onColor="#2b1000" />,
+    },
+    {
+      bg: '#007a3a',
+      text: '#ffffff',
+      visible: data.longestStreak !== null,
+      render: () => <StreakCard data={data} color="#007a3a" onColor="#ffffff" moneySaved={moneySaved} />,
+    },
+    { bg: '#a624a0', text: '#ffffff', visible: true, render: () => <BadgesCard data={data} color="#a624a0" onColor="#ffffff" /> },
+    { bg: '#c11435', text: '#ffffff', visible: true, render: () => <ArchetypeCard data={data} color="#c11435" onColor="#ffffff" /> },
+    {
+      bg: '#5055d3',
+      text: '#ffffff',
+      gradient: END_GRADIENT,
+      visible: true,
+      render: () => (
+        <ShareCard data={data} color="#5055d3" onColor="#ffffff" gradientColors={END_GRADIENT} onRestart={restart} />
+      ),
+    },
+  ].filter((s) => s.visible)
+}
 
 export function WrappedScreen() {
   const router = useRouter()
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const { data, isLoading, error } = useWrapped()
+  const { data: budgets } = useBudgets()
 
   const [index, setIndex] = useState(0)
+  const [started, setStarted] = useState(false)
+  const [muted, setMuted] = useState(true)
+  const [paused, setPaused] = useState(false)
   const opacity = useRef(new Animated.Value(1)).current
   const progress = useRef(new Animated.Value(0)).current
   const translateY = useRef(new Animated.Value(0)).current
+
+  useWrappedMusic(started && !muted)
+
+  const moneySaved = useMemo(() => {
+    if (!data || !budgets || budgets.length === 0) return undefined
+    const startMonth = data.range.startDate.slice(0, 7)
+    const endMonth = data.range.endDate.slice(0, 7)
+    const assigned = budgets
+      .filter((b) => b.month >= startMonth && b.month <= endMonth)
+      .reduce((s, b) => s + (Number(b.assigned) || 0) + (Number(b.rolled_over) || 0), 0)
+    const saved = assigned - data.totalSpent
+    return saved > 0 ? saved : undefined
+  }, [data, budgets])
+
+  function begin(startMuted: boolean) {
+    setMuted(startMuted)
+    setStarted(true)
+    setIndex(1)
+  }
+
+  function restart() {
+    setStarted(false)
+    setIndex(0)
+  }
 
   function setDragY(y: number) {
     translateY.setValue(Math.max(0, y))
@@ -66,6 +157,8 @@ export function WrappedScreen() {
   function close() {
     router.back()
   }
+
+  const slides = useMemo(() => (data ? buildSlides(data, moneySaved, begin, restart) : []), [data, moneySaved])
 
   // Vertical-only + a real offset before activating, so this never steals
   // taps from the tap-zone Pressables underneath (RNGH negotiates the two
@@ -84,13 +177,16 @@ export function WrappedScreen() {
       }
     })
 
-  // Skip cards a near-empty dataset can't back (e.g. no biggest-purchase row).
-  const visibleCards = useMemo(() => {
-    if (!data) return []
-    return CARDS.map((card, i) => ({ ...card, colorKey: ACCENT_KEYS[i % ACCENT_KEYS.length] })).filter((card) =>
-      card.isVisible(data),
-    )
-  }, [data])
+  const swipeSideGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
+    .onEnd((e) => {
+      if (Math.abs(e.translationX) > SWIPE_SIDE_DISTANCE) {
+        runOnJS(goTo)(index + (e.translationX < 0 ? 1 : -1))
+      }
+    })
+
+  const composedGesture = Gesture.Race(swipeDownGesture, swipeSideGesture)
 
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
@@ -98,7 +194,8 @@ export function WrappedScreen() {
 
   // Story-style top bar: current segment fills over CARD_DURATION_MS, then auto-advances.
   useEffect(() => {
-    if (visibleCards.length === 0) return
+    if (!started || slides.length === 0) return
+    if (paused) return
     progress.setValue(0)
     const anim = Animated.timing(progress, {
       toValue: 1,
@@ -110,10 +207,10 @@ export function WrappedScreen() {
       if (finished) goTo(index + 1)
     })
     return () => anim.stop()
-  }, [index, visibleCards.length])
+  }, [index, started, slides.length, paused])
 
   function goTo(next: number) {
-    if (next === index || next < 0 || next >= visibleCards.length) return
+    if (!started || next === index || next < 1 || next >= slides.length) return
     opacity.setValue(0)
     setIndex(next)
   }
@@ -128,7 +225,7 @@ export function WrappedScreen() {
     )
   }
 
-  if (error || visibleCards.length === 0) {
+  if (error || slides.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
         <View style={styles.centerFill}>
@@ -143,44 +240,76 @@ export function WrappedScreen() {
     )
   }
 
-  const { Component: Card, colorKey } = visibleCards[index]
-  const color = tokens[colorKey]
-  const onColor = tokens.onAccent
+  const slide = slides[index]
+  const contentSlides = slides.slice(1)
 
   return (
-    <GestureDetector gesture={swipeDownGesture}>
+    <GestureDetector gesture={composedGesture}>
       <Animated.View
-        style={[styles.container, { backgroundColor: color, paddingTop: insets.top, transform: [{ translateY }] }]}
+        style={[styles.container, { backgroundColor: slide.bg, paddingTop: insets.top, transform: [{ translateY }] }]}
       >
-        <View style={styles.progressRow}>
-          {visibleCards.map((_, i) => (
-            <View key={i} style={[styles.progressTrack, { backgroundColor: `${onColor}33` }]}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: onColor,
-                    width:
-                      i < index
-                        ? '100%'
-                        : i === index
-                          ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
-                          : '0%',
-                  },
-                ]}
-              />
+        {started && (
+          <>
+            <View style={styles.progressRow}>
+              {contentSlides.map((_, i) => {
+                const slideIndex = i + 1
+                return (
+                  <View key={i} style={[styles.progressTrack, { backgroundColor: `${slide.text}33` }]}>
+                    <Animated.View
+                      style={[
+                        styles.progressFill,
+                        {
+                          backgroundColor: slide.text,
+                          width:
+                            slideIndex < index
+                              ? '100%'
+                              : slideIndex === index
+                                ? progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] })
+                                : '0%',
+                        },
+                      ]}
+                    />
+                  </View>
+                )
+              })}
             </View>
-          ))}
-        </View>
 
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeButton}>
-          <Text style={[styles.closeText, { color: onColor }]}>✕</Text>
-        </Pressable>
+            <View style={styles.topBar}>
+              <Text style={[styles.topBarLabel, { color: `${slide.text}dd` }]}>EXPENSE WRAPPED</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
+                  <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
+                </Pressable>
+                <Pressable onPress={close} hitSlop={8} style={styles.iconButton}>
+                  <Text style={styles.iconButtonText}>✕</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
 
-        <View style={styles.tapZones}>
-          <Pressable style={styles.tapZoneLeft} onPress={() => goTo(index - 1)} />
-          <Pressable style={styles.tapZoneRight} onPress={() => goTo(index + 1)} />
-        </View>
+        {!started && (
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeButton}>
+            <Text style={[styles.closeText, { color: slide.text }]}>✕</Text>
+          </Pressable>
+        )}
+
+        {started && (
+          <View style={styles.tapZones}>
+            <Pressable
+              style={styles.tapZoneLeft}
+              onPressIn={() => setPaused(true)}
+              onPressOut={() => setPaused(false)}
+              onPress={() => goTo(index - 1)}
+            />
+            <Pressable
+              style={styles.tapZoneRight}
+              onPressIn={() => setPaused(true)}
+              onPressOut={() => setPaused(false)}
+              onPress={() => goTo(index + 1)}
+            />
+          </View>
+        )}
 
         {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
             work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
@@ -188,7 +317,7 @@ export function WrappedScreen() {
           pointerEvents="box-none"
           style={[styles.cardWrap, { opacity, paddingBottom: insets.bottom + 24 }]}
         >
-          <Card data={data!} color={color} onColor={onColor} />
+          {slide.render()}
         </Animated.View>
       </Animated.View>
     </GestureDetector>
@@ -202,6 +331,17 @@ const styles = StyleSheet.create({
   progressRow: { flexDirection: 'row', gap: 4, paddingLeft: 12, paddingRight: 44, paddingTop: 12 },
   progressTrack: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
+  topBarLabel: { fontSize: 10, letterSpacing: 2, fontWeight: '800' },
+  iconButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonText: { fontSize: 13, color: '#fff' },
   closeButton: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 8 },
   closeText: { fontSize: 18 },
   cardWrap: { flex: 1, padding: 16 },

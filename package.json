@@ -12,6 +12,7 @@
     "expo-device": "~57.0.1",
     "expo-font": "~57.0.1",
     "expo-haptics": "~57.0.1",
+    "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.5",
     "expo-notifications": "~57.0.11",
     "expo-router": "~57.0.12",

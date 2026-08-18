@@ -9,6 +9,7 @@ export interface WrappedData {
   topWeekday: { day: string; total: number; count: number } | null
   longestStreak: { days: number; startDate: string; endDate: string } | null
   longestGap: { days: number; startDate: string; endDate: string } | null
+  monthlyTotals: Array<{ month: string; label: string; total: number }>
 }
 
 export async function getWrapped(): Promise<WrappedData> {
