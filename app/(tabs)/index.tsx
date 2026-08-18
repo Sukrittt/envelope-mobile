@@ -91,7 +91,7 @@ export default function HomeScreen() {
 
   const { hideAmounts } = usePrivacy()
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
-  const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
   const [drillFilter, setDrillFilter] = useState<DrillFilter>(null)
   const [insightMonth, setInsightMonth] = useState(() => currentMonthKey())
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
