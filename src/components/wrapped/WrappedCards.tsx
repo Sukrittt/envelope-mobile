@@ -168,7 +168,7 @@ export function TopWeekdayCard({ data, color, onColor }: CardProps) {
 }
 
 export function MonthRaceCard({ data, color, onColor }: CardProps) {
-  const months = data.monthlyTotals
+  const months = data.monthlyTotals ?? []
   if (months.length === 0) return null
   const max = Math.max(...months.map((m) => m.total))
   const top = [...months].sort((a, b) => b.total - a.total)[0]

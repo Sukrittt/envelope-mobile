@@ -78,7 +78,7 @@ function buildSlides(
     {
       bg: '#43368e',
       text: '#ffffff',
-      visible: data.monthlyTotals.length > 0,
+      visible: (data.monthlyTotals?.length ?? 0) > 0,
       render: () => <MonthRaceCard data={data} color="#43368e" onColor="#ffffff" />,
     },
     {
