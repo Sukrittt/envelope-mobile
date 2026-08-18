@@ -276,22 +276,11 @@ export function WrappedScreen() {
 
             <View style={styles.topBar}>
               <Text style={[styles.topBarLabel, { color: `${slide.text}dd` }]}>EXPENSE WRAPPED</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
-                  <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
-                </Pressable>
-                <Pressable onPress={close} hitSlop={8} style={styles.iconButton}>
-                  <Text style={styles.iconButtonText}>✕</Text>
-                </Pressable>
-              </View>
+              <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
+                <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
+              </Pressable>
             </View>
           </>
-        )}
-
-        {!started && (
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeButton}>
-            <Text style={[styles.closeText, { color: slide.text }]}>✕</Text>
-          </Pressable>
         )}
 
         {started && (
@@ -342,7 +331,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconButtonText: { fontSize: 13, color: '#fff' },
-  closeButton: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 8 },
   closeText: { fontSize: 18 },
   cardWrap: { flex: 1 },
   tapZones: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
