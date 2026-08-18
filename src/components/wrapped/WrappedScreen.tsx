@@ -18,15 +18,23 @@ import {
 import { ShareCard } from './ShareCard'
 import type { WrappedData } from '@/src/api/wrapped'
 
-const CARDS: Array<(props: { data: WrappedData; color: string; onColor: string }) => React.ReactElement | null> = [
-  IntroCard,
-  TotalSpentCard,
-  TopCategoryCard,
-  BiggestPurchaseCard,
-  TopWeekdayCard,
-  CategoryBreakdownCard,
-  StreakCard,
-  ShareCard,
+interface CardDef {
+  Component: (props: { data: WrappedData; color: string; onColor: string }) => React.ReactElement | null
+  isVisible: (data: WrappedData) => boolean
+}
+
+// isVisible mirrors each card's own null-guard — kept separate so filtering
+// never has to invoke a component (ShareCard uses hooks; calling components
+// as plain functions outside render breaks Rules of Hooks).
+const CARDS: CardDef[] = [
+  { Component: IntroCard, isVisible: () => true },
+  { Component: TotalSpentCard, isVisible: () => true },
+  { Component: TopCategoryCard, isVisible: (d) => d.topCategories.length > 0 },
+  { Component: BiggestPurchaseCard, isVisible: (d) => d.biggestPurchase !== null },
+  { Component: TopWeekdayCard, isVisible: (d) => d.topWeekday !== null },
+  { Component: CategoryBreakdownCard, isVisible: (d) => d.topCategories.reduce((s, c) => s + c.total, 0) > 0 },
+  { Component: StreakCard, isVisible: (d) => d.longestStreak !== null },
+  { Component: ShareCard, isVisible: () => true },
 ]
 
 const ACCENT_KEYS = ['gold', 'mint', 'coral', 'violet', 'blue', 'warn'] as const
@@ -43,8 +51,8 @@ export function WrappedScreen() {
   // Skip cards a near-empty dataset can't back (e.g. no biggest-purchase row).
   const visibleCards = useMemo(() => {
     if (!data) return []
-    return CARDS.map((Card, i) => ({ Card, colorKey: ACCENT_KEYS[i % ACCENT_KEYS.length] })).filter(({ Card }) =>
-      Card({ data, color: '', onColor: '' }) !== null,
+    return CARDS.map((card, i) => ({ ...card, colorKey: ACCENT_KEYS[i % ACCENT_KEYS.length] })).filter((card) =>
+      card.isVisible(data),
     )
   }, [data])
 
@@ -83,7 +91,7 @@ export function WrappedScreen() {
     )
   }
 
-  const { Card, colorKey } = visibleCards[index]
+  const { Component: Card, colorKey } = visibleCards[index]
   const color = tokens[colorKey]
   const onColor = tokens.onAccent
 
