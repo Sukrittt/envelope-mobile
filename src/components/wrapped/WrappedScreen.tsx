@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   iconButtonText: { fontSize: 13, color: '#fff' },
   closeButton: { position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 8 },
   closeText: { fontSize: 18 },
-  cardWrap: { flex: 1, padding: 16 },
+  cardWrap: { flex: 1 },
   tapZones: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
   tapZoneLeft: { flex: 1 },
   tapZoneRight: { flex: 2 },

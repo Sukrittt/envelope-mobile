@@ -79,7 +79,7 @@ export function ShareCard({
           </View>
         </WrappedCard>
       </View>
-      <WRise delay={260} style={{ gap: 10, marginTop: 16 }}>
+      <WRise delay={260} style={{ gap: 10, marginTop: 16, paddingHorizontal: 16 }}>
         <Pressable onPress={handleShare} disabled={sharing} style={[styles.shareButton, { backgroundColor: onColor }]}>
           <Text style={[styles.shareButtonText, { color, fontFamily: fontFamily.bodyBold }]}>
             {sharing ? 'Preparing…' : 'Share your wrapped'}

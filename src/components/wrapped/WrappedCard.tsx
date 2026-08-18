@@ -218,7 +218,6 @@ export function WrappedCaption({ value, onColor }: { value: string; onColor: str
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 24,
     padding: 28,
     justifyContent: 'center',
     overflow: 'hidden',
