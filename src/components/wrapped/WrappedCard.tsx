@@ -205,7 +205,7 @@ export function WNudge({ durationMs = 2600, amplitude = 7, style, children }: { 
 
 export function WrappedBigNumber({ value, onColor }: { value: string; onColor: string }) {
   return (
-    <Text style={[styles.bigNumber, { color: onColor, fontFamily: fontFamily.displayBold }]} numberOfLines={2} adjustsFontSizeToFit>
+    <Text style={[styles.bigNumber, { color: onColor, fontFamily: fontFamily.bodyBlack }]} numberOfLines={2} adjustsFontSizeToFit>
       {value}
     </Text>
   )
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     padding: 28,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   blob: { position: 'absolute' },
@@ -235,12 +235,12 @@ const styles = StyleSheet.create({
   body: {
     gap: 14,
   },
-  // Same descender trap as coverTitle: tight leading needs paddingBottom on Android.
+  // No explicit lineHeight: adjustsFontSizeToFit shrinks the text to the line box on
+  // Android, so a tight one would cap how big the number can ever render.
   bigNumber: {
-    fontSize: 64,
-    lineHeight: 64,
+    fontSize: 72,
     letterSpacing: -1.5,
-    paddingBottom: 14,
+    paddingBottom: 6,
     includeFontPadding: false,
   },
   caption: {

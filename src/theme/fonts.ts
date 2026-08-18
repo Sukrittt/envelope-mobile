@@ -9,6 +9,7 @@ import {
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_800ExtraBold,
+  Nunito_900Black,
 } from '@expo-google-fonts/nunito'
 
 export const fontFamily = {
@@ -19,6 +20,7 @@ export const fontFamily = {
   bodySemiBold: 'Nunito_600SemiBold',
   bodyBold: 'Nunito_700Bold',
   bodyExtraBold: 'Nunito_800ExtraBold',
+  bodyBlack: 'Nunito_900Black',
 } as const
 
 export function useAppFonts() {
@@ -30,5 +32,6 @@ export function useAppFonts() {
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
+    Nunito_900Black,
   })
 }
