@@ -162,7 +162,7 @@ export default function LogExpenseModal() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: tokens.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {Platform.OS === 'android' && (
         // sheetGrabberVisible is iOS-only (react-native-screens), so Android's formSheet
@@ -231,7 +231,15 @@ export default function LogExpenseModal() {
                       { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold },
                     ]}
                   >
-                    {categoryEmoji(c.name, c.group)} {splitEmoji(c.name).text}
+                    {categoryEmoji(c.name, c.group)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold, marginLeft: 4 },
+                    ]}
+                  >
+                    {splitEmoji(c.name).text}
                   </Text>
                 </Pressable>
               )
@@ -304,7 +312,7 @@ export default function LogExpenseModal() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: tokens.border }]}>
+      <View style={[styles.footer, { borderTopColor: tokens.border, paddingBottom: insets.bottom + 12 }]}>
         {error !== '' && (
           <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
         )}
@@ -350,7 +358,7 @@ const styles = StyleSheet.create({
   currency: { fontSize: 20 },
   amountInput: { flex: 1, fontSize: 20, paddingVertical: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
   chipText: { fontSize: 13 },
   payRow: { flexDirection: 'row', gap: 8 },
   payOption: { flex: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },

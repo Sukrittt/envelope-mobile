@@ -45,7 +45,7 @@ export default function AddHoldingModal() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: tokens.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>

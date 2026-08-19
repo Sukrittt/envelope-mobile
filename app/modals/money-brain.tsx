@@ -113,7 +113,7 @@ export default function MoneyBrainModal() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: tokens.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerLeft}>

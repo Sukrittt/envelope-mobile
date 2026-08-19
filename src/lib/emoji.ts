@@ -6,7 +6,10 @@ const LEADING_EMOJI_RE = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Picto
 export function splitEmoji(raw: string): { icon: string; text: string } {
   const trimmed = raw.trim()
   const match = trimmed.match(LEADING_EMOJI_RE)
-  if (match) return { icon: match[1], text: trimmed.slice(match[0].length).trim() }
+  if (match) {
+    const text = trimmed.slice(match[0].length).trim()
+    if (text) return { icon: match[1], text }
+  }
   return { icon: '', text: trimmed }
 }
 
