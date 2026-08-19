@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { View, Text, Pressable, TextInput, Switch, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, Pressable, Switch, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { accessMode, clearAccess, persistAccess, type AccessMode } from '@/src/api/accessMode'
-import { verifyToken } from '@/src/api/client'
+import { accessMode, clearAccess, type AccessMode } from '@/src/api/accessMode'
+import { useSignIn } from '@/src/api/useSignIn'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import appJson from '@/app.json'
 
@@ -23,36 +23,9 @@ export default function MoreScreen() {
   const router = useRouter()
 
   const [mode, setMode] = useState<AccessMode>(accessMode.get())
-  const [switching, setSwitching] = useState(false)
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { signIn, pending, error } = useSignIn()
 
   useEffect(() => accessMode.subscribe(setMode), [])
-
-  const handleSwitchToReal = async () => {
-    if (!password.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      const ok = await verifyToken(password.trim())
-      if (!ok) {
-        setError('Wrong password')
-        return
-      }
-      await persistAccess('real', password.trim())
-      setSwitching(false)
-      setPassword('')
-    } catch {
-      setError('Could not reach the server — check your connection')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleSwitchToGuest = () => {
-    persistAccess('guest')
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
@@ -162,61 +135,20 @@ export default function MoreScreen() {
           </Text>
         </View>
 
-        {mode === 'guest' && !switching && (
-          <Pressable onPress={() => setSwitching(true)} style={styles.innerButton}>
-            <Text style={[styles.innerButtonText, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
-              Switch to real mode
-            </Text>
-          </Pressable>
-        )}
-
-        {mode === 'guest' && switching && (
-          <View style={styles.switchForm}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor={tokens.text3}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[
-                styles.input,
-                { backgroundColor: tokens.inputBg, color: tokens.text, borderColor: tokens.borderStrong, fontFamily: fontFamily.bodyMedium },
-              ]}
-              onSubmitEditing={handleSwitchToReal}
-            />
-            {error && (
-              <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
+        {mode === 'guest' && (
+          <Pressable onPress={signIn} disabled={pending} style={styles.innerButton}>
+            {pending ? (
+              <ActivityIndicator color={tokens.gold} />
+            ) : (
+              <Text style={[styles.innerButtonText, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
+                Sign in
+              </Text>
             )}
-            <View style={styles.switchFormActions}>
-              <Pressable
-                onPress={() => {
-                  setSwitching(false)
-                  setPassword('')
-                  setError(null)
-                }}
-                style={styles.innerButton}
-              >
-                <Text style={[styles.innerButtonText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={handleSwitchToReal} disabled={busy} style={styles.innerButton}>
-                {busy ? (
-                  <ActivityIndicator color={tokens.gold} />
-                ) : (
-                  <Text style={[styles.innerButtonText, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>Confirm</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
+          </Pressable>
         )}
 
-        {mode === 'real' && (
-          <Pressable onPress={handleSwitchToGuest} style={styles.innerButton}>
-            <Text style={[styles.innerButtonText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              Switch to guest mode
-            </Text>
-          </Pressable>
+        {error && (
+          <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
         )}
       </View>
 

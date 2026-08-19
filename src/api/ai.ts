@@ -1,6 +1,6 @@
 import { fetch as expoFetch } from 'expo/fetch'
 import { apiFetch, BASE_URL } from './client'
-import { accessMode, isGuest } from './accessMode'
+import { getValidToken } from './accessMode'
 
 export interface BriefCard {
   icon: string
@@ -37,10 +37,11 @@ export async function fetchBrief(): Promise<Brief> {
   return resp.json()
 }
 
-function authHeader(): Record<string, string> {
-  const token = accessMode.getToken()
-  if (isGuest() || !token) return {}
-  return { Authorization: `Bearer ${token}` }
+// Second auth-header site: this path bypasses apiFetch because it needs
+// expo/fetch for streaming, so it must refresh the token itself.
+async function authHeader(): Promise<Record<string, string>> {
+  const token = await getValidToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 /**
@@ -55,7 +56,7 @@ export async function streamChat(
 ): Promise<void> {
   const resp = await expoFetch(`${BASE_URL}/api/ai/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({ messages }),
     signal,
   })

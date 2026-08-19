@@ -24,7 +24,10 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "mobile",
+    "scheme": [
+      "mobile",
+      "com.sukrit04.Mobile"
+    ],
     "plugins": [
       "expo-router",
       "expo-status-bar",
@@ -39,7 +42,8 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
