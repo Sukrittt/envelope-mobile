@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, Easing, View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -7,6 +7,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { persistGuest } from '@/src/api/accessMode'
 import { useSignIn } from '@/src/api/useSignIn'
+import { sendMagicAuthCode, verifyMagicAuthCode } from '@/src/api/magicAuth'
 
 // Renders inline in place of the button's "Unlock" text (the button itself keeps
 // its gold background and shape). Fades in, and the shackle tilts open on its
@@ -58,8 +59,18 @@ export default function UnlockScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { signIn, pending, done, error } = useSignIn()
+  const { signIn, pending, done: googleDone, error } = useSignIn()
   const shake = useRef(new Animated.Value(0)).current
+
+  const [step, setStep] = useState<'email' | 'code'>('email')
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [magicPending, setMagicPending] = useState(false)
+  const [magicDone, setMagicDone] = useState(false)
+  const [magicError, setMagicError] = useState('')
+
+  const done = googleDone || magicDone
+  const shownError = error || magicError
 
   // Mirrors web's @keyframes auth-shake: 0.4s, 10 steps of 40ms, same px amplitude.
   const triggerShake = () => {
@@ -72,13 +83,31 @@ export default function UnlockScreen() {
 
   // Shake on a failed sign-in, same beat as the old wrong-password shake.
   useEffect(() => {
-    if (error) triggerShake()
+    if (shownError) triggerShake()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [error])
+  }, [shownError])
 
   const handleGuest = async () => {
     await persistGuest()
     router.replace('/(tabs)')
+  }
+
+  const handleSendCode = async () => {
+    setMagicPending(true)
+    setMagicError('')
+    const ok = await sendMagicAuthCode(email)
+    setMagicPending(false)
+    if (!ok) return setMagicError('Could not send code. Check the address and try again.')
+    setStep('code')
+  }
+
+  const handleVerifyCode = async () => {
+    setMagicPending(true)
+    setMagicError('')
+    const ok = await verifyMagicAuthCode(email, code)
+    setMagicPending(false)
+    if (!ok) return setMagicError('Wrong or expired code.')
+    setMagicDone(true)
   }
 
   // Let the inline unlock icon finish its animation before navigating away —
@@ -101,24 +130,80 @@ export default function UnlockScreen() {
           Sign in to unlock your dashboard
         </Text>
 
-        {error && (
-          <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
+        {shownError && (
+          <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
+            {shownError}
+          </Text>
         )}
       </Animated.View>
 
       <Pressable
         onPress={signIn}
-        disabled={pending || done}
+        disabled={pending || magicPending || done}
         style={[styles.button, { backgroundColor: done ? tokens.mint : tokens.gold }]}
       >
         {done ? (
           <UnlockIcon color={tokens.onAccent} />
         ) : (
           <Text style={[styles.buttonText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-            {pending ? 'Signing in...' : 'Sign in'}
+            {pending ? 'Signing in...' : 'Continue with Google'}
           </Text>
         )}
       </Pressable>
+
+      {!done && (
+        <>
+          <Text style={[styles.orText, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>or</Text>
+
+          {step === 'email' ? (
+            <>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={tokens.text3}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[styles.input, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.border, fontFamily: fontFamily.bodyMedium }]}
+              />
+              <Pressable
+                onPress={handleSendCode}
+                disabled={magicPending || !email || pending}
+                style={[styles.secondaryButton, { borderColor: tokens.border }]}
+              >
+                <Text style={[styles.secondaryButtonText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                  {magicPending ? 'Sending...' : 'Send code'}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                Enter the code sent to {email}
+              </Text>
+              <TextInput
+                value={code}
+                onChangeText={setCode}
+                placeholder="123456"
+                placeholderTextColor={tokens.text3}
+                keyboardType="number-pad"
+                style={[styles.input, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.border, fontFamily: fontFamily.bodyMedium }]}
+                autoFocus
+              />
+              <Pressable
+                onPress={handleVerifyCode}
+                disabled={magicPending || !code}
+                style={[styles.secondaryButton, { borderColor: tokens.border }]}
+              >
+                <Text style={[styles.secondaryButtonText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                  {magicPending ? 'Verifying...' : 'Verify'}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </>
+      )}
 
       <Pressable onPress={handleGuest} style={styles.guestLink}>
         <Text style={[styles.guestText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
@@ -136,6 +221,10 @@ const styles = StyleSheet.create({
   error: { fontSize: 13, marginTop: 10, textAlign: 'left' },
   button: { borderRadius: 28, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   buttonText: { fontSize: 15 },
+  orText: { fontSize: 12, textAlign: 'center', marginTop: 18, marginBottom: 14 },
+  input: { borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16, fontSize: 15 },
+  secondaryButton: { borderWidth: 1, borderRadius: 28, paddingVertical: 14, alignItems: 'center', marginTop: 10 },
+  secondaryButtonText: { fontSize: 14 },
   guestLink: { alignItems: 'center', marginTop: 18 },
   guestText: { fontSize: 13, textDecorationLine: 'underline' },
 })

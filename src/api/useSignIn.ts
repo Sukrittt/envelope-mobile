@@ -11,7 +11,7 @@ import { persistSession } from './accessMode'
 WebBrowser.maybeCompleteAuthSession()
 
 export interface SignInState {
-  /** Opens the WorkOS hosted sign-in page. */
+  /** Opens Google's consent screen directly (no AuthKit picker page). */
   signIn: () => void
   /** True from tapping sign-in until the token exchange settles. */
   pending: boolean
@@ -30,7 +30,8 @@ export function useSignIn(): SignInState {
       // checks `state` on the way back, so the app ships no client secret.
       usePKCE: true,
       scopes: [],
-      extraParams: { provider: 'authkit' },
+      // GoogleOAuth skips the AuthKit picker — straight to Google's consent screen.
+      extraParams: { provider: 'GoogleOAuth' },
     },
     DISCOVERY,
   )

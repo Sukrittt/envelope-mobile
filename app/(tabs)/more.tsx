@@ -141,7 +141,7 @@ export default function MoreScreen() {
               <ActivityIndicator color={tokens.gold} />
             ) : (
               <Text style={[styles.innerButtonText, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
-                Sign in
+                Continue with Google
               </Text>
             )}
           </Pressable>
