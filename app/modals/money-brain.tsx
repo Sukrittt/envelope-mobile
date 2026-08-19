@@ -115,11 +115,8 @@ export default function MoneyBrainModal() {
       style={[styles.container, { backgroundColor: tokens.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerLeft}>
-          <View style={[styles.badge, { backgroundColor: tokens.goldSoft }]}>
-            <Text style={{ fontSize: 18 }}>🧠</Text>
-          </View>
           <View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Money brain
