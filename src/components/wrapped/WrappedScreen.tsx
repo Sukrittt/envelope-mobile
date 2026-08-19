@@ -30,7 +30,9 @@ import { ShareCard } from './ShareCard'
 import type { WrappedData } from '@/src/api/wrapped'
 
 const CARD_DURATION_MS = 5000
-const SEGMENT_COMPLETE_MS = 200
+/** How long a segment cut short by a tap takes to ease up to full. Doubles as the delay
+ *  before the slide swaps, so keep it short — it's real input latency. */
+const SEGMENT_CATCH_UP_MS = 180
 const SWIPE_DOWN_CLOSE_DISTANCE = 120
 const SWIPE_DOWN_CLOSE_VELOCITY = 800
 /** progress row (10 + 3) + top bar (10 + 30) — cards start below it so the eyebrow never collides. */
@@ -41,15 +43,6 @@ function PlayIcon({ color }: { color: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 20 20">
       <Path d="M5 3 L17 10 L5 17 Z" fill={color} strokeLinejoin="round" />
-    </Svg>
-  )
-}
-
-function ChevronIcon({ color, direction }: { color: string; direction: 'left' | 'right' }) {
-  const d = direction === 'left' ? 'M13 3 L6 10 L13 17' : 'M7 3 L14 10 L7 17'
-  return (
-    <Svg width={20} height={20} viewBox="0 0 20 20">
-      <Path d={d} stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </Svg>
   )
 }
@@ -140,7 +133,12 @@ export function WrappedScreen() {
   const [started, setStarted] = useState(false)
   const [muted, setMuted] = useState(true)
   const [paused, setPaused] = useState(false)
-  const [hint, setHint] = useState<'prev' | 'next' | 'play' | null>(null)
+  const [hint, setHint] = useState<'play' | null>(null)
+  /** Fill of the active segment only, 0..1. Segments already played render as plain Views,
+   *  so there is exactly one animated node in the row at any time. */
+  const progress = useRef(new Animated.Value(0)).current
+  /** Slide an in-flight catch-up is heading to, or null when idle. */
+  const pendingRef = useRef<number | null>(null)
   const opacity = useRef(new Animated.Value(1)).current
   const translateY = useRef(new Animated.Value(0)).current
   const hintOpacity = useRef(new Animated.Value(0)).current
@@ -161,11 +159,14 @@ export function WrappedScreen() {
   function begin(startMuted: boolean) {
     setMuted(startMuted)
     setStarted(true)
+    progress.setValue(0)
     setIndex(1)
   }
 
   function restart() {
     setStarted(false)
+    pendingRef.current = null
+    progress.setValue(0)
     setIndex(0)
   }
 
@@ -184,13 +185,6 @@ export function WrappedScreen() {
   const slides = useMemo(() => (data ? buildSlides(data, moneySaved, begin, restart) : []), [data, moneySaved])
   const contentSlides = slides.slice(1)
 
-  // One Animated.Value per story-bar segment, so a segment already played can smoothly
-  // finish filling instead of snapping to 100% the instant the active index moves past it.
-  const progressValuesRef = useRef<Animated.Value[]>([])
-  if (progressValuesRef.current.length !== contentSlides.length) {
-    progressValuesRef.current = contentSlides.map((_, i) => progressValuesRef.current[i] ?? new Animated.Value(0))
-  }
-
   // Vertical-only + a real offset before activating, so this never steals
   // taps from the tap-zone Pressables underneath (RNGH negotiates the two
   // since GestureHandlerRootView wraps the whole app in _layout.tsx).
@@ -208,7 +202,7 @@ export function WrappedScreen() {
       }
     })
 
-  function flashHint(kind: 'prev' | 'next' | 'play') {
+  function flashHint(kind: 'play') {
     setHint(kind)
     hintOpacity.setValue(1)
     Animated.timing(hintOpacity, { toValue: 0, duration: 500, delay: 200, useNativeDriver: true }).start(({ finished }) => {
@@ -216,8 +210,10 @@ export function WrappedScreen() {
     })
   }
 
+  // Targets the pending slide, not the displayed one, so tapping faster than the catch-up
+  // still advances one slide per tap.
   function tapSide(dir: 1 | -1) {
-    if (goTo(index + dir)) flashHint(dir === 1 ? 'next' : 'prev')
+    goTo((pendingRef.current ?? index) + dir)
   }
 
   function tapCenter() {
@@ -230,42 +226,14 @@ export function WrappedScreen() {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
   }, [index])
 
-  // Whenever the active index changes: the segment just passed smoothly finishes filling
-  // (instead of snapping to 100%), older segments stay filled, later ones reset to empty.
+  // Story-style top bar: the active segment fills over CARD_DURATION_MS, then auto-advances.
+  // Resuming from pause continues from wherever the segment was left, rather than restarting
+  // it — only an actual index change (which resets `progress` in swap()) starts over at 0.
   useEffect(() => {
-    if (!started || contentSlides.length === 0) return
-    const activeContentIdx = index - 1
-    if (activeContentIdx < 0) return
-    const values = progressValuesRef.current
-    values.forEach((v, i) => {
-      if (i === activeContentIdx - 1) {
-        Animated.timing(v, {
-          toValue: 1,
-          duration: SEGMENT_COMPLETE_MS,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: false,
-        }).start()
-      } else if (i < activeContentIdx - 1) {
-        v.setValue(1)
-      } else if (i > activeContentIdx) {
-        v.setValue(0)
-      }
-    })
-    values[activeContentIdx]?.setValue(0)
-  }, [index, started, contentSlides.length])
-
-  // Story-style top bar: current segment fills over CARD_DURATION_MS, then auto-advances.
-  // Resuming from pause continues from wherever the segment was left, rather than
-  // restarting it — only an actual index change (the effect above) resets to 0.
-  useEffect(() => {
-    if (!started || contentSlides.length === 0) return
-    const activeContentIdx = index - 1
-    if (activeContentIdx < 0) return
-    if (paused) return
-    const activeValue = progressValuesRef.current[activeContentIdx]
+    if (!started || paused || contentSlides.length === 0 || index < 1) return
     let anim: Animated.CompositeAnimation | undefined
-    activeValue.stopAnimation((current) => {
-      anim = Animated.timing(activeValue, {
+    progress.stopAnimation((current) => {
+      anim = Animated.timing(progress, {
         toValue: 1,
         duration: CARD_DURATION_MS * (1 - current),
         easing: Easing.linear,
@@ -276,13 +244,44 @@ export function WrappedScreen() {
       })
     })
     return () => anim?.stop()
-  }, [index, started, contentSlides.length, paused])
+  }, [index, started, paused, contentSlides.length])
 
-  function goTo(next: number) {
-    if (!started || next === index || next < 1 || next >= slides.length) return false
+  function swap(next: number) {
+    pendingRef.current = null
+    progress.setValue(0)
     opacity.setValue(0)
     setIndex(next)
-    return true
+  }
+
+  // The slide only changes once the outgoing segment has finished filling, so a progress
+  // animation and a React re-render never overlap — running them together is what made a
+  // tap-through read as a flicker.
+  function goTo(next: number) {
+    if (!started || next === index || next < 1 || next >= slides.length) return
+    // Second tap inside the catch-up window: drop the flourish and move now.
+    if (pendingRef.current !== null) {
+      progress.stopAnimation()
+      swap(next)
+      return
+    }
+    pendingRef.current = next
+    progress.stopAnimation((current) => {
+      // Auto-advance (already at 1) and tap-left have no ground to cover — cut straight over.
+      const catchUp = next > index ? Math.round(SEGMENT_CATCH_UP_MS * (1 - current)) : 0
+      if (catchUp === 0) {
+        swap(next)
+        return
+      }
+      Animated.timing(opacity, { toValue: 0, duration: catchUp, useNativeDriver: true }).start()
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: catchUp,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) swap(next)
+      })
+    })
   }
 
   if (isLoading) {
@@ -356,13 +355,12 @@ export function WrappedScreen() {
             <View style={styles.progressRow}>
               {contentSlides.map((_, i) => (
                 <View key={i} style={styles.progressTrack}>
-                  <Animated.View
-                    style={[
-                      styles.progressFill,
-                      styles.progressFillOrigin,
-                      { transform: [{ scaleX: progressValuesRef.current[i] }] },
-                    ]}
-                  />
+                  {i < index - 1 && <View style={styles.progressFill} />}
+                  {i === index - 1 && (
+                    <Animated.View
+                      style={[styles.progressFill, styles.progressFillOrigin, { transform: [{ scaleX: progress }] }]}
+                    />
+                  )}
                 </View>
               ))}
             </View>
@@ -398,16 +396,6 @@ export function WrappedScreen() {
           </Animated.View>
         )}
 
-        {started && (hint === 'prev' || hint === 'next') && (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.sideIndicator, hint === 'prev' ? styles.sideIndicatorLeft : styles.sideIndicatorRight, { opacity: hintOpacity }]}
-          >
-            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
-              <ChevronIcon color={slide.text} direction={hint === 'prev' ? 'left' : 'right'} />
-            </View>
-          </Animated.View>
-        )}
       </Animated.View>
     </GestureDetector>
   )
@@ -426,9 +414,6 @@ const styles = StyleSheet.create({
   topBarButtons: { flexDirection: 'row', gap: 8 },
   topBarLabel: { fontSize: 10, letterSpacing: 2, fontWeight: '800' },
   centerIndicator: { position: 'absolute', top: '44%', left: 0, right: 0, alignItems: 'center' },
-  sideIndicator: { position: 'absolute', top: '44%' },
-  sideIndicatorLeft: { left: 24 },
-  sideIndicatorRight: { right: 24 },
   indicatorBubble: {
     width: 62,
     height: 62,

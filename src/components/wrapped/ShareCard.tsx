@@ -23,6 +23,7 @@ export function ShareCard({
 }) {
   const captureTarget = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
+  const [capturing, setCapturing] = useState(false)
 
   const top = data.topCategories[0]
   const archetype = getArchetype(data)
@@ -31,7 +32,10 @@ export function ShareCard({
   async function handleShare() {
     if (!captureTarget.current || sharing) return
     setSharing(true)
+    setCapturing(true)
     try {
+      // Let the gradient commit to the native view tree before the snapshot.
+      await new Promise(requestAnimationFrame)
       const uri = await captureRef(captureTarget, { format: 'png', quality: 1 })
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png' })
@@ -39,6 +43,7 @@ export function ShareCard({
     } catch {
       // Silently ignore — a failed share/capture isn't worth surfacing an error UI over.
     } finally {
+      setCapturing(false)
       setSharing(false)
     }
   }
@@ -53,13 +58,14 @@ export function ShareCard({
   return (
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <View ref={captureTarget} collapsable={false}>
-        {/* Needs its own opaque gradient fill: captureRef only captures this subtree, so if it
-            were transparent (relying on WrappedScreen's full-bleed gradient behind it) the
-            shared PNG would come out with no background at all. */}
+        {/* Gradient only while capturing: captureRef grabs just this subtree, so a transparent
+            card would produce a background-less PNG. On screen it stays transparent — a card-sized
+            copy of the gradient hits its end stop long before the full-bleed one behind it does,
+            which showed up as a hard seam at the card's top and bottom edges. */}
         <WrappedCard
           color="transparent"
           onColor={onColor}
-          gradientColors={SHARE_GRADIENT}
+          gradientColors={capturing ? SHARE_GRADIENT : undefined}
           eyebrow="🎁 That's a wrap"
           style={styles.shareCard}
         >
