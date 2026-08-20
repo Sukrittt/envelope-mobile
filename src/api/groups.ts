@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, apiErrorMessage } from './client'
 
 export async function getGroups(): Promise<string[]> {
   const resp = await apiFetch('/api/groups')
@@ -12,7 +12,7 @@ export async function addGroup(name: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!resp.ok) throw new Error(`Failed to add group: ${resp.status}`)
+  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add group'))
 }
 
 export async function updateGroup(name: string, newName: string): Promise<void> {
@@ -21,7 +21,7 @@ export async function updateGroup(name: string, newName: string): Promise<void> 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, newName }),
   })
-  if (!resp.ok) throw new Error(`Failed to update group: ${resp.status}`)
+  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to update group'))
 }
 
 export async function deleteGroup(name: string): Promise<void> {

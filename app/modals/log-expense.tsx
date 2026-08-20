@@ -13,12 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { useCategories } from '@/src/hooks/useCategories'
+import { useAddCategory, useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { Settings2 } from 'lucide-react-native'
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -68,8 +69,11 @@ export default function LogExpenseModal() {
   const categoryMapQ = useCategoryMap()
   const addExpense = useAddExpense()
   const updateExpense = useUpdateExpense()
+  const addCategory = useAddCategory()
 
   const categories = categoriesQ.data ?? []
+
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const [amount, setAmount] = useState(isEdit ? String(origAmountInr) : '')
   const [item, setItem] = useState(origItem)
@@ -119,6 +123,26 @@ export default function LogExpenseModal() {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess])
+
+  function handleCreateCategory() {
+    const name = newCategoryName.trim()
+    if (!name || addCategory.isPending) return
+    setError('')
+    addCategory.mutate(
+      { name, group: categories.length === 0 ? 'Miscellaneous' : undefined },
+      {
+        onSuccess: () => {
+          setCategory(name)
+          setCategoryTouched(true)
+          setNewCategoryName('')
+        },
+        onError: (e) => {
+          const msg = e instanceof Error ? e.message : ''
+          setError(msg.includes('already exists') ? 'That name is already taken. Try a different name.' : 'Failed to add category')
+        },
+      },
+    )
+  }
 
   function handleSubmit() {
     if (!canSubmit) return
@@ -244,7 +268,42 @@ export default function LogExpenseModal() {
                 </Pressable>
               )
             })}
+            <Pressable
+              onPress={() => {
+                router.back()
+                router.push('/(tabs)/envelopes')
+              }}
+              style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+            >
+              <Settings2 size={13} color={tokens.text2} style={{ marginRight: 4 }} />
+              <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+                Manage
+              </Text>
+            </Pressable>
           </View>
+          {categories.length === 0 && (
+            <View style={styles.newCategoryRow}>
+              <TextInput
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholder="New category name"
+                placeholderTextColor={tokens.text3}
+                onSubmitEditing={handleCreateCategory}
+                style={[
+                  styles.input,
+                  styles.newCategoryInput,
+                  { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium },
+                ]}
+              />
+              <Pressable
+                onPress={handleCreateCategory}
+                disabled={!newCategoryName.trim() || addCategory.isPending}
+                style={[styles.addCategoryButton, { backgroundColor: tokens.gold, opacity: !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1 }]}
+              >
+                <Text style={[styles.chipText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={styles.field}>
@@ -358,6 +417,9 @@ const styles = StyleSheet.create({
   currency: { fontSize: 20 },
   amountInput: { flex: 1, fontSize: 20, paddingVertical: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  newCategoryRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  newCategoryInput: { flex: 1, paddingVertical: 12 },
+  addCategoryButton: { borderRadius: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   chip: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
   chipText: { fontSize: 13 },
   payRow: { flexDirection: 'row', gap: 8 },

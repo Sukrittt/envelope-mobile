@@ -29,6 +29,17 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   return resp
 }
 
+/** Reads a `{error}` JSON body if present, falling back to a generic message. */
+export async function apiErrorMessage(resp: Response, fallback: string): Promise<string> {
+  try {
+    const body = await resp.json()
+    if (body && typeof body.error === 'string') return body.error
+  } catch {
+    // non-JSON body, fall through
+  }
+  return `${fallback}: ${resp.status}`
+}
+
 /** Confirms the stored session is still accepted by the API. */
 export async function verifySession(): Promise<boolean> {
   const token = await getValidToken()

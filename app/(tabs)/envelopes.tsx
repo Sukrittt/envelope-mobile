@@ -22,6 +22,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
+const ARCHIVED_GROUP = 'Archived'
 const ROW_HEIGHT = 45
 
 function DraggableCategoryList({
@@ -204,6 +205,8 @@ export default function EnvelopesScreen() {
   const [sheetError, setSheetError] = useState('')
   const [sheetSuccess, setSheetSuccess] = useState(false)
 
+  const [deletingGroup, setDeletingGroup] = useState(false)
+
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => clearTimeout(toastTimer.current), [])
@@ -308,10 +311,9 @@ export default function EnvelopesScreen() {
       }
       setSheetSuccess(true)
     } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
       setSheetError(
-        err instanceof Error && err.message.includes('409')
-          ? 'That name is already taken.'
-          : 'Something went wrong. Try again.',
+        msg.includes('already exists') ? 'That name is already taken. Try a different name.' : 'Something went wrong. Try again.',
       )
     }
   }
@@ -319,10 +321,26 @@ export default function EnvelopesScreen() {
   function runDeleteCategory(name: string) {
     deleteCategory.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} removed`) })
   }
-  function runDeleteGroup(name: string) {
-    deleteGroup.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} deleted`) })
+  // Deleting a group must not delete the categories inside it — move them into
+  // an "Archived" group first (creating it if needed) so they stay findable.
+  async function runDeleteGroup(name: string) {
+    setDeletingGroup(true)
+    try {
+      const orphaned = categories.filter((c) => (c.group || '') === name)
+      if (orphaned.length > 0) {
+        if (!groups.includes(ARCHIVED_GROUP)) await addGroup.mutateAsync(ARCHIVED_GROUP)
+        await Promise.all(
+          orphaned.map((c) => updateCategory.mutateAsync({ name: c.name, updates: { group: ARCHIVED_GROUP } })),
+        )
+      }
+      await deleteGroup.mutateAsync(name)
+    } finally {
+      setDeletingGroup(false)
+      setDeleteTarget(null)
+    }
   }
   function requestDelete(kind: 'category' | 'group', name: string) {
+    if (kind === 'group' && name === ARCHIVED_GROUP) return
     setMenuTarget(null)
     setDeleteTarget({ kind, name })
   }
@@ -669,34 +687,40 @@ export default function EnvelopesScreen() {
             else openRenameGroup(name)
           }}
         />
-        <SheetOption
-          label="Delete"
-          color={tokens.coral}
-          onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
-        />
+        {!(menuTarget?.kind === 'group' && menuTarget.name === ARCHIVED_GROUP) && (
+          <SheetOption
+            label="Delete"
+            color={tokens.coral}
+            onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
+          />
+        )}
         <SheetOption label="Cancel" color={tokens.text2} onPress={() => setMenuTarget(null)} />
       </BottomSheet>
 
-      <BottomSheet visible={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
+      <BottomSheet visible={deleteTarget !== null} onClose={() => !deletingGroup && setDeleteTarget(null)}>
         <Text style={[styles.confirmTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {deleteTarget?.kind === 'group' ? 'Delete group' : 'Remove category'}
         </Text>
         <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={2}>
           {deleteTarget?.kind === 'group'
-            ? `Delete "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Its categories move to Other.`
+            ? `Delete "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Its categories move to Archived.`
             : `Remove "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Past transactions are kept.`}
         </Text>
         <SheetOption
-          label={deleteTarget?.kind === 'group' ? 'Delete' : 'Remove'}
+          label={deleteTarget?.kind === 'group' ? (deletingGroup ? 'Deleting…' : 'Delete') : 'Remove'}
           color={tokens.coral}
+          disabled={deletingGroup}
           onPress={() => {
             if (!deleteTarget) return
-            if (deleteTarget.kind === 'group') runDeleteGroup(deleteTarget.name)
-            else runDeleteCategory(deleteTarget.name)
+            if (deleteTarget.kind === 'group') {
+              runDeleteGroup(deleteTarget.name)
+              return
+            }
+            runDeleteCategory(deleteTarget.name)
             setDeleteTarget(null)
           }}
         />
-        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setDeleteTarget(null)} />
+        <SheetOption label="Cancel" color={tokens.text2} disabled={deletingGroup} onPress={() => setDeleteTarget(null)} />
       </BottomSheet>
 
       {toastMsg && (
@@ -714,9 +738,19 @@ export default function EnvelopesScreen() {
   )
 }
 
-function SheetOption({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+function SheetOption({
+  label,
+  color,
+  onPress,
+  disabled,
+}: {
+  label: string
+  color: string
+  onPress: () => void
+  disabled?: boolean
+}) {
   return (
-    <Pressable onPress={onPress} style={styles.sheetOption}>
+    <Pressable onPress={onPress} disabled={disabled} style={[styles.sheetOption, disabled && { opacity: 0.5 }]}>
       <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
     </Pressable>
   )

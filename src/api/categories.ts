@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, apiErrorMessage } from './client'
 import type { CategoryRow } from '@/src/types'
 
 export async function getCategories(): Promise<CategoryRow[]> {
@@ -13,7 +13,7 @@ export async function addCategory(name: string, group = ''): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, group }),
   })
-  if (!resp.ok) throw new Error(`Failed to add category: ${resp.status}`)
+  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add category'))
 }
 
 export async function updateCategory(
@@ -25,7 +25,7 @@ export async function updateCategory(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, ...updates }),
   })
-  if (!resp.ok) throw new Error(`Failed to update category: ${resp.status}`)
+  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to update category'))
 }
 
 export async function deleteCategory(name: string): Promise<void> {
