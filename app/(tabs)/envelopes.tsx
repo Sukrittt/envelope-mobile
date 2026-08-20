@@ -1,18 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  Modal,
-  TextInput,
-  StyleSheet,
-  Alert,
-  Animated,
-  PanResponder,
-} from 'react-native'
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Alert, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { ChevronDown, MoreVertical, Plus, ArrowUp, ArrowDown, GripVertical } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -24,29 +13,32 @@ import {
   useDeleteCategory,
   useMoveCategory,
 } from '@/src/hooks/useCategories'
-import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup } from '@/src/hooks/useGroups'
-import { groupEmoji, splitEmoji } from '@/src/lib/emoji'
+import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
+import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
-import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { BottomSheet } from '@/src/components/shared/Modal'
+import { Icon } from '@/src/components/shared/Icon'
 import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
 const ROW_HEIGHT = 45
+const CATEGORY_ICON_CHOICES = ['🛒', '🍽', '⛽', '🏋', '💊', '🎬', '☕']
+const GROUP_ICON_CHOICES = ['🚗', '✈️', '🎓', '🏥', '🎁', '🐕', '☕']
 
 function DraggableCategoryList({
   items,
+  group,
   tokens,
+  reordering,
   onReorder,
-  onRename,
-  onDelete,
-  deleteSuccessName,
+  onMenu,
 }: {
   items: CategoryRow[]
+  group: string
   tokens: ThemeTokens
+  reordering: boolean
   onReorder: (name: string, toIndex: number) => void
-  onRename: (name: string) => void
-  onDelete: (name: string) => void
-  deleteSuccessName: string | null
+  onMenu: (name: string) => void
 }) {
   // react-query's cache notifications land on a setTimeout(0), a tick after React's own
   // state updates commit — clearing drag state on drop would flash the old order for a
@@ -155,25 +147,23 @@ function DraggableCategoryList({
                   : null,
             ]}
           >
+            <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
+              <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
+            </View>
             <Text
-              style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+              style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
               numberOfLines={1}
             >
-              {cat.name}
+              {splitEmoji(cat.name).text}
             </Text>
             <View style={styles.catActions}>
-              <Pressable onPress={() => onRename(cat.name)} hitSlop={6}>
-                <Text style={{ fontSize: 13 }}>✏️</Text>
-              </Pressable>
-              <Pressable onPress={() => onDelete(cat.name)} hitSlop={6} disabled={deleteSuccessName === cat.name}>
-                {deleteSuccessName === cat.name ? (
-                  <CheckIcon color={tokens.mint} size={13} />
-                ) : (
-                  <Text style={{ fontSize: 13 }}>🗑️</Text>
-                )}
-              </Pressable>
+              {!reordering && (
+                <Pressable onPress={() => onMenu(cat.name)} hitSlop={8}>
+                  <Icon icon={MoreVertical} size={15} color={tokens.text3} />
+                </Pressable>
+              )}
               <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                <Text style={{ color: tokens.text2, fontSize: 16 }}>≡</Text>
+                <Icon icon={GripVertical} size={14} color={tokens.text3} />
               </View>
             </View>
           </Animated.View>
@@ -183,7 +173,7 @@ function DraggableCategoryList({
   )
 }
 
-type ModalState =
+type SheetState =
   | { kind: 'addCategory' }
   | { kind: 'renameCategory'; name: string }
   | { kind: 'addGroup' }
@@ -192,7 +182,6 @@ type ModalState =
 export default function EnvelopesScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
-  const router = useRouter()
 
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
@@ -203,14 +192,26 @@ export default function EnvelopesScreen() {
   const addGroup = useAddGroup()
   const updateGroup = useUpdateGroup()
   const deleteGroup = useDeleteGroup()
+  const moveGroup = useMoveGroup()
 
-  const [modal, setModal] = useState<ModalState | null>(null)
-  const [nameInput, setNameInput] = useState('')
-  const [groupInput, setGroupInput] = useState('')
-  const [modalError, setModalError] = useState('')
-  const [modalSuccess, setModalSuccess] = useState(false)
-  const [categoryDeleteSuccess, setCategoryDeleteSuccess] = useState<string | null>(null)
-  const [groupDeleteSuccess, setGroupDeleteSuccess] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  const [sheet, setSheet] = useState<SheetState | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const [draftGroup, setDraftGroup] = useState('')
+  const [draftIcon, setDraftIcon] = useState('')
+  const [sheetError, setSheetError] = useState('')
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
+
+  function showToast(msg: string) {
+    clearTimeout(toastTimer.current)
+    setToastMsg(msg)
+    toastTimer.current = setTimeout(() => setToastMsg(null), 1700)
+  }
 
   const categories = categoriesQ.data ?? []
   const groups = groupsQ.data ?? []
@@ -228,69 +229,87 @@ export default function EnvelopesScreen() {
     return other.length > 0 ? [...named, { name: '', items: other }] : named
   }, [categories, groups])
 
+  const allGroupKeys = groupedCategories.map((g) => g.name || OTHER_LABEL)
+  const allGroupsCollapsed = allGroupKeys.length > 0 && allGroupKeys.every((k) => collapsedGroups.has(k))
+
+  function toggleGroup(key: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+  function toggleCollapseAll() {
+    setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupKeys))
+  }
+
   function openAddCategory(group = '') {
-    setNameInput('')
-    setGroupInput(group)
-    setModalError('')
-    setModalSuccess(false)
-    setModal({ kind: 'addCategory' })
+    setDraftName('')
+    setDraftGroup(group)
+    setDraftIcon(CATEGORY_ICON_CHOICES[0])
+    setSheetError('')
+    setSheet({ kind: 'addCategory' })
   }
   function openRenameCategory(name: string) {
-    setNameInput(name)
-    setModalError('')
-    setModalSuccess(false)
-    setModal({ kind: 'renameCategory', name })
+    const { icon, text } = splitEmoji(name)
+    const group = categories.find((c) => c.name === name)?.group ?? ''
+    setDraftName(text)
+    setDraftGroup(group)
+    setDraftIcon(icon || categoryEmoji(name, group))
+    setSheetError('')
+    setSheet({ kind: 'renameCategory', name })
   }
   function openAddGroup() {
-    setNameInput('')
-    setModalError('')
-    setModalSuccess(false)
-    setModal({ kind: 'addGroup' })
+    setDraftName('')
+    setDraftIcon(GROUP_ICON_CHOICES[0])
+    setSheetError('')
+    setSheet({ kind: 'addGroup' })
   }
   function openRenameGroup(name: string) {
-    setNameInput(name)
-    setModalError('')
-    setModalSuccess(false)
-    setModal({ kind: 'renameGroup', name })
+    const { icon, text } = splitEmoji(name)
+    setDraftName(text)
+    setDraftIcon(icon || groupEmoji(name))
+    setSheetError('')
+    setSheet({ kind: 'renameGroup', name })
   }
-  function closeModal() {
-    setModal(null)
-    setModalError('')
-    setModalSuccess(false)
+  function closeSheet() {
+    setSheet(null)
+    setSheetError('')
   }
 
   const submitting =
     addCategory.isPending || updateCategory.isPending || addGroup.isPending || updateGroup.isPending
 
-  // Let the inline checkmark finish drawing before closing the modal.
-  useEffect(() => {
-    if (!modalSuccess) return
-    const timer = setTimeout(closeModal, 1100)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalSuccess])
-
-  async function submitModal() {
-    if (!modal) return
-    const trimmed = nameInput.trim()
-    if (!trimmed) return
+  async function submitSheet() {
+    if (!sheet) return
+    const text = draftName.trim()
+    if (!text) return
+    const composed = `${draftIcon} ${text}`.trim()
     try {
-      if (modal.kind === 'addCategory') {
-        await addCategory.mutateAsync({ name: trimmed, group: groupInput })
-      } else if (modal.kind === 'renameCategory') {
-        if (trimmed !== modal.name) {
-          await updateCategory.mutateAsync({ name: modal.name, updates: { newName: trimmed } })
+      if (sheet.kind === 'addCategory') {
+        await addCategory.mutateAsync({ name: composed, group: draftGroup })
+        showToast(`${text} added`)
+      } else if (sheet.kind === 'renameCategory') {
+        const currentGroup = categories.find((c) => c.name === sheet.name)?.group ?? ''
+        const updates: { newName?: string; group?: string } = {}
+        if (composed !== sheet.name) updates.newName = composed
+        if (draftGroup !== currentGroup) updates.group = draftGroup
+        if (Object.keys(updates).length > 0) {
+          await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
-      } else if (modal.kind === 'addGroup') {
-        await addGroup.mutateAsync(trimmed)
-      } else if (modal.kind === 'renameGroup') {
-        if (trimmed !== modal.name) {
-          await updateGroup.mutateAsync({ name: modal.name, newName: trimmed })
+        showToast(`${text} updated`)
+      } else if (sheet.kind === 'addGroup') {
+        await addGroup.mutateAsync(composed)
+        showToast(`${text} group created`)
+      } else {
+        if (composed !== sheet.name) {
+          await updateGroup.mutateAsync({ name: sheet.name, newName: composed })
         }
+        showToast(`${text} updated`)
       }
-      setModalSuccess(true)
+      closeSheet()
     } catch (err) {
-      setModalError(
+      setSheetError(
         err instanceof Error && err.message.includes('409')
           ? 'That name is already taken.'
           : 'Something went wrong. Try again.',
@@ -304,7 +323,8 @@ export default function EnvelopesScreen() {
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => deleteCategory.mutate(name, { onSuccess: () => setCategoryDeleteSuccess(name) }),
+        onPress: () =>
+          deleteCategory.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} removed`) }),
       },
     ])
   }
@@ -315,8 +335,24 @@ export default function EnvelopesScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => deleteGroup.mutate(name, { onSuccess: () => setGroupDeleteSuccess(name) }),
+        onPress: () =>
+          deleteGroup.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} deleted`) }),
       },
+    ])
+  }
+
+  function openCategoryMenu(name: string) {
+    Alert.alert(splitEmoji(name).text, undefined, [
+      { text: 'Rename', onPress: () => openRenameCategory(name) },
+      { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteCategory(name) },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
+  function openGroupMenu(name: string) {
+    Alert.alert(splitEmoji(name).text, undefined, [
+      { text: 'Rename', onPress: () => openRenameGroup(name) },
+      { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteGroup(name) },
+      { text: 'Cancel', style: 'cancel' },
     ])
   }
 
@@ -341,6 +377,23 @@ export default function EnvelopesScreen() {
     )
   }
 
+  const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
+  const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
+  const iconChoices = isCatSheet ? CATEGORY_ICON_CHOICES : GROUP_ICON_CHOICES
+  const sheetTitle =
+    sheet?.kind === 'addCategory'
+      ? 'Add category'
+      : sheet?.kind === 'renameCategory'
+        ? 'Rename category'
+        : sheet?.kind === 'addGroup'
+          ? 'Add group'
+          : 'Rename group'
+  const sheetHint = isCatSheet
+    ? 'Categories live inside a group. Pick where this one belongs.'
+    : 'Groups gather related categories — Food, Home, Transport.'
+  const draftValid = draftName.trim().length > 0
+  const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
+
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
       <View
@@ -350,165 +403,299 @@ export default function EnvelopesScreen() {
         ]}
       >
         <View style={styles.headerTop}>
-          <View style={styles.headerTitleRow}>
+          <View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Envelopes
             </Text>
+            <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 4, fontFamily: fontFamily.bodyMedium }}>
+              {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
+              {categories.length === 1 ? 'y' : 'ies'}
+            </Text>
           </View>
           <Pressable
-            onPress={() => openAddCategory()}
-            style={[styles.addCategoryBtn, { backgroundColor: tokens.gold }]}
+            onPress={() => setReordering((r) => !r)}
+            style={[
+              styles.reorderBtn,
+              {
+                backgroundColor: reordering ? tokens.gold : 'transparent',
+                borderColor: reordering ? tokens.gold : tokens.borderStrong,
+              },
+            ]}
           >
-            <Text style={{ color: tokens.onAccent, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-              + Category
+            <Text
+              style={{
+                color: reordering ? tokens.onAccent : tokens.text2,
+                fontSize: 12,
+                fontFamily: fontFamily.bodyBold,
+              }}
+            >
+              {reordering ? 'Done' : 'Reorder'}
             </Text>
           </Pressable>
         </View>
-        <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 6, fontFamily: fontFamily.bodyMedium }}>
-          {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · {groups.length} group
-          {groups.length === 1 ? '' : 's'}
-        </Text>
+        <View style={styles.headerActionsRow}>
+          <Pressable onPress={openAddGroup} style={[styles.newGroupPill, { backgroundColor: tokens.gold }]}>
+            <Icon icon={Plus} size={13} color={tokens.onAccent} strokeWidth={2.5} />
+            <Text style={{ color: tokens.onAccent, fontSize: 12, fontFamily: fontFamily.bodyBold }}>
+              New group
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={toggleCollapseAll}
+            style={[styles.collapseAllPill, { borderColor: tokens.borderStrong }]}
+          >
+            <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>
+              {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <AnimatedTabContent>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
-        {groupedCategories.map(({ name, items }) => (
-          <View key={name || OTHER_LABEL} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={styles.groupHeader}>
-              <View style={styles.groupHeaderLeft}>
-                <Text style={{ fontSize: 14 }}>{name ? groupEmoji(name) : '📁'}</Text>
-                <Text
-                  style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}
-                  numberOfLines={1}
-                >
-                  {name ? splitEmoji(name).text : OTHER_LABEL}
-                </Text>
-                <Text style={{ color: tokens.text2, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
-                  {items.length}
-                </Text>
-              </View>
-              {name !== '' && (
-                <View style={styles.groupHeaderActions}>
-                  <Pressable onPress={() => openRenameGroup(name)} hitSlop={8}>
-                    <Text style={{ fontSize: 14 }}>✏️</Text>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
+          {groupedCategories.map(({ name, items }) => {
+            const key = name || OTHER_LABEL
+            const collapsed = collapsedGroups.has(key)
+            const idx = groups.indexOf(name)
+            return (
+              <View key={key} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                <View style={styles.groupHeader}>
+                  <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
+                    <Icon
+                      icon={ChevronDown}
+                      size={14}
+                      color={tokens.text3}
+                      strokeWidth={2.5}
+                    />
                   </Pressable>
-                  <Pressable onPress={() => confirmDeleteGroup(name)} hitSlop={8} disabled={groupDeleteSuccess === name}>
-                    {groupDeleteSuccess === name ? (
-                      <CheckIcon color={tokens.mint} size={14} />
+                  <View style={[styles.avatarChip, { backgroundColor: tokens.goldSoft }]}>
+                    <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
+                  </View>
+                  <View style={styles.groupHeaderLeft}>
+                    <Text
+                      style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}
+                      numberOfLines={1}
+                    >
+                      {name ? splitEmoji(name).text : OTHER_LABEL}
+                    </Text>
+                    <Text style={{ color: tokens.text3, fontSize: 10, marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                      {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
+                    </Text>
+                  </View>
+                  {name !== '' &&
+                    (reordering ? (
+                      <View style={styles.arrowCol}>
+                        <Pressable
+                          disabled={idx <= 0}
+                          onPress={() => moveGroup.mutate({ name, toIndex: idx - 1 })}
+                          style={[styles.arrowBtn, { borderColor: tokens.border, opacity: idx <= 0 ? 0.4 : 1 }]}
+                        >
+                          <Icon icon={ArrowUp} size={12} color={tokens.text} strokeWidth={2.5} />
+                        </Pressable>
+                        <Pressable
+                          disabled={idx >= groups.length - 1}
+                          onPress={() => moveGroup.mutate({ name, toIndex: idx + 1 })}
+                          style={[
+                            styles.arrowBtn,
+                            { borderColor: tokens.border, opacity: idx >= groups.length - 1 ? 0.4 : 1 },
+                          ]}
+                        >
+                          <Icon icon={ArrowDown} size={12} color={tokens.text} strokeWidth={2.5} />
+                        </Pressable>
+                      </View>
                     ) : (
-                      <Text style={{ fontSize: 14 }}>🗑️</Text>
-                    )}
-                  </Pressable>
+                      <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
+                        <Icon icon={MoreVertical} size={17} color={tokens.text3} />
+                      </Pressable>
+                    ))}
+                  <View style={styles.dragHandle}>
+                    <Icon icon={GripVertical} size={15} color={tokens.text3} />
+                  </View>
                 </View>
-              )}
-            </View>
 
-            {items.length === 0 && (
-              <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 6, fontFamily: fontFamily.bodyMedium }}>
-                No categories yet.
-              </Text>
-            )}
+                {!collapsed && (
+                  <View style={styles.groupBody}>
+                    <DraggableCategoryList
+                      items={items}
+                      group={name}
+                      tokens={tokens}
+                      reordering={reordering}
+                      onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
+                      onMenu={openCategoryMenu}
+                    />
 
-            <DraggableCategoryList
-              items={items}
-              tokens={tokens}
-              onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
-              onRename={openRenameCategory}
-              onDelete={confirmDeleteCategory}
-              deleteSuccessName={categoryDeleteSuccess}
-            />
+                    {items.length === 0 ? (
+                      <Pressable
+                        onPress={() => openAddCategory(name)}
+                        style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
+                      >
+                        <Icon icon={Plus} size={14} color={tokens.gold} strokeWidth={2.5} />
+                        <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                          Add first category
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => openAddCategory(name)}
+                        style={[styles.addCatRow, { borderTopColor: tokens.border }]}
+                      >
+                        <View style={[styles.dashedIconChip, { borderColor: tokens.gold }]}>
+                          <Icon icon={Plus} size={12} color={tokens.gold} strokeWidth={3} />
+                        </View>
+                        <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                          Add category
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+              </View>
+            )
+          })}
 
-            <Pressable onPress={() => openAddCategory(name)} style={styles.addToGroupBtn} hitSlop={4}>
-              <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                + Category
-              </Text>
-            </Pressable>
-          </View>
-        ))}
-
-        <Pressable
-          onPress={openAddGroup}
-          style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
-        >
-          <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodySemiBold }}>
-            + Add group
+          <Pressable
+            onPress={openAddGroup}
+            style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
+          >
+            <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
+            <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
+          </Pressable>
+          <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+            {reordering
+              ? 'Use the arrows to reorder groups · drag a category to reorder'
+              : 'Tap ⋯ to rename or delete · drag a category to reorder'}
           </Text>
-        </Pressable>
-      </ScrollView>
+        </ScrollView>
       </AnimatedTabContent>
 
-      <Modal visible={modal !== null} transparent animationType="fade" onRequestClose={closeModal}>
-        <Pressable style={styles.backdrop} onPress={closeModal}>
-          <Pressable
-            style={[styles.sheet, { backgroundColor: tokens.modalBg, borderColor: tokens.borderStrong }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {modal?.kind === 'addCategory' && 'Add category'}
-              {modal?.kind === 'renameCategory' && 'Rename category'}
-              {modal?.kind === 'addGroup' && 'Add group'}
-              {modal?.kind === 'renameGroup' && 'Rename group'}
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder="Name"
-              placeholderTextColor={tokens.text3}
-              autoFocus
-            />
-            {modal?.kind === 'addCategory' && (
-              <View style={styles.chipRow}>
+      <BottomSheet visible={sheet !== null} onClose={closeSheet}>
+        <View style={[styles.sheetHandle, { backgroundColor: tokens.borderStrong }]} />
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          {sheetTitle}
+        </Text>
+        <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 4, lineHeight: 17 }}>{sheetHint}</Text>
+
+        <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>NAME</Text>
+        <View style={styles.nameRow}>
+          <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
+            <Text style={{ fontSize: 22 }}>{draftIcon}</Text>
+          </View>
+          <TextInput
+            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
+            value={draftName}
+            onChangeText={setDraftName}
+            placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
+            placeholderTextColor={tokens.text3}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={submitSheet}
+          />
+        </View>
+
+        <View style={styles.iconGrid}>
+          {iconChoices.map((emoji) => (
+            <Pressable
+              key={emoji}
+              onPress={() => setDraftIcon(emoji)}
+              style={[
+                styles.iconBtn,
+                {
+                  borderColor: draftIcon === emoji ? tokens.gold : tokens.border,
+                  backgroundColor: draftIcon === emoji ? tokens.goldSoft : tokens.inputBg,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 20 }}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {isCatSheet && (
+          <>
+            <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>GROUP</Text>
+            <View style={styles.chipRow}>
+              <Pressable
+                onPress={() => setDraftGroup('')}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: draftGroup === '' ? tokens.gold : tokens.inputBg,
+                    borderColor: draftGroup === '' ? tokens.gold : tokens.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: draftGroup === '' ? tokens.onAccent : tokens.text2,
+                    fontSize: 12,
+                    fontFamily: fontFamily.bodyBold,
+                  }}
+                >
+                  Other
+                </Text>
+              </Pressable>
+              {groups.map((g) => (
                 <Pressable
-                  onPress={() => setGroupInput('')}
+                  key={g}
+                  onPress={() => setDraftGroup(g)}
                   style={[
                     styles.chip,
-                    { backgroundColor: groupInput === '' ? tokens.chipActiveBg : tokens.inputBg, borderColor: tokens.border },
+                    {
+                      backgroundColor: draftGroup === g ? tokens.gold : tokens.inputBg,
+                      borderColor: draftGroup === g ? tokens.gold : tokens.border,
+                    },
                   ]}
                 >
-                  <Text style={{ color: tokens.text, fontSize: 12 }}>Other</Text>
-                </Pressable>
-                {groups.map((g) => (
-                  <Pressable
-                    key={g}
-                    onPress={() => setGroupInput(g)}
-                    style={[
-                      styles.chip,
-                      { backgroundColor: groupInput === g ? tokens.chipActiveBg : tokens.inputBg, borderColor: tokens.border },
-                    ]}
+                  <Text style={{ fontSize: 13 }}>{groupEmoji(g)}</Text>
+                  <Text
+                    style={{
+                      color: draftGroup === g ? tokens.onAccent : tokens.text2,
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodyBold,
+                    }}
                   >
-                    <Text style={{ color: tokens.text, fontSize: 12 }}>{g}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {modalError !== '' && (
-              <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 8 }}>{modalError}</Text>
-            )}
-            <View style={styles.modalActions}>
-              <Pressable style={styles.cancelBtn} onPress={closeModal}>
-                <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.confirmBtn,
-                  { backgroundColor: modalSuccess ? tokens.mint : tokens.gold, opacity: submitting || !nameInput.trim() ? 0.5 : 1 },
-                ]}
-                onPress={submitModal}
-                disabled={submitting || !nameInput.trim() || modalSuccess}
-              >
-                {modalSuccess ? (
-                  <CheckIcon color={tokens.onAccent} />
-                ) : (
-                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
-                    {submitting ? 'Saving…' : 'Save'}
+                    {splitEmoji(g).text}
                   </Text>
-                )}
-              </Pressable>
+                </Pressable>
+              ))}
             </View>
+          </>
+        )}
+
+        {sheetError !== '' && (
+          <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 8 }}>{sheetError}</Text>
+        )}
+
+        <View style={styles.sheetActions}>
+          <Pressable style={styles.cancelBtn} onPress={closeSheet}>
+            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>Cancel</Text>
           </Pressable>
-        </Pressable>
-      </Modal>
+          <Pressable
+            style={[
+              styles.saveBtn,
+              { backgroundColor: draftValid ? tokens.gold : tokens.inputBg, opacity: submitting ? 0.6 : 1 },
+            ]}
+            onPress={submitSheet}
+            disabled={submitting || !draftValid}
+          >
+            <Text style={{ color: draftValid ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }}>
+              {saveLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
+
+      {toastMsg && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            { bottom: insets.bottom + 76, backgroundColor: tokens.pillBg, borderColor: tokens.borderStrong },
+          ]}
+        >
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: 13 }}>{toastMsg}</Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -518,29 +705,42 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerAction: { fontSize: 30 },
   title: { fontSize: 20 },
-  addCategoryBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100 },
-  scrollContent: { padding: 16, paddingBottom: 110, gap: 14 },
-  card: { padding: 16, borderRadius: 20, borderWidth: 1 },
-  groupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  groupHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
-  groupName: { fontSize: 14, flexShrink: 1 },
-  groupHeaderActions: { flexDirection: 'row', gap: 14 },
-  catRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingVertical: 10, marginTop: 4 },
-  catName: { fontSize: 13, flex: 1, flexShrink: 1, marginRight: 8 },
-  catActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  reorderBtn: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
+  headerActionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  newGroupPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100 },
+  collapseAllPill: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
+  scrollContent: { padding: 16, paddingBottom: 110, gap: 10 },
+  card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13 },
+  chevronBtn: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarChip: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  groupHeaderLeft: { flex: 1, minWidth: 0 },
+  groupName: { fontSize: 15 },
+  arrowCol: { flexDirection: 'column', gap: 2 },
+  arrowBtn: { width: 26, height: 20, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dragHandle: { paddingLeft: 2 },
-  addGroupBtn: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
-  addToGroupBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, padding: 18, paddingBottom: 32 },
-  sheetTitle: { fontSize: 16, marginBottom: 12 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 100, borderWidth: 1 },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 },
-  cancelBtn: { paddingHorizontal: 8, justifyContent: 'center' },
-  confirmBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  groupBody: { paddingHorizontal: 13, paddingLeft: 46 },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderTopWidth: 1, paddingVertical: 11 },
+  catIconChip: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  catName: { fontSize: 14, flex: 1, flexShrink: 1 },
+  catActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  addFirstCatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 2, marginBottom: 13, padding: 14, borderRadius: 15, borderWidth: 1, borderStyle: 'dashed' },
+  addCatRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, paddingBottom: 13, borderTopWidth: 1 },
+  dashedIconChip: { width: 24, height: 24, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  addGroupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 22, paddingVertical: 16 },
+  sheetHandle: { width: 38, height: 4, borderRadius: 100, alignSelf: 'center', marginBottom: 14 },
+  sheetTitle: { fontSize: 18 },
+  sectionLabel: { fontSize: 11, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
+  nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  iconSwatch: { width: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '700' },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  iconBtn: { width: 42, height: 42, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
+  sheetActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  cancelBtn: { paddingHorizontal: 10, justifyContent: 'center' },
+  saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center' },
+  toast: { position: 'absolute', left: 24, right: 24, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
 })

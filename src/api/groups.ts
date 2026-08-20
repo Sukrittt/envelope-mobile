@@ -32,3 +32,12 @@ export async function deleteGroup(name: string): Promise<void> {
   })
   if (!resp.ok) throw new Error(`Failed to delete group: ${resp.status}`)
 }
+
+export async function moveGroup(name: string, toIndex: number): Promise<void> {
+  const resp = await apiFetch('/api/groups/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, toIndex }),
+  })
+  if (!resp.ok) throw new Error(`Failed to move group: ${resp.status}`)
+}
