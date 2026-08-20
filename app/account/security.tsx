@@ -32,6 +32,7 @@ export default function SecurityScreen() {
   const linkGoogle = useLinkGoogle()
 
   const [deleting, setDeleting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [signingOutAll, setSigningOutAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
@@ -112,29 +113,19 @@ export default function SecurityScreen() {
     ])
   }
 
-  const confirmDelete = () => {
-    Alert.alert(
-      'Delete account',
-      'Removes envelopes, transactions and recaps. Export your data first — this can’t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete permanently',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true)
-            try {
-              await deleteAccount()
-              await clearAccess()
-              router.replace('/(auth)/welcome')
-            } catch {
-              setDeleting(false)
-              Alert.alert('Could not delete account', 'Check your connection and try again.')
-            }
-          },
-        },
-      ],
-    )
+  const confirmDelete = () => setConfirmingDelete(true)
+
+  const doDelete = async () => {
+    setDeleting(true)
+    try {
+      await deleteAccount()
+      await clearAccess()
+      router.replace('/(auth)/welcome')
+    } catch {
+      setDeleting(false)
+      setConfirmingDelete(false)
+      Alert.alert('Could not delete account', 'Check your connection and try again.')
+    }
   }
 
   return (
@@ -311,6 +302,27 @@ export default function SecurityScreen() {
         </View>
       </ScrollView>
 
+      <BottomSheet visible={confirmingDelete} onClose={() => !deleting && setConfirmingDelete(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
+        <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
+          Removes envelopes, transactions and recaps. Export your data first — this can't be undone.
+        </Text>
+        <View style={styles.sheetButtonRow}>
+          <Pressable onPress={() => setConfirmingDelete(false)} disabled={deleting} style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}>
+            <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={doDelete}
+            disabled={deleting}
+            style={[styles.sheetSaveButton, styles.sheetDeleteButton, { backgroundColor: tokens.coral, opacity: deleting ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {deleting ? 'Deleting…' : 'Delete permanently'}
+            </Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
+
       <BottomSheet visible={editingName} onClose={() => setEditingName(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Your name</Text>
         <TextInput
@@ -389,4 +401,8 @@ const styles = StyleSheet.create({
   sheetInput: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15 },
   sheetSaveButton: { marginTop: 12, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
+  sheetButtonRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  sheetDeleteButton: { flex: 1, marginTop: 0 },
+  sheetCancelButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  sheetCancelText: { fontSize: 14 },
 })
