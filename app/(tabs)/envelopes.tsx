@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   sheetOption: { paddingVertical: 14, alignItems: 'center' },
   sheetOptionText: { fontSize: 16 },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
-  cancelBtn: { paddingHorizontal: 10, justifyContent: 'center' },
+  cancelBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center' },
   toast: { position: 'absolute', left: 24, right: 24, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
 })
