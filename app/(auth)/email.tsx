@@ -1,22 +1,27 @@
 import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowLeft, ShieldCheck } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { sendMagicAuthCode } from '@/src/api/magicAuth'
+import { changeEmail } from '@/src/api/account'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Screen 2 (mockup: isEmail). Validates, sends the code, then hands the email
 // along as a route param to /(auth)/code — same param-passing convention as
-// log-expense.tsx's edit mode.
+// log-expense.tsx's edit mode. Also reused for changing the account email from
+// Account & security (`?mode=change-email`): same address form, a different
+// send call and destination screen.
 export default function EmailScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const { mode } = useLocalSearchParams<{ mode?: string }>()
+  const isChangeEmail = mode === 'change-email'
 
   const [email, setEmail] = useState('')
   const [invalid, setInvalid] = useState(false)
@@ -32,6 +37,19 @@ export default function EmailScreen() {
     setInvalid(false)
     setError('')
     setPending(true)
+
+    if (isChangeEmail) {
+      try {
+        await changeEmail(trimmed)
+        setPending(false)
+        router.push({ pathname: '/(auth)/code', params: { email: trimmed, mode: 'change-email' } })
+      } catch (err) {
+        setPending(false)
+        setError(err instanceof Error ? err.message : 'Could not change email.')
+      }
+      return
+    }
+
     const ok = await sendMagicAuthCode(trimmed)
     setPending(false)
     if (!ok) return setError('Could not send code. Check the address and try again.')
@@ -44,9 +62,13 @@ export default function EmailScreen() {
         <Icon icon={ArrowLeft} size={20} color={tokens.text} />
       </Pressable>
 
-      <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>What's your email?</Text>
+      <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+        {isChangeEmail ? "What's your new email?" : "What's your email?"}
+      </Text>
       <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        We'll send a 6-digit code. If you're new, this creates your account.
+        {isChangeEmail
+          ? "We'll send a 6-digit code to confirm it's you."
+          : "We'll send a 6-digit code. If you're new, this creates your account."}
       </Text>
 
       <TextInput

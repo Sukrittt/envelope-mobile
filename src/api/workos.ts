@@ -7,8 +7,17 @@
 // public PKCE client needs nothing else — and, importantly, no client secret
 // baked into the app bundle.
 import * as AuthSession from 'expo-auth-session'
+import * as Device from 'expo-device'
 
 const API = 'https://api.workos.com/user_management'
+
+/** Device label sent as `user_agent` at token exchange, so the security screen's
+ * active-sessions list can show "iPhone 15 Pro" instead of a blank row. */
+export function deviceLabel(): string {
+  const model = Device.modelName ?? 'Unknown device'
+  const os = Device.osName && Device.osVersion ? ` · ${Device.osName} ${Device.osVersion}` : ''
+  return `${model}${os}`
+}
 
 export const CLIENT_ID = process.env.EXPO_PUBLIC_WORKOS_CLIENT_ID ?? ''
 
@@ -60,7 +69,7 @@ async function post(body: Record<string, string>): Promise<WorkOSTokens> {
   const resp = await fetch(DISCOVERY.tokenEndpoint as string, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: CLIENT_ID, ...body }),
+    body: JSON.stringify({ client_id: CLIENT_ID, user_agent: deviceLabel(), ...body }),
   })
   if (!resp.ok) {
     throw new Error(`WorkOS ${body.grant_type} failed: ${resp.status} ${await resp.text()}`)

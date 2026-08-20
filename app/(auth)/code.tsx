@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { sendMagicAuthCode, verifyMagicAuthCode } from '@/src/api/magicAuth'
+import { resendEmailCode, verifyEmailChange } from '@/src/api/account'
 import { CodeBoxes } from '@/src/components/auth/CodeBoxes'
 import { Numpad } from '@/src/components/auth/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
@@ -14,13 +16,17 @@ import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 3 (mockup: isCode). Custom numpad is a deliberate mockup choice, not
 // the system keyboard. Auto-verifies once 6 digits are in, mirroring the
-// mockup's pressKey auto-advance.
+// mockup's pressKey auto-advance. Also reused for confirming an email change
+// from Account & security (`?mode=change-email`): same numpad, a different
+// verify call and a different destination on success.
 export default function CodeScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { email: emailParam } = useLocalSearchParams<{ email: string }>()
+  const qc = useQueryClient()
+  const { email: emailParam, mode } = useLocalSearchParams<{ email: string; mode?: string }>()
   const email = typeof emailParam === 'string' ? emailParam : ''
+  const isChangeEmail = mode === 'change-email'
   const shake = useRef(new Animated.Value(0)).current
 
   const [code, setCode] = useState('')
@@ -39,7 +45,8 @@ export default function CodeScreen() {
     let cancelled = false
     setPending(true)
     setError('')
-    verifyMagicAuthCode(email, code).then((ok) => {
+    const verify = isChangeEmail ? verifyEmailChange(code) : verifyMagicAuthCode(email, code)
+    verify.then((ok) => {
       if (cancelled) return
       setPending(false)
       if (ok) {
@@ -59,14 +66,23 @@ export default function CodeScreen() {
   // Same 1100ms flourish beat as welcome.tsx's Google success.
   useEffect(() => {
     if (!done) return
-    const timer = setTimeout(() => router.replace('/(tabs)'), 1100)
+    if (isChangeEmail) void qc.invalidateQueries({ queryKey: ['user'] })
+    const timer = setTimeout(() => router.replace(isChangeEmail ? '/account/security' : '/(tabs)'), 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }]}>
-      <Pressable onPress={() => router.replace('/(auth)/email')} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <Pressable
+        onPress={() =>
+          isChangeEmail
+            ? router.replace({ pathname: '/(auth)/email', params: { mode: 'change-email' } })
+            : router.replace('/(auth)/email')
+        }
+        hitSlop={12}
+        style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+      >
         <Icon icon={ArrowLeft} size={20} color={tokens.text} />
       </Pressable>
 
@@ -82,7 +98,7 @@ export default function CodeScreen() {
       {error !== '' && (
         <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
       )}
-      <ResendTimer onResend={() => sendMagicAuthCode(email)} />
+      <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode() : sendMagicAuthCode(email))} />
 
       <View style={{ flex: 1 }} />
 

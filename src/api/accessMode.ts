@@ -5,7 +5,7 @@
 // but token access is async: `getValidToken()` may need a network round-trip to
 // refresh, so every caller must await it.
 import * as SecureStore from 'expo-secure-store'
-import { logoutUrl, refreshTokens, tokenExpiry, type WorkOSTokens } from './workos'
+import { logoutUrl, refreshTokens, tokenExpiry, tokenUserId, type WorkOSTokens } from './workos'
 
 export type AccessMode = 'real' | 'guest'
 
@@ -116,6 +116,11 @@ export async function getValidToken(): Promise<string | null> {
     })()
   }
   return refreshing
+}
+
+/** The signed-in user's WorkOS id (`sub`), or null when signed out. */
+export function currentUserId(): string | null {
+  return session ? tokenUserId(session.accessToken) : null
 }
 
 /** The current session id (`sid`), needed to end the session on WorkOS's side. */

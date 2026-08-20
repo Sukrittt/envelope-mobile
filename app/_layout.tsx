@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Stack, useRouter, useSegments } from 'expo-router'
+import { Stack, useRouter, useSegments, useGlobalSearchParams } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -37,6 +37,7 @@ const queryClient = new QueryClient({
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const segments = useSegments()
+  const { mode: authScreenMode } = useGlobalSearchParams<{ mode?: string }>()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   // null = not yet known (still loading, or signed out) — the redirect effect
@@ -104,10 +105,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (!onboarded) {
       if (!inOnboarding) router.replace('/onboarding')
-    } else if (inAuth || inOnboarding) {
+      // A signed-in, onboarded user can legitimately be in (auth)/email or
+      // (auth)/code to change their email from Account & security — don't
+      // bounce them back to the tabs mid-flow.
+    } else if ((inAuth && authScreenMode !== 'change-email') || inOnboarding) {
       router.replace('/(tabs)')
     }
-  }, [authReady, hasSession, onboarded, segments])
+  }, [authReady, hasSession, onboarded, segments, authScreenMode])
 
   useEffect(() => onOnboarded(() => setOnboarded(true)), [])
 

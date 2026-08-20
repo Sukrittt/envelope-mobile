@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { View, Text, TextInput, Pressable, Switch, ScrollView, Linking, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, Switch, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -25,12 +24,6 @@ const NOTIFY_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label:
   { value: 'daily', label: 'Daily' },
 ]
 
-function providerLabel(provider: string | null | undefined): string {
-  if (provider === 'google') return 'Google'
-  if (provider) return provider
-  return 'email code'
-}
-
 export default function MoreScreen() {
   const { tokens, preference, setPreference } = useTheme()
   const { hideAmounts, setHideAmounts } = usePrivacy()
@@ -41,21 +34,8 @@ export default function MoreScreen() {
   const updateUser = useUpdateUser()
   const user = userQuery.data
 
-  const [editingName, setEditingName] = useState(false)
-  const [nameDraft, setNameDraft] = useState('')
-
   const displayName = user?.name || user?.email || 'You'
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
-
-  const startEdit = () => {
-    setNameDraft(user?.name ?? '')
-    setEditingName(true)
-  }
-  const saveEdit = () => {
-    const name = nameDraft.trim()
-    setEditingName(false)
-    if (name && name !== user?.name) updateUser.mutate({ name })
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
@@ -74,48 +54,29 @@ export default function MoreScreen() {
           contentContainerStyle={[styles.container, { paddingTop: 16, paddingBottom: insets.bottom + 40 }]}
         >
           {/* Profile */}
-          <View style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
-            <View style={[styles.avatar, { backgroundColor: tokens.goldSoft, borderColor: tokens.gold }]}>
-              <Text style={[styles.avatarText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>{initial}</Text>
-            </View>
+          <Pressable
+            onPress={() => router.push('/account/security')}
+            style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}
+          >
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.gold }]} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: tokens.goldSoft, borderColor: tokens.gold }]}>
+                <Text style={[styles.avatarText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>{initial}</Text>
+              </View>
+            )}
             <View style={{ flex: 1, minWidth: 0 }}>
-              {editingName ? (
-                <TextInput
-                  value={nameDraft}
-                  onChangeText={setNameDraft}
-                  placeholder="Your name"
-                  placeholderTextColor={tokens.text3}
-                  autoFocus
-                  onSubmitEditing={saveEdit}
-                  onBlur={saveEdit}
-                  style={[styles.nameInput, { color: tokens.text, borderColor: tokens.border, fontFamily: fontFamily.bodyExtraBold }]}
-                />
-              ) : (
-                <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]} numberOfLines={1}>
-                  {displayName}
-                </Text>
-              )}
+              <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]} numberOfLines={1}>
+                {displayName}
+              </Text>
               {user?.email && (
                 <Text style={[styles.email, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
                   {user.email}
                 </Text>
               )}
-              <View style={styles.signedInRow}>
-                <View style={[styles.dot, { backgroundColor: tokens.mint }]} />
-                <Text style={[styles.signedInText, { color: tokens.mint, fontFamily: fontFamily.bodyMedium }]}>
-                  Signed in with {providerLabel(user?.provider)}
-                </Text>
-              </View>
             </View>
-            <Pressable
-              onPress={editingName ? saveEdit : startEdit}
-              style={[styles.editButton, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}
-            >
-              <Text style={[styles.editButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                {editingName ? 'Save' : 'Edit'}
-              </Text>
-            </Pressable>
-          </View>
+            <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+          </Pressable>
 
           {/* FEATURES */}
           <View style={styles.section}>
@@ -312,16 +273,11 @@ const styles = StyleSheet.create({
   container: { paddingHorizontal: 20, gap: 22 },
   title: { fontSize: 20 },
   profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
-  avatar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 20 },
   name: { fontSize: 16 },
-  nameInput: { fontSize: 16, borderBottomWidth: 1, paddingVertical: 2 },
   email: { fontSize: 12, marginTop: 1 },
-  signedInRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  signedInText: { fontSize: 11 },
-  editButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
-  editButtonText: { fontSize: 12 },
   section: { gap: 10 },
   sectionHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 4 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
