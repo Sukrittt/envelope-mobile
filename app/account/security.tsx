@@ -324,13 +324,18 @@ export default function SecurityScreen() {
         />
         <Pressable
           onPress={saveName}
-          disabled={nameSuccess}
-          style={[styles.sheetSaveButton, { backgroundColor: nameSuccess ? tokens.mint : tokens.gold }]}
+          disabled={updateUser.isPending || nameSuccess}
+          style={[
+            styles.sheetSaveButton,
+            { backgroundColor: nameSuccess ? tokens.mint : tokens.gold, opacity: updateUser.isPending ? 0.5 : 1 },
+          ]}
         >
           {nameSuccess ? (
             <CheckIcon color={tokens.onAccent} />
           ) : (
-            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Save</Text>
+            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {updateUser.isPending ? 'Saving…' : 'Save'}
+            </Text>
           )}
         </Pressable>
       </BottomSheet>
