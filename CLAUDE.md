@@ -20,3 +20,7 @@ For any task expected to span multiple tool calls or involve 3+ files:
 3. Mark completed only after verified done (not just "written")
 4. Keep exactly one in_progress at a time
 5. If blocked, add follow-up todo describing the blocker
+
+# success animation
+
+App uses one shared success-tech animation (`src/components/shared/CheckIcon.tsx`: checkmark draw-on + haptic, swaps button label, background goes `tokens.mint`, auto-dismiss ~1100ms). Every synchronous success CTA (save/confirm button that resolves in-place) must reuse this pattern instead of a new toast/animation.

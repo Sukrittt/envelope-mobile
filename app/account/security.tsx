@@ -6,6 +6,7 @@ import { ArrowLeft, Check } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearAccess } from '@/src/api/accessMode'
 import { deleteAccount, resendEmailCode, revokeAllSessions, revokeSession } from '@/src/api/account'
@@ -36,6 +37,7 @@ export default function SecurityScreen() {
 
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [nameSuccess, setNameSuccess] = useState(false)
 
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
@@ -53,9 +55,21 @@ export default function SecurityScreen() {
   }
   const saveName = () => {
     const name = nameDraft.trim()
-    setEditingName(false)
-    if (name !== (user?.name ?? '')) updateUser.mutate({ name })
+    if (name === (user?.name ?? '')) {
+      setEditingName(false)
+      return
+    }
+    updateUser.mutate({ name }, { onSuccess: () => setNameSuccess(true) })
   }
+
+  useEffect(() => {
+    if (!nameSuccess) return
+    const timer = setTimeout(() => {
+      setEditingName(false)
+      setNameSuccess(false)
+    }, 1100)
+    return () => clearTimeout(timer)
+  }, [nameSuccess])
 
   const startEmailChange = () => router.push({ pathname: '/(auth)/email', params: { mode: 'change-email' } })
   const enterCode = () => router.push({ pathname: '/(auth)/code', params: { email: user?.email ?? '', mode: 'change-email' } })
@@ -308,8 +322,16 @@ export default function SecurityScreen() {
           onSubmitEditing={saveName}
           style={[styles.sheetInput, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, fontFamily: fontFamily.bodyMedium }]}
         />
-        <Pressable onPress={saveName} style={[styles.sheetSaveButton, { backgroundColor: tokens.gold }]}>
-          <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Save</Text>
+        <Pressable
+          onPress={saveName}
+          disabled={nameSuccess}
+          style={[styles.sheetSaveButton, { backgroundColor: nameSuccess ? tokens.mint : tokens.gold }]}
+        >
+          {nameSuccess ? (
+            <CheckIcon color={tokens.onAccent} />
+          ) : (
+            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Save</Text>
+          )}
         </Pressable>
       </BottomSheet>
     </View>
