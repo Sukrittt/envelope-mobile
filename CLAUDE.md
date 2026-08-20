@@ -2,7 +2,12 @@
 
 # graphify
 
-If `.graphify/` present in codebase, use graphify skill for questions about codebase, project content, architecture, or file relationships.
+Use the graphify skill whenever possible:
+- Before answering any question about codebase, architecture, file relationships, or project content, query the graph first (`graphify query "<question>"`, `graphify path "A" "B"`, `graphify explain "<concept>"`) instead of grepping/reading files directly.
+- After code changes, keep the graph fresh: run `/graphify --update` (or rely on the post-commit hook if installed).
+- Use `.graphify/wiki/index.md` first when present; fall back to `.graphify/GRAPH_REPORT.md` only for broad reviews.
+- If `.graphify/needs_update` exists or the graph is stale, warn and update before trusting semantic results.
+- Only skip graphify when the question is trivially answerable from a single file already in context.
 
 # task tracking
 
