@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { ArrowLeft, BookOpen, Bug, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 
 const REPO = 'Sukrittt/ynab-replacement'
 
@@ -32,7 +34,7 @@ export default function HelpScreen() {
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Text style={[styles.backText, { color: tokens.text }]}>←</Text>
+          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Help & feedback</Text>
       </View>
@@ -40,11 +42,11 @@ export default function HelpScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Pressable onPress={() => setExplainerOpen((v) => !v)} style={styles.row}>
-            <Text style={{ fontSize: 16 }}>📖</Text>
+            <Icon icon={BookOpen} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               How envelopes work
             </Text>
-            <Text style={[styles.chevron, { color: tokens.text3 }]}>{explainerOpen ? '⌃' : '→'}</Text>
+            <Icon icon={explainerOpen ? ChevronUp : ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
           {explainerOpen && (
             <Text style={[styles.explainer, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
@@ -53,27 +55,27 @@ export default function HelpScreen() {
           )}
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(bugUrl())} style={styles.row}>
-            <Text style={{ fontSize: 16 }}>🐛</Text>
+            <Icon icon={Bug} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Report a bug
             </Text>
-            <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
+            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(feedbackUrl())} style={styles.row}>
-            <Text style={{ fontSize: 16 }}>💬</Text>
+            <Icon icon={MessageCircle} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Send feedback
             </Text>
-            <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
+            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(`https://github.com/${REPO}`)} style={styles.row}>
-            <Text style={{ fontSize: 16 }}>⭐</Text>
+            <Icon icon={Star} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Star the repo
             </Text>
-            <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
+            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
         </View>
       </ScrollView>
@@ -85,13 +87,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 15 },
   headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
-  chevron: { fontSize: 16 },
   divider: { height: StyleSheet.hairlineWidth },
   explainer: { fontSize: 13, lineHeight: 20, paddingHorizontal: 16, paddingBottom: 16 },
 })

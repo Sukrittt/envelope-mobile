@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { ArrowLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -9,6 +10,7 @@ import { CodeBoxes } from '@/src/components/auth/CodeBoxes'
 import { Numpad } from '@/src/components/auth/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
+import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 3 (mockup: isCode). Custom numpad is a deliberate mockup choice, not
 // the system keyboard. Auto-verifies once 6 digits are in, mirroring the
@@ -63,9 +65,9 @@ export default function CodeScreen() {
   }, [done])
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 70, paddingBottom: insets.bottom + 20 }]}>
+    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }]}>
       <Pressable onPress={() => router.replace('/(auth)/email')} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-        <Text style={[styles.backText, { color: tokens.text }]}>←</Text>
+        <Icon icon={ArrowLeft} size={20} color={tokens.text} />
       </Pressable>
 
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Check your inbox</Text>
@@ -102,7 +104,6 @@ export default function CodeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 24 },
   backButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 16 },
   title: { fontSize: 26, marginTop: 26 },
   subtitle: { fontSize: 14, marginTop: 8, lineHeight: 20 },
   error: { fontSize: 13, marginTop: 10 },

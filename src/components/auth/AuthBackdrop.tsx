@@ -4,8 +4,8 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTim
 import { useTheme } from '@/src/theme/ThemeProvider'
 
 // The two drifting blurred blobs behind the welcome screen (mirrors web's
-// @keyframes drift1, 16s / 22s reverse). RN has no CSS blur filter, so the
-// softness comes entirely from the tokens' own translucent gold/mint alpha.
+// @keyframes drift1, 16s / 22s reverse). New-arch RN supports the CSS
+// `filter: blur()` style, matching web's blur(40px).
 export function AuthBackdrop() {
   const { tokens } = useTheme()
   const t1 = useSharedValue(0)
@@ -40,6 +40,6 @@ export function AuthBackdrop() {
 }
 
 const styles = StyleSheet.create({
-  blobGold: { position: 'absolute', top: -120, right: -90, width: 280, height: 280, borderRadius: 140 },
-  blobMint: { position: 'absolute', bottom: 120, left: -110, width: 220, height: 220, borderRadius: 110 },
+  blobGold: { position: 'absolute', top: -120, right: -90, width: 280, height: 280, borderRadius: 140, filter: 'blur(40px)' },
+  blobMint: { position: 'absolute', bottom: 120, left: -110, width: 220, height: 220, borderRadius: 110, filter: 'blur(40px)' },
 })

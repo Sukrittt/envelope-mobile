@@ -1,8 +1,10 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
 
@@ -35,7 +37,9 @@ export function EnvelopeGroup({
     <View style={[styles.wrap, { borderTopColor: tokens.border }]}>
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.chevron, { color: tokens.text2 }, expanded && styles.chevronOpen]}>▸</Text>
+          <View style={expanded ? styles.chevronOpen : undefined}>
+            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+          </View>
           <Text style={{ fontSize: 14 }}>{groupEmoji(group)}</Text>
           <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
             {splitEmoji(group).text}
@@ -69,7 +73,6 @@ const styles = StyleSheet.create({
   wrap: { borderTopWidth: 1, paddingTop: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chevron: { fontSize: 12 },
   chevronOpen: { transform: [{ rotate: '90deg' }] },
   name: { fontSize: 13 },
   available: { fontSize: 12 },

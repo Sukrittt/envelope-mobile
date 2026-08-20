@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ArrowLeft, Check } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 import { clearAccess } from '@/src/api/accessMode'
 import { deleteAccount } from '@/src/api/account'
 import { useUser } from '@/src/hooks/useUser'
@@ -47,7 +49,7 @@ export default function SecurityScreen() {
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Text style={[styles.backText, { color: tokens.text }]}>←</Text>
+          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Account & security</Text>
       </View>
@@ -59,7 +61,10 @@ export default function SecurityScreen() {
             <Text style={[styles.email, { color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>
               {user?.email ?? '—'}
             </Text>
-            <Text style={[styles.verified, { color: tokens.mint, fontFamily: fontFamily.bodyMedium }]}>✓ Verified</Text>
+            <View style={styles.verifiedRow}>
+              <Icon icon={Check} size={14} color={tokens.mint} />
+              <Text style={[styles.verified, { color: tokens.mint, fontFamily: fontFamily.bodyMedium }]}>Verified</Text>
+            </View>
           </View>
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <View style={styles.row}>
@@ -101,14 +106,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 15 },
   headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 20 },
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   block: { padding: 16 },
   label: { fontSize: 11 },
   email: { fontSize: 14, marginTop: 6 },
-  verified: { fontSize: 11, marginTop: 6 },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  verified: { fontSize: 11 },
   divider: { height: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   gBadge: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

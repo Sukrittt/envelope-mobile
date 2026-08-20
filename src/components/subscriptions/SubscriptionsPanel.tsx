@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { ChevronRight, ChevronDown } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { useCancelSubscription, useReactivateSubscription } from '@/src/hooks/useSubscriptions'
+import { Icon } from '@/src/components/shared/Icon'
 import type { SubscriptionRow } from '@/src/types'
 
 interface Props {
@@ -139,7 +141,7 @@ export function SubscriptionsPanel({ subscriptions, hideAmounts }: Props) {
           onPress={() => setExpanded((e) => ({ ...e, active: !e.active }))}
         >
           <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>ACTIVE ({active.length})</Text>
-          <Text style={{ color: tokens.text3 }}>{expanded.active ? '▾' : '▸'}</Text>
+          <Icon icon={expanded.active ? ChevronDown : ChevronRight} size={14} color={tokens.text3} />
         </Pressable>
         {expanded.active &&
           active.map((sub) => {
@@ -190,7 +192,7 @@ export function SubscriptionsPanel({ subscriptions, hideAmounts }: Props) {
           onPress={() => setExpanded((e) => ({ ...e, cancelled: !e.cancelled }))}
         >
           <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>CANCELLED ({cancelled.length})</Text>
-          <Text style={{ color: tokens.text3 }}>{expanded.cancelled ? '▾' : '▸'}</Text>
+          <Icon icon={expanded.cancelled ? ChevronDown : ChevronRight} size={14} color={tokens.text3} />
         </Pressable>
         {expanded.cancelled &&
           (cancelled.length > 0 ? (

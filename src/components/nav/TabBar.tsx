@@ -3,14 +3,15 @@ import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
+import { House, ReceiptText, Tags, CircleUser, Plus, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-const TAB_ICON: Record<string, string> = {
-  index: '🏠',
-  activity: '📄',
-  envelopes: '🏷️',
-  more: '⚙️',
+const TAB_ICON: Record<string, LucideIcon> = {
+  index: House,
+  activity: ReceiptText,
+  envelopes: Tags,
+  more: CircleUser,
 }
 
 const TAB_LABEL: Record<string, string> = {
@@ -49,6 +50,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     if (!route) return null
     const focused = state.routes[state.index]?.key === route.key
     const color = focused ? tokens.gold : tokens.text2
+    const TabIcon = TAB_ICON[name]
 
     return (
       <Pressable
@@ -60,7 +62,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         style={styles.tab}
       >
         <Animated.View style={{ alignItems: 'center', gap: 3, transform: [{ scale: scales[name] }] }}>
-          <Text style={{ fontSize: 20 }}>{TAB_ICON[name]}</Text>
+          <TabIcon size={24} color={color} strokeWidth={2} />
           <Text style={[styles.label, { color, fontFamily: fontFamily.displayMedium }]}>{TAB_LABEL[name]}</Text>
         </Animated.View>
       </Pressable>
@@ -82,7 +84,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       {renderTab('activity')}
       <Pressable onPress={() => router.push('/modals/log-expense')} style={styles.addTab}>
         <View style={[styles.addButton, { backgroundColor: tokens.gold }]}>
-          <Text style={[styles.addIcon, { color: tokens.onAccent }]}>+</Text>
+          <Plus size={24} color={tokens.onAccent} strokeWidth={2} />
         </View>
       </Pressable>
       {renderTab('envelopes')}
@@ -116,5 +118,4 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  addIcon: { fontSize: 22, lineHeight: 24 },
 })

@@ -4,7 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useAudioPlayer } from 'expo-audio'
+import { Plus } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
+import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -256,7 +258,8 @@ export default function ActivityScreen() {
       <AnimatedTabContent>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}>
         <Pressable onPress={() => router.push('/modals/log-expense')} style={[styles.addButton, { backgroundColor: tokens.gold }]}>
-          <Text style={[styles.addButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>+ Log expense</Text>
+          <Icon icon={Plus} size={16} color={tokens.onAccent} />
+          <Text style={[styles.addButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Log expense</Text>
         </Pressable>
 
         <View style={styles.filterRow}>
@@ -487,7 +490,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
   title: { fontSize: 20 },
   scrollContent: { padding: 16, gap: 14 },
-  addButton: { borderRadius: 100, paddingVertical: 13, alignItems: 'center' },
+  addButton: { flexDirection: 'row', gap: 6, borderRadius: 100, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   addButtonText: { fontSize: 14 },
   filterRow: { flexDirection: 'row', gap: 8 },
   dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },

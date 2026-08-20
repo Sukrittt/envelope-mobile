@@ -9,6 +9,7 @@ import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, initAccessMode, type AccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
+import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { AppSplash } from '@/src/components/shared/AppSplash'
 import {
@@ -107,6 +108,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       router.replace('/(tabs)')
     }
   }, [authReady, hasSession, onboarded, segments])
+
+  useEffect(() => onOnboarded(() => setOnboarded(true)), [])
 
   useEffect(() => {
     return queryClient.getQueryCache().subscribe((event) => {

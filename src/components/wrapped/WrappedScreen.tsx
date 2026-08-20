@@ -7,12 +7,14 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { ArrowLeft } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useWrapped } from '@/src/hooks/useWrapped'
 import { useBudgets } from '@/src/hooks/useBudgets'
 import { useWrappedMusic } from '@/src/hooks/useWrappedMusic'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { Icon } from '@/src/components/shared/Icon'
 import {
   CoverCard,
   IntroCard,
@@ -301,7 +303,8 @@ export function WrappedScreen() {
           <Text style={[styles.errorText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
             {error instanceof Error ? error.message : 'Not enough expenses yet for a Wrapped recap.'}
           </Text>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ marginTop: 16 }}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon icon={ArrowLeft} size={16} color={tokens.text} />
             <Text style={[styles.closeText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Close</Text>
           </Pressable>
         </View>

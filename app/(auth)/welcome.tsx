@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Mail } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useSignIn } from '@/src/api/useSignIn'
 import { AuthBackdrop } from '@/src/components/auth/AuthBackdrop'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
+import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -45,16 +47,18 @@ export default function WelcomeScreen() {
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
       <AuthBackdrop />
       <View style={[styles.content, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 28 }]}>
-        <View style={styles.hero}>
-          <View style={[styles.iconChip, { backgroundColor: tokens.gold }]}>
-            <Text style={{ fontSize: 28 }}>✉️</Text>
+        <View style={styles.heroWrap}>
+          <View style={styles.hero}>
+            <View style={[styles.iconChip, { backgroundColor: tokens.gold, shadowColor: tokens.gold }]}>
+              <Icon icon={Mail} size={28} color={tokens.onAccent} />
+            </View>
+            <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+              Every rupee{'\n'}in an envelope.
+            </Text>
+            <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              Sign in with a one-time code or Google. No passwords to remember, ever.
+            </Text>
           </View>
-          <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            Every rupee{'\n'}in an envelope.
-          </Text>
-          <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Sign in with a one-time code or Google. No passwords to remember, ever.
-          </Text>
         </View>
 
         <Animated.View style={{ transform: [{ translateX: shake }] }}>
@@ -105,9 +109,20 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
-  content: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between' },
+  content: { flex: 1, paddingHorizontal: 24 },
+  heroWrap: { flex: 1, justifyContent: 'center' },
   hero: { gap: 14 },
-  iconChip: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  iconChip: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+    elevation: 10,
+  },
   title: { fontSize: 34, lineHeight: 38, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, lineHeight: 22, maxWidth: 300 },
   error: { fontSize: 13, marginBottom: 10, textAlign: 'center' },

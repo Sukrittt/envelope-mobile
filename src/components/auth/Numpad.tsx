@@ -17,7 +17,7 @@ export function Numpad({
   return (
     <View style={styles.grid}>
       {KEYS.map((k, i) => {
-        if (k === '') return <View key={i} style={styles.key} />
+        if (k === '') return <View key={i} style={[styles.key, { borderWidth: 0 }]} />
         return (
           <Pressable
             key={i}

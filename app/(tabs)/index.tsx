@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Plus, ChevronRight } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
+import { Icon } from '@/src/components/shared/Icon'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -425,8 +427,9 @@ export default function HomeScreen() {
                   {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => router.push('/(tabs)/envelopes')}>
-                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Manage →</Text>
+              <Pressable onPress={() => router.push('/(tabs)/envelopes')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
+                <Icon icon={ChevronRight} size={14} color={tokens.gold} />
               </Pressable>
             </View>
           </View>
@@ -501,8 +504,9 @@ export default function HomeScreen() {
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Subscriptions
             </Text>
-            <Pressable onPress={() => router.push('/modals/subscription')}>
-              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>+ Add</Text>
+            <Pressable onPress={() => router.push('/modals/subscription')} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <Icon icon={Plus} size={14} color={tokens.gold} />
+              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
             </Pressable>
           </View>
           <SubscriptionsPanel subscriptions={subscriptions} hideAmounts={hideAmounts} />

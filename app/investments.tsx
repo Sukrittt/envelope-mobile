@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { View, Text, Pressable, ScrollView, Modal, Alert, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { ArrowLeft, Plus } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 import { formatCurrency, formatDateTime } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
@@ -112,17 +114,16 @@ export default function InvestmentsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            ‹ Back
-          </Text>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           Investments
         </Text>
-        <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12}>
+        <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
+          <Icon icon={Plus} size={16} color={tokens.gold} />
           <Text style={[styles.headerAction, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
-            + Add
+            Add
           </Text>
         </Pressable>
       </View>
@@ -280,6 +281,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  headerActionRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   headerAction: { fontSize: 14 },
   headerTitle: { fontSize: 17 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },

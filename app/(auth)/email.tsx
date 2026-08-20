@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { ArrowLeft, ShieldCheck } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 import { sendMagicAuthCode } from '@/src/api/magicAuth'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -37,9 +39,9 @@ export default function EmailScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 70, paddingBottom: insets.bottom + 28 }]}>
+    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
       <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-        <Text style={[styles.backText, { color: tokens.text }]}>←</Text>
+        <Icon icon={ArrowLeft} size={20} color={tokens.text} />
       </Pressable>
 
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>What's your email?</Text>
@@ -85,7 +87,7 @@ export default function EmailScreen() {
       <View style={{ flex: 1 }} />
 
       <View style={[styles.noteCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-        <Text style={{ fontSize: 16 }}>🔐</Text>
+        <Icon icon={ShieldCheck} size={16} color={tokens.text2} />
         <Text style={[styles.noteText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           Passwords are gone. Sessions live on this device and you can revoke them any time from Account & security.
         </Text>
@@ -97,7 +99,6 @@ export default function EmailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 24 },
   backButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 16 },
   title: { fontSize: 26, marginTop: 26 },
   subtitle: { fontSize: 14, marginTop: 8, lineHeight: 20 },
   input: { marginTop: 26, borderWidth: 1, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 16, fontSize: 16 },

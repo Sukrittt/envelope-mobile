@@ -3,8 +3,10 @@ import { View, Text, Pressable, ScrollView, Alert, Share, StyleSheet } from 'rea
 import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ArrowLeft, Trash2 } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 import { clearTransactions, exportData, getDataSummary } from '@/src/api/account'
 
 const summaryKey = ['dataSummary'] as const
@@ -65,7 +67,7 @@ export default function DataScreen() {
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Text style={[styles.backText, { color: tokens.text }]}>←</Text>
+          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Your data</Text>
       </View>
@@ -101,7 +103,7 @@ export default function DataScreen() {
           disabled={clearing}
           style={[styles.clearRow, { borderColor: tokens.borderStrong, opacity: clearing ? 0.6 : 1 }]}
         >
-          <Text style={{ fontSize: 16 }}>🧹</Text>
+          <Icon icon={Trash2} size={16} color={tokens.coral} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.clearTitle, { color: tokens.coral, fontFamily: fontFamily.bodyBold }]}>
               {clearing ? 'Clearing…' : 'Clear all transactions'}
@@ -118,7 +120,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 15 },
   headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { padding: 16, borderWidth: 1, borderRadius: 20 },

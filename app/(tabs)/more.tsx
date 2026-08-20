@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Pressable, Switch, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Pressable, Switch, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Icon } from '@/src/components/shared/Icon'
 import { clearAccess } from '@/src/api/accessMode'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
@@ -123,29 +125,32 @@ export default function MoreScreen() {
             </View>
             <View style={styles.featureGrid}>
               <FeatureCard
-                icon="🎁"
+                icon={Gift}
                 label="Expense Wrapped"
                 blurb="Your month as a story"
                 iconBg={tokens.coralSoft}
+                iconColor={tokens.coral}
                 onPress={() => router.push('/wrapped')}
               />
               <FeatureCard
-                icon="🧠"
+                icon={Brain}
                 label="Money Brain"
                 blurb="Ask about your spending"
                 iconBg={tokens.goldSoft}
+                iconColor={tokens.gold}
                 onPress={() => router.push('/modals/money-brain')}
               />
               <FeatureCard
-                icon="📈"
+                icon={TrendingUp}
                 label="Investments"
                 blurb="Portfolio at a glance"
                 iconBg={tokens.mintSoft}
+                iconColor={tokens.mint}
                 onPress={() => router.push('/investments')}
               />
               <View style={[styles.featureCard, styles.featurePlaceholder, { borderColor: tokens.borderStrong }]}>
                 <View style={[styles.featureIcon, { backgroundColor: tokens.inputBg }]}>
-                  <Text style={{ fontSize: 18, color: tokens.text3 }}>＋</Text>
+                  <Icon icon={Plus} size={18} color={tokens.text3} />
                 </View>
                 <Text style={[styles.featureLabel, { color: tokens.text2 }]}>Next feature</Text>
                 <Text style={[styles.featureBlurb, { color: tokens.text3 }]}>drop a card here</Text>
@@ -216,21 +221,26 @@ export default function MoreScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ACCOUNT</Text>
             <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-              <AccountRow icon="🔐" label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
+              <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon="🗂️" label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
+              <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <View style={styles.row}>
-                <Text style={{ fontSize: 16, opacity: 0.5 }}>💳</Text>
+                <View style={{ opacity: 0.5 }}>
+                  <Icon icon={CreditCard} size={16} color={tokens.text} />
+                </View>
                 <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text3, textDecorationLine: 'line-through', fontFamily: fontFamily.bodySemiBold }]}>
                   Plan & billing
                 </Text>
-                <View style={[styles.badge, { backgroundColor: tokens.mintSoft }]}>
+                <Pressable
+                  onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
+                  style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
+                >
                   <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Free & open source</Text>
-                </View>
+                </Pressable>
               </View>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon="💬" label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <AccountRow icon={MessageCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
             </View>
           </View>
 
@@ -255,19 +265,21 @@ function FeatureCard({
   label,
   blurb,
   iconBg,
+  iconColor,
   onPress,
 }: {
-  icon: string
+  icon: LucideIcon
   label: string
   blurb: string
   iconBg: string
+  iconColor: string
   onPress: () => void
 }) {
   const { tokens } = useTheme()
   return (
     <Pressable onPress={onPress} style={[styles.featureCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
       <View style={[styles.featureIcon, { backgroundColor: iconBg }]}>
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Icon icon={icon} size={18} color={iconColor} />
       </View>
       <Text style={[styles.featureLabel, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
       <Text style={[styles.featureBlurb, { color: tokens.text2 }]}>{blurb}</Text>
@@ -281,16 +293,16 @@ function AccountRow({
   onPress,
   tokens,
 }: {
-  icon: string
+  icon: LucideIcon
   label: string
   onPress: () => void
   tokens: ReturnType<typeof useTheme>['tokens']
 }) {
   return (
     <Pressable onPress={onPress} style={styles.row}>
-      <Text style={{ fontSize: 16 }}>{icon}</Text>
+      <Icon icon={icon} size={16} />
       <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-      <Text style={[styles.chevron, { color: tokens.text3 }]}>→</Text>
+      <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
     </Pressable>
   )
 }
@@ -330,7 +342,6 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 11 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
   badgeText: { fontSize: 11 },
-  chevron: { fontSize: 16, lineHeight: 20, textAlignVertical: 'center' },
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
   version: { fontSize: 11, textAlign: 'center' },

@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { View, Text, Image, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Animated, { FadeInUp, Easing } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { updateUser } from '@/src/api/account'
+import { signalOnboarded } from '@/src/api/onboardingSignal'
+import { StepDot } from '@/src/components/onboarding/StepDot'
 
 // ponytail: real per-screen light/dark screenshots (assets/onboarding/slide-N-{light,dark}.png)
 // still need to be captured from the running app and dropped in here — using the
@@ -30,6 +33,7 @@ export default function OnboardingScreen() {
     if (finishing) return
     setFinishing(true)
     await updateUser({ onboardedAt: new Date().toISOString() }).catch(() => {})
+    signalOnboarded()
     router.replace('/(tabs)')
   }
 
@@ -48,12 +52,12 @@ export default function OnboardingScreen() {
       <View style={styles.topRow}>
         <View style={styles.dots}>
           {SLIDES.map((_, i) => (
-            <View
+            <StepDot
               key={i}
-              style={[
-                styles.dot,
-                { width: i === step ? 22 : 7, backgroundColor: i === step ? tokens.gold : tokens.borderStrong },
-              ]}
+              active={i === step}
+              activeColor={tokens.gold}
+              inactiveColor={tokens.borderStrong}
+              onPress={() => !finishing && setStep(i)}
             />
           ))}
         </View>
@@ -66,10 +70,14 @@ export default function OnboardingScreen() {
         <Image source={PLACEHOLDER_ART} style={styles.art} resizeMode="contain" />
       </View>
 
-      <View style={styles.copy}>
+      <Animated.View
+        key={step}
+        entering={FadeInUp.duration(350).easing(Easing.ease).withInitialValues({ opacity: 0, transform: [{ translateY: 14 }] })}
+        style={styles.copy}
+      >
         <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{slide.title}</Text>
         <Text style={[styles.body, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{slide.body}</Text>
-      </View>
+      </Animated.View>
 
       <View style={{ flex: 1 }} />
 
@@ -86,7 +94,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 24 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dots: { flexDirection: 'row', gap: 6 },
-  dot: { height: 7, borderRadius: 100 },
   skip: { fontSize: 13 },
   artCard: { marginTop: 28, borderRadius: 24, borderWidth: 1, height: 190, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   art: { width: '55%', height: '55%' },
