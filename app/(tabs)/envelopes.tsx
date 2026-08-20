@@ -22,8 +22,6 @@ import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
 const ROW_HEIGHT = 45
-const CATEGORY_ICON_CHOICES = ['🛒', '🍽', '⛽', '🏋', '💊', '🎬', '☕']
-const GROUP_ICON_CHOICES = ['🚗', '✈️', '🎓', '🏥', '🎁', '🐕', '☕']
 
 function DraggableCategoryList({
   items,
@@ -202,7 +200,6 @@ export default function EnvelopesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
-  const [draftIcon, setDraftIcon] = useState('')
   const [sheetError, setSheetError] = useState('')
 
   const [toastMsg, setToastMsg] = useState<string | null>(null)
@@ -248,29 +245,23 @@ export default function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
-    setDraftIcon(CATEGORY_ICON_CHOICES[0])
     setSheetError('')
     setSheet({ kind: 'addCategory' })
   }
   function openRenameCategory(name: string) {
-    const { icon, text } = splitEmoji(name)
     const group = categories.find((c) => c.name === name)?.group ?? ''
-    setDraftName(text)
+    setDraftName(name)
     setDraftGroup(group)
-    setDraftIcon(icon || categoryEmoji(name, group))
     setSheetError('')
     setSheet({ kind: 'renameCategory', name })
   }
   function openAddGroup() {
     setDraftName('')
-    setDraftIcon(GROUP_ICON_CHOICES[0])
     setSheetError('')
     setSheet({ kind: 'addGroup' })
   }
   function openRenameGroup(name: string) {
-    const { icon, text } = splitEmoji(name)
-    setDraftName(text)
-    setDraftIcon(icon || groupEmoji(name))
+    setDraftName(name)
     setSheetError('')
     setSheet({ kind: 'renameGroup', name })
   }
@@ -284,13 +275,13 @@ export default function EnvelopesScreen() {
 
   async function submitSheet() {
     if (!sheet) return
-    const text = draftName.trim()
-    if (!text) return
-    const composed = `${draftIcon} ${text}`.trim()
+    const composed = draftName.trim()
+    if (!composed) return
+    const label = splitEmoji(composed).text
     try {
       if (sheet.kind === 'addCategory') {
         await addCategory.mutateAsync({ name: composed, group: draftGroup })
-        showToast(`${text} added`)
+        showToast(`${label} added`)
       } else if (sheet.kind === 'renameCategory') {
         const currentGroup = categories.find((c) => c.name === sheet.name)?.group ?? ''
         const updates: { newName?: string; group?: string } = {}
@@ -299,15 +290,15 @@ export default function EnvelopesScreen() {
         if (Object.keys(updates).length > 0) {
           await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
-        showToast(`${text} updated`)
+        showToast(`${label} updated`)
       } else if (sheet.kind === 'addGroup') {
         await addGroup.mutateAsync(composed)
-        showToast(`${text} group created`)
+        showToast(`${label} group created`)
       } else {
         if (composed !== sheet.name) {
           await updateGroup.mutateAsync({ name: sheet.name, newName: composed })
         }
-        showToast(`${text} updated`)
+        showToast(`${label} updated`)
       }
       closeSheet()
     } catch (err) {
@@ -359,7 +350,8 @@ export default function EnvelopesScreen() {
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
-  const iconChoices = isCatSheet ? CATEGORY_ICON_CHOICES : GROUP_ICON_CHOICES
+  const previewIcon = isCatSheet ? categoryEmoji(draftName, draftGroup) : groupEmoji(draftName)
+  const draftHasEmoji = splitEmoji(draftName).icon !== ''
   const sheetTitle =
     sheet?.kind === 'addCategory'
       ? 'Add category'
@@ -558,37 +550,24 @@ export default function EnvelopesScreen() {
         <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>NAME</Text>
         <View style={styles.nameRow}>
           <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-            <Text style={{ fontSize: 22 }}>{draftIcon}</Text>
+            <Text style={{ fontSize: 22 }}>{previewIcon}</Text>
           </View>
           <TextInput
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
             value={draftName}
             onChangeText={setDraftName}
-            placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
+            placeholder={isCatSheet ? '🛒 Groceries, fuel, gym…' : '🚗 Transport, Health…'}
             placeholderTextColor={tokens.text3}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={submitSheet}
           />
         </View>
-
-        <View style={styles.iconGrid}>
-          {iconChoices.map((emoji) => (
-            <Pressable
-              key={emoji}
-              onPress={() => setDraftIcon(emoji)}
-              style={[
-                styles.iconBtn,
-                {
-                  borderColor: draftIcon === emoji ? tokens.gold : tokens.border,
-                  backgroundColor: draftIcon === emoji ? tokens.goldSoft : tokens.inputBg,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 20 }}>{emoji}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {draftName.trim() !== '' && !draftHasEmoji && (
+          <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6, lineHeight: 15 }}>
+            💡 Tip: start the name with an emoji — {isCatSheet ? '🛒 Groceries' : '🚗 Transport'} — to give it its own icon.
+          </Text>
+        )}
 
         {isCatSheet && (
           <>
@@ -768,8 +747,6 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   iconSwatch: { width: 52, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '700' },
-  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  iconBtn: { width: 42, height: 42, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
   menuTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
