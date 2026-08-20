@@ -16,6 +16,7 @@ import {
 import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
 import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
 import type { CategoryRow } from '@/src/types'
@@ -201,6 +202,7 @@ export default function EnvelopesScreen() {
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
   const [sheetError, setSheetError] = useState('')
+  const [sheetSuccess, setSheetSuccess] = useState(false)
 
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -268,7 +270,16 @@ export default function EnvelopesScreen() {
   function closeSheet() {
     setSheet(null)
     setSheetError('')
+    setSheetSuccess(false)
   }
+
+  // Let the inline checkmark finish drawing before closing the sheet.
+  useEffect(() => {
+    if (!sheetSuccess) return
+    const timer = setTimeout(closeSheet, 1100)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetSuccess])
 
   const submitting =
     addCategory.isPending || updateCategory.isPending || addGroup.isPending || updateGroup.isPending
@@ -277,11 +288,9 @@ export default function EnvelopesScreen() {
     if (!sheet) return
     const composed = draftName.trim()
     if (!composed) return
-    const label = splitEmoji(composed).text
     try {
       if (sheet.kind === 'addCategory') {
         await addCategory.mutateAsync({ name: composed, group: draftGroup })
-        showToast(`${label} added`)
       } else if (sheet.kind === 'renameCategory') {
         const currentGroup = categories.find((c) => c.name === sheet.name)?.group ?? ''
         const updates: { newName?: string; group?: string } = {}
@@ -290,17 +299,14 @@ export default function EnvelopesScreen() {
         if (Object.keys(updates).length > 0) {
           await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
-        showToast(`${label} updated`)
       } else if (sheet.kind === 'addGroup') {
         await addGroup.mutateAsync(composed)
-        showToast(`${label} group created`)
       } else {
         if (composed !== sheet.name) {
           await updateGroup.mutateAsync({ name: sheet.name, newName: composed })
         }
-        showToast(`${label} updated`)
       }
-      closeSheet()
+      setSheetSuccess(true)
     } catch (err) {
       setSheetError(
         err instanceof Error && err.message.includes('409')
@@ -626,20 +632,27 @@ export default function EnvelopesScreen() {
         )}
 
         <View style={styles.sheetActions}>
-          <Pressable style={styles.cancelBtn} onPress={closeSheet}>
+          <Pressable style={styles.cancelBtn} onPress={closeSheet} disabled={sheetSuccess}>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>Cancel</Text>
           </Pressable>
           <Pressable
             style={[
               styles.saveBtn,
-              { backgroundColor: draftValid ? tokens.gold : tokens.inputBg, opacity: submitting ? 0.6 : 1 },
+              {
+                backgroundColor: sheetSuccess ? tokens.mint : draftValid ? tokens.gold : tokens.inputBg,
+                opacity: submitting ? 0.6 : 1,
+              },
             ]}
             onPress={submitSheet}
-            disabled={submitting || !draftValid}
+            disabled={submitting || !draftValid || sheetSuccess}
           >
-            <Text style={{ color: draftValid ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }}>
-              {saveLabel}
-            </Text>
+            {sheetSuccess ? (
+              <CheckIcon color={tokens.onAccent} />
+            ) : (
+              <Text style={{ color: draftValid ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }}>
+                {saveLabel}
+              </Text>
+            )}
           </Pressable>
         </View>
       </BottomSheet>
