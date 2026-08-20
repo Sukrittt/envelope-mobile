@@ -228,9 +228,9 @@ export default function EnvelopesScreen() {
     return other.length > 0 ? [...named, { name: '', items: other }] : named
   }, [categories, groups])
 
-  function openAddCategory() {
+  function openAddCategory(group = '') {
     setNameInput('')
-    setGroupInput('')
+    setGroupInput(group)
     setModalError('')
     setModalSuccess(false)
     setModal({ kind: 'addCategory' })
@@ -356,7 +356,7 @@ export default function EnvelopesScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={openAddCategory}
+            onPress={() => openAddCategory()}
             style={[styles.addCategoryBtn, { backgroundColor: tokens.gold }]}
           >
             <Text style={{ color: tokens.onAccent, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
@@ -417,6 +417,12 @@ export default function EnvelopesScreen() {
               onDelete={confirmDeleteCategory}
               deleteSuccessName={categoryDeleteSuccess}
             />
+
+            <Pressable onPress={() => openAddCategory(name)} style={styles.addToGroupBtn} hitSlop={4}>
+              <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
+                + Category
+              </Text>
+            </Pressable>
           </View>
         ))}
 
@@ -527,6 +533,7 @@ const styles = StyleSheet.create({
   catActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dragHandle: { paddingLeft: 2 },
   addGroupBtn: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
+  addToGroupBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, padding: 18, paddingBottom: 32 },
   sheetTitle: { fontSize: 16, marginBottom: 12 },
