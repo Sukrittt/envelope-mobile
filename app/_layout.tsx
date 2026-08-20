@@ -8,6 +8,7 @@ import { setAudioModeAsync } from 'expo-audio'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, initAccessMode, type AccessMode } from '@/src/api/accessMode'
+import { getUser } from '@/src/api/account'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { AppSplash } from '@/src/components/shared/AppSplash'
 import {
@@ -37,15 +38,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const segments = useSegments()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  // null = not yet known (still loading, or signed out) — the redirect effect
+  // waits rather than guessing, so a slow /api/user fetch can't bounce the
+  // user into onboarding by mistake.
+  const [onboarded, setOnboarded] = useState<boolean | null>(null)
 
   useEffect(() => {
     initAccessMode().then((restored) => {
       setHasSession(restored !== null)
       setAuthReady(true)
     })
-    // unlock.tsx persists a session (real or guest) then navigates straight to
-    // (tabs) — without this, hasSession stayed stale until the next app boot
-    // and the segments effect below bounced the user right back to /unlock.
+    // The auth screens persist a session (real or guest) then navigate
+    // straight to (tabs) — without this, hasSession stayed stale until the
+    // next app boot and the segments effect below bounced the user right
+    // back to the sign-in screen.
     const unsubscribe = accessMode.subscribe((m) => {
       setHasSession(true)
       // Fire-and-forget: registration failures must never block app usage.
@@ -53,7 +59,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     })
     const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
-      router.replace('/unlock')
+      router.replace('/(auth)/welcome')
     })
     return () => {
       unsubscribe()
@@ -61,20 +67,51 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Fetch the onboarding flag once per sign-in. Fails open (treats a fetch
+  // error as "onboarded") — a flaky /api/user must never trap the user in
+  // an onboarding loop.
+  useEffect(() => {
+    if (!hasSession) {
+      setOnboarded(null)
+      return
+    }
+    let cancelled = false
+    getUser()
+      .then((u) => {
+        if (!cancelled) setOnboarded(!!u.onboardedAt)
+      })
+      .catch(() => {
+        if (!cancelled) setOnboarded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [hasSession])
+
   useEffect(() => {
     if (!authReady) return
-    const onUnlock = segments[0] === 'unlock'
-    if (hasSession && onUnlock) {
-      router.replace('/(tabs)')
-    } else if (!hasSession && !onUnlock) {
-      router.replace('/unlock')
+    const inAuth = segments[0] === '(auth)'
+    const inOnboarding = segments[0] === 'onboarding'
+
+    if (!hasSession) {
+      if (!inAuth) router.replace('/(auth)/welcome')
+      return
     }
-  }, [authReady, hasSession, segments])
+    // Signed in but onboarded status hasn't resolved yet — wait for it
+    // rather than momentarily flashing the wrong screen.
+    if (onboarded === null) return
+
+    if (!onboarded) {
+      if (!inOnboarding) router.replace('/onboarding')
+    } else if (inAuth || inOnboarding) {
+      router.replace('/(tabs)')
+    }
+  }, [authReady, hasSession, onboarded, segments])
 
   useEffect(() => {
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type === 'updated' && event.query.state.status === 'error' && isAuthError(event.query.state.error)) {
-        router.replace('/unlock')
+        router.replace('/(auth)/welcome')
       }
     })
   }, [router])
@@ -90,9 +127,15 @@ function RootNavigator() {
   const { tokens } = useTheme()
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
-      <Stack.Screen name="unlock" />
+      <Stack.Screen name="(auth)/welcome" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="onboarding" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
       <Stack.Screen
         name="modals/log-expense"
