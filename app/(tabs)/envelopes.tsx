@@ -562,7 +562,7 @@ export default function EnvelopesScreen() {
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
             value={draftName}
             onChangeText={setDraftName}
-            placeholder={isCatSheet ? '🛒 Groceries, fuel, gym…' : 'Transport, Health…'}
+            placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
             placeholderTextColor={tokens.text3}
             autoFocus
             returnKeyType="done"
