@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Alert, Animated, PanResponder } from 'react-native'
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronDown, MoreVertical, Plus, ArrowUp, ArrowDown, GripVertical } from 'lucide-react-native'
+import { ChevronDown, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -163,7 +163,7 @@ function DraggableCategoryList({
                 </Pressable>
               )}
               <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                <Icon icon={GripVertical} size={14} color={tokens.text3} />
+                <Icon icon={Equal} size={14} color={tokens.text3} />
               </View>
             </View>
           </Animated.View>
@@ -198,6 +198,8 @@ export default function EnvelopesScreen() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   const [sheet, setSheet] = useState<SheetState | null>(null)
+  const [menuTarget, setMenuTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
   const [draftIcon, setDraftIcon] = useState('')
@@ -317,43 +319,21 @@ export default function EnvelopesScreen() {
     }
   }
 
-  function confirmDeleteCategory(name: string) {
-    Alert.alert('Remove category', `Remove "${name}"? Past transactions are kept.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () =>
-          deleteCategory.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} removed`) }),
-      },
-    ])
+  function runDeleteCategory(name: string) {
+    deleteCategory.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} removed`) })
   }
-
-  function confirmDeleteGroup(name: string) {
-    Alert.alert('Delete group', `Delete "${name}"? Its categories move to Other.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          deleteGroup.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} deleted`) }),
-      },
-    ])
+  function runDeleteGroup(name: string) {
+    deleteGroup.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} deleted`) })
   }
-
+  function requestDelete(kind: 'category' | 'group', name: string) {
+    setMenuTarget(null)
+    setDeleteTarget({ kind, name })
+  }
   function openCategoryMenu(name: string) {
-    Alert.alert(splitEmoji(name).text, undefined, [
-      { text: 'Rename', onPress: () => openRenameCategory(name) },
-      { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteCategory(name) },
-      { text: 'Cancel', style: 'cancel' },
-    ])
+    setMenuTarget({ kind: 'category', name })
   }
   function openGroupMenu(name: string) {
-    Alert.alert(splitEmoji(name).text, undefined, [
-      { text: 'Rename', onPress: () => openRenameGroup(name) },
-      { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteGroup(name) },
-      { text: 'Cancel', style: 'cancel' },
-    ])
+    setMenuTarget({ kind: 'group', name })
   }
 
   const isLoading = categoriesQ.isLoading || groupsQ.isLoading
@@ -509,7 +489,7 @@ export default function EnvelopesScreen() {
                       </Pressable>
                     ))}
                   <View style={styles.dragHandle}>
-                    <Icon icon={GripVertical} size={15} color={tokens.text3} />
+                    <Icon icon={Equal} size={15} color={tokens.text3} />
                   </View>
                 </View>
 
@@ -685,6 +665,51 @@ export default function EnvelopesScreen() {
         </View>
       </BottomSheet>
 
+      <BottomSheet visible={menuTarget !== null} onClose={() => setMenuTarget(null)}>
+        <Text style={[styles.menuTitle, { color: tokens.text2 }]} numberOfLines={1}>
+          {menuTarget ? splitEmoji(menuTarget.name).text : ''}
+        </Text>
+        <SheetOption
+          label="Rename"
+          color={tokens.text}
+          onPress={() => {
+            if (!menuTarget) return
+            const { kind, name } = menuTarget
+            setMenuTarget(null)
+            if (kind === 'category') openRenameCategory(name)
+            else openRenameGroup(name)
+          }}
+        />
+        <SheetOption
+          label="Delete"
+          color={tokens.coral}
+          onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
+        />
+        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setMenuTarget(null)} />
+      </BottomSheet>
+
+      <BottomSheet visible={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
+        <Text style={[styles.confirmTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          {deleteTarget?.kind === 'group' ? 'Delete group' : 'Remove category'}
+        </Text>
+        <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={2}>
+          {deleteTarget?.kind === 'group'
+            ? `Delete "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Its categories move to Other.`
+            : `Remove "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Past transactions are kept.`}
+        </Text>
+        <SheetOption
+          label={deleteTarget?.kind === 'group' ? 'Delete' : 'Remove'}
+          color={tokens.coral}
+          onPress={() => {
+            if (!deleteTarget) return
+            if (deleteTarget.kind === 'group') runDeleteGroup(deleteTarget.name)
+            else runDeleteCategory(deleteTarget.name)
+            setDeleteTarget(null)
+          }}
+        />
+        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setDeleteTarget(null)} />
+      </BottomSheet>
+
       {toastMsg && (
         <View
           pointerEvents="none"
@@ -697,6 +722,14 @@ export default function EnvelopesScreen() {
         </View>
       )}
     </View>
+  )
+}
+
+function SheetOption({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.sheetOption}>
+      <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+    </Pressable>
   )
 }
 
@@ -739,6 +772,11 @@ const styles = StyleSheet.create({
   iconBtn: { width: 42, height: 42, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
+  menuTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
+  confirmTitle: { fontSize: 17, textAlign: 'center', marginBottom: 6 },
+  confirmBody: { fontSize: 13, textAlign: 'center', marginBottom: 8 },
+  sheetOption: { paddingVertical: 14, alignItems: 'center' },
+  sheetOptionText: { fontSize: 16 },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
   cancelBtn: { paddingHorizontal: 10, justifyContent: 'center' },
   saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center' },
