@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
@@ -16,6 +16,7 @@ import { useExpenses, useDeleteExpense } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import { SwipeableRow } from '@/src/components/activity/SwipeableRow'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -60,6 +61,7 @@ function keyOf(t: ExpenseRow): string {
 
 export default function ActivityScreen() {
   const { tokens } = useTheme()
+  const { refreshing, onRefresh } = useRefresh()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -256,7 +258,13 @@ export default function ActivityScreen() {
       </View>
 
       <AnimatedTabContent>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+        }
+      >
         <Pressable onPress={() => router.push('/modals/log-expense')} style={[styles.addButton, { backgroundColor: tokens.gold }]}>
           <Icon icon={Plus} size={16} color={tokens.onAccent} />
           <Text style={[styles.addButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Log expense</Text>

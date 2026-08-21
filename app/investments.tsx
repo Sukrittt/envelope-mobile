@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Pressable, ScrollView, Modal, Alert, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, Modal, Alert, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ArrowLeft, Plus } from 'lucide-react-native'
@@ -12,6 +12,7 @@ import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
@@ -58,6 +59,7 @@ type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 export default function InvestmentsScreen() {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
+  const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const holdingsQuery = useHoldings()
@@ -133,7 +135,12 @@ export default function InvestmentsScreen() {
           <LoadingCaption />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+          }
+        >
           {errorMessage && (
             <Text style={[styles.errorText, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
               {errorMessage}

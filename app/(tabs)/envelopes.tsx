@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Animated, PanResponder } from 'react-native'
+import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronDown, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -19,6 +19,7 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import type { CategoryRow } from '@/src/types'
 
 const OTHER_LABEL = 'Other'
@@ -181,6 +182,7 @@ type SheetState =
 
 export default function EnvelopesScreen() {
   const { tokens } = useTheme()
+  const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
 
   const categoriesQ = useCategories()
@@ -448,7 +450,19 @@ export default function EnvelopesScreen() {
       </View>
 
       <AnimatedTabContent>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              enabled={!reordering}
+              tintColor={tokens.text3}
+              colors={[tokens.gold]}
+            />
+          }
+        >
           {groupedCategories.map(({ name, items }) => {
             const key = name || OTHER_LABEL
             const collapsed = collapsedGroups.has(key)

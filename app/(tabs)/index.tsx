@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Plus, ChevronRight } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -16,6 +16,7 @@ import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { computeEnvelopeState, currentMonthKey, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { TrendChart, type TrendPoint } from '@/src/components/charts/TrendChart'
@@ -80,6 +81,7 @@ type DrillFilter = { start: string; end: string; parentView: 'monthly' | 'weekly
 
 export default function HomeScreen() {
   const { tokens } = useTheme()
+  const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
@@ -308,7 +310,13 @@ export default function HomeScreen() {
       </View>
 
       <AnimatedTabContent>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+        }
+      >
         {showRolloverBanner && (
           <View style={[styles.card, styles.rolloverCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
