@@ -56,11 +56,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // back to the sign-in screen.
     const unsubscribe = accessMode.subscribe((m) => {
       setHasSession(true)
+      // Every cached query (brief, expenses, budgets, chat sessions...) is
+      // keyed without a user id, so switching identity (guest <-> real,
+      // or a different account) must drop it all or the new identity sees
+      // the previous one's data until staleTime happens to expire.
+      queryClient.clear()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
     })
     const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
+      queryClient.clear()
       router.replace('/(auth)/welcome')
     })
     return () => {

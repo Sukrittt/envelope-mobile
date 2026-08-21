@@ -12,7 +12,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, Clock, SquarePen } from 'lucide-react-native'
+import { ArrowLeft, ArrowUp, Clock, SquarePen } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -312,7 +312,7 @@ export default function MoneyBrainModal() {
           disabled={sending || input.trim() === ''}
           style={[styles.sendButton, { backgroundColor: tokens.gold, opacity: sending || input.trim() === '' ? 0.5 : 1 }]}
         >
-          <Text style={{ color: tokens.onAccent, fontSize: 16, fontFamily: fontFamily.bodyBold }}>↑</Text>
+          <Icon icon={ArrowUp} size={18} color={tokens.onAccent} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
