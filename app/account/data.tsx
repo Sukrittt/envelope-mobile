@@ -7,6 +7,7 @@ import { ArrowLeft, Trash2 } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearTransactions, exportData, getDataSummary } from '@/src/api/account'
 
 const summaryKey = ['dataSummary'] as const
@@ -24,6 +25,7 @@ export default function DataScreen() {
 
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null)
   const [clearing, setClearing] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
 
   const handleExport = async (format: 'csv' | 'json') => {
     setExporting(format)
@@ -37,25 +39,17 @@ export default function DataScreen() {
     }
   }
 
-  const confirmClear = () => {
-    Alert.alert('Clear all transactions', 'Keeps envelopes, wipes history. This can’t be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear',
-        style: 'destructive',
-        onPress: async () => {
-          setClearing(true)
-          try {
-            await clearTransactions()
-            qc.invalidateQueries({ queryKey: summaryKey })
-          } catch {
-            Alert.alert('Could not clear transactions', 'Check your connection and try again.')
-          } finally {
-            setClearing(false)
-          }
-        },
-      },
-    ])
+  const doClear = async () => {
+    setClearing(true)
+    try {
+      await clearTransactions()
+      qc.invalidateQueries()
+      setConfirmingClear(false)
+    } catch {
+      Alert.alert('Could not clear transactions', 'Check your connection and try again.')
+    } finally {
+      setClearing(false)
+    }
   }
 
   const summary = summaryQuery.data
@@ -99,7 +93,7 @@ export default function DataScreen() {
         </View>
 
         <Pressable
-          onPress={confirmClear}
+          onPress={() => setConfirmingClear(true)}
           disabled={clearing}
           style={[styles.clearRow, { borderColor: tokens.borderStrong, opacity: clearing ? 0.6 : 1 }]}
         >
@@ -112,6 +106,35 @@ export default function DataScreen() {
           </View>
         </Pressable>
       </ScrollView>
+
+      <BottomSheet visible={confirmingClear} onClose={() => !clearing && setConfirmingClear(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          Clear all transactions
+        </Text>
+        <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          {summary
+            ? `Deletes ${summary.transactionCount.toLocaleString()} transactions. Your envelopes and their assigned amounts stay. This can't be undone.`
+            : "Deletes every transaction. Your envelopes and their assigned amounts stay. This can't be undone."}
+        </Text>
+        <View style={styles.sheetButtonRow}>
+          <Pressable
+            onPress={() => setConfirmingClear(false)}
+            disabled={clearing}
+            style={[styles.sheetCancelButton, { opacity: clearing ? 0.5 : 1 }]}
+          >
+            <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={doClear}
+            disabled={clearing}
+            style={[styles.sheetSaveButton, styles.sheetDeleteButton, { backgroundColor: tokens.coral, opacity: clearing ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {clearing ? 'Clearing…' : 'Clear'}
+            </Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </View>
   )
 }
@@ -131,4 +154,12 @@ const styles = StyleSheet.create({
   clearRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderWidth: 1, borderRadius: 20 },
   clearTitle: { fontSize: 14 },
   clearHint: { fontSize: 11, marginTop: 2 },
+  sheetTitle: { fontSize: 18, marginBottom: 12 },
+  sheetBody: { fontSize: 13, lineHeight: 18 },
+  sheetSaveButton: { marginTop: 12, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  sheetSaveText: { fontSize: 14 },
+  sheetButtonRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  sheetDeleteButton: { flex: 1, marginTop: 0 },
+  sheetCancelButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  sheetCancelText: { fontSize: 14 },
 })
