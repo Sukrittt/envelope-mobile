@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import * as Haptics from 'expo-haptics'
+import { useAudioPlayer } from 'expo-audio'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -10,14 +11,20 @@ export function Numpad({
   onBackspace,
   disabled = false,
   extraKey,
+  playTapSound = false,
 }: {
   onDigit: (digit: string) => void
   onBackspace: () => void
   disabled?: boolean
   /** Fills the blank slot before '0' (e.g. '00' for an amount pad). Omit for a blank slot. */
   extraKey?: string
+  /** Plays a tap tone on digit presses (not backspace). Off by default — only the OTP code screen opts in. */
+  playTapSound?: boolean
 }) {
   const { tokens } = useTheme()
+  // ponytail: tap.mp3 is a silent 150ms placeholder — swap the file for a real
+  // effect (same filename/path) once one is provided, no code change needed.
+  const tapSound = useAudioPlayer(require('@/assets/sounds/tap.mp3'))
   const keys = [...BASE_KEYS.slice(0, 9), extraKey ?? '', ...BASE_KEYS.slice(9)]
   return (
     <View style={styles.grid}>
@@ -29,7 +36,15 @@ export function Numpad({
             disabled={disabled}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-              k === 'del' ? onBackspace() : onDigit(k)
+              if (k === 'del') {
+                onBackspace()
+              } else {
+                if (playTapSound) {
+                  tapSound.seekTo(0)
+                  tapSound.play()
+                }
+                onDigit(k)
+              }
             }}
             style={[styles.key, { backgroundColor: tokens.card, borderColor: tokens.border, opacity: disabled ? 0.5 : 1 }]}
           >

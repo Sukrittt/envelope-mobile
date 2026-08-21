@@ -112,6 +112,7 @@ export default function CodeScreen() {
       ) : (
         <Numpad
           disabled={pending}
+          playTapSound
           onDigit={(d) => setCode((c) => (c.length >= 6 ? c : c + d))}
           onBackspace={() => setCode((c) => c.slice(0, -1))}
         />
