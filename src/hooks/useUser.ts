@@ -1,19 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getUser, getIdentityProviders, getSessions, updateUser, type UserProfile } from '@/src/api/account'
 
-const key = ['user'] as const
+export const userKey = ['user'] as const
 const sessionsKey = ['user', 'sessions'] as const
 const identitiesKey = ['user', 'identities'] as const
 
 export function useUser() {
-  return useQuery({ queryKey: key, queryFn: getUser, staleTime: 30_000 })
+  return useQuery({ queryKey: userKey, queryFn: getUser, staleTime: 30_000 })
 }
 
 export function useUpdateUser() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (patch: Partial<UserProfile>) => updateUser(patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: userKey }),
     onError: (err) => console.warn('[useUpdateUser] update failed:', err),
   })
 }

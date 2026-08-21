@@ -3,6 +3,7 @@ import { addHolding, deleteHolding, getHoldings, performHoldingAction, updateHol
 
 const key = ['holdings'] as const
 const eventsKey = ['holding-events'] as const
+const budgetsKey = ['budgets'] as const
 
 export function useHoldings() {
   return useQuery({ queryKey: key, queryFn: getHoldings, staleTime: 30_000 })
@@ -12,7 +13,11 @@ export function useAddHolding() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (row: Parameters<typeof addHolding>[0]) => addHolding(row),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: eventsKey })
+      qc.invalidateQueries({ queryKey: budgetsKey }) // contributions/withdrawals nudge __income__ envelope
+    },
   })
 }
 
@@ -21,7 +26,11 @@ export function useUpdateHolding() {
   return useMutation({
     mutationFn: (params: { name: string; updates: Parameters<typeof updateHolding>[1] }) =>
       updateHolding(params.name, params.updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: eventsKey })
+      qc.invalidateQueries({ queryKey: budgetsKey })
+    },
   })
 }
 
@@ -29,7 +38,11 @@ export function useDeleteHolding() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (name: string) => deleteHolding(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: eventsKey })
+      qc.invalidateQueries({ queryKey: budgetsKey })
+    },
   })
 }
 
@@ -40,7 +53,7 @@ export function usePerformHoldingAction() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: eventsKey })
-      qc.invalidateQueries({ queryKey: ['budgets'] }) // contributions/withdrawals nudge __income__ envelope
+      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }

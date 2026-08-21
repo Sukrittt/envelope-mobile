@@ -13,6 +13,7 @@ import { Numpad } from '@/src/components/auth/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
 import { Icon } from '@/src/components/shared/Icon'
+import { userKey } from '@/src/hooks/useUser'
 
 // Screen 3 (mockup: isCode). Custom numpad is a deliberate mockup choice, not
 // the system keyboard. Auto-verifies once 6 digits are in, mirroring the
@@ -66,7 +67,7 @@ export default function CodeScreen() {
   // Same 1100ms flourish beat as welcome.tsx's Google success.
   useEffect(() => {
     if (!done) return
-    if (isChangeEmail) void qc.invalidateQueries({ queryKey: ['user'] })
+    if (isChangeEmail) void qc.invalidateQueries({ queryKey: userKey })
     const timer = setTimeout(() => router.replace(isChangeEmail ? '/account/security' : '/(tabs)'), 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
