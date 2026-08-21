@@ -8,9 +8,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { ArrowLeft, Clock, SquarePen } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -19,12 +21,15 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { useMoneyBrief } from '@/src/hooks/useMoneyBrief'
+import { useChatSessions } from '@/src/hooks/useChatSessions'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
-import { streamChat, type ChatMessage } from '@/src/api/ai'
+import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
+import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
@@ -60,11 +65,15 @@ export default function MoneyBrainModal() {
 
   const brief = briefQ.data
 
+  const [view, setView] = useState<'chat' | 'history'>('chat')
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<ScrollView>(null)
+
+  const historyQuery = useChatSessions(view === 'history')
 
   useEffect(() => {
     return () => abortRef.current?.abort()
@@ -74,8 +83,7 @@ export default function MoneyBrainModal() {
     const trimmed = text.trim()
     if (!trimmed || sending) return
 
-    const history = [...messages, { role: 'user' as const, text: trimmed }]
-    setMessages([...history, { role: 'model', text: '' }])
+    setMessages([...messages, { role: 'user', text: trimmed }, { role: 'model', text: '' }])
     setInput('')
     setSending(true)
 
@@ -83,7 +91,8 @@ export default function MoneyBrainModal() {
     abortRef.current = controller
 
     streamChat(
-      history,
+      sessionId,
+      trimmed,
       (delta) => {
         setMessages((prev) => {
           const copy = [...prev]
@@ -94,6 +103,7 @@ export default function MoneyBrainModal() {
       },
       controller.signal,
     )
+      .then((resolvedSessionId) => setSessionId(resolvedSessionId))
       .catch((e) => {
         setMessages((prev) => {
           const copy = [...prev]
@@ -107,8 +117,50 @@ export default function MoneyBrainModal() {
       .finally(() => setSending(false))
   }
 
+  function startNewChat() {
+    abortRef.current?.abort()
+    setSending(false)
+    setMessages([])
+    setSessionId(null)
+    setInput('')
+    setView('chat')
+  }
+
+  async function openSession(id: string) {
+    try {
+      const detail = await getChatSession(id)
+      setMessages(detail.messages)
+      setSessionId(detail.id)
+      setView('chat')
+    } catch {
+      Alert.alert('Could not load chat', 'Check your connection and try again.')
+    }
+  }
+
   const lastMessage = messages[messages.length - 1]
   const awaitingFirstDelta = sending && lastMessage?.role === 'model' && lastMessage.text === ''
+
+  if (view === 'history') {
+    return (
+      <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+          <Pressable
+            onPress={() => setView('chat')}
+            hitSlop={12}
+            style={[styles.iconButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          >
+            <Icon icon={ArrowLeft} size={18} color={tokens.text} />
+          </Pressable>
+          <Text
+            style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, marginLeft: 12 }]}
+          >
+            Chat history
+          </Text>
+        </View>
+        <ChatHistoryList sessions={historyQuery.data} loading={historyQuery.isLoading} onSelect={openSession} />
+      </View>
+    )
+  }
 
   return (
     <KeyboardAvoidingView
@@ -126,9 +178,25 @@ export default function MoneyBrainModal() {
             </Text>
           </View>
         </View>
-        <Pressable onPress={() => router.push('/(tabs)')} hitSlop={12}>
-          <Text style={[styles.home, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>Go Home</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => setView('history')}
+            hitSlop={10}
+            style={[styles.iconButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          >
+            <Icon icon={Clock} size={16} color={tokens.text} />
+          </Pressable>
+          <Pressable
+            onPress={startNewChat}
+            hitSlop={10}
+            style={[styles.iconButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          >
+            <Icon icon={SquarePen} size={16} color={tokens.text} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/(tabs)')} hitSlop={12}>
+            <Text style={[styles.home, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>Go Home</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -259,6 +327,8 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },

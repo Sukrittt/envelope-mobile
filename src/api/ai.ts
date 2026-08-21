@@ -28,6 +28,29 @@ export interface ChatMessage {
   text: string
 }
 
+export interface ChatSessionSummary {
+  id: string
+  title: string
+  updatedAt: string
+}
+
+export interface ChatSessionDetail extends ChatSessionSummary {
+  messages: ChatMessage[]
+  createdAt: string
+}
+
+export async function listChatSessions(): Promise<ChatSessionSummary[]> {
+  const resp = await apiFetch('/api/ai/chat/sessions')
+  if (!resp.ok) throw new Error(`Failed to load chat history: ${resp.status}`)
+  return resp.json()
+}
+
+export async function getChatSession(id: string): Promise<ChatSessionDetail> {
+  const resp = await apiFetch(`/api/ai/chat/sessions/${id}`)
+  if (!resp.ok) throw new Error(`Failed to load chat: ${resp.status}`)
+  return resp.json()
+}
+
 export async function fetchBrief(): Promise<Brief> {
   const resp = await apiFetch('/api/ai/brief')
   if (!resp.ok) {
@@ -48,16 +71,22 @@ async function authHeader(): Promise<Record<string, string>> {
  * Streams /api/ai/chat via expo/fetch (RN's global fetch can't read streaming
  * bodies under Hermes). Buffers decoded text and splits on the SSE frame
  * delimiter ("\n\n"), calling onDelta for each `data: {"delta":...}` frame.
+ *
+ * The server is the source of truth for history now (`sessionId` threads a
+ * persisted session through): pass the session's id to append to it, or null
+ * to start a new one — the server creates it and sends its id back as the
+ * first frame, which this returns so the caller can remember it.
  */
 export async function streamChat(
-  messages: ChatMessage[],
+  sessionId: string | null,
+  message: string,
   onDelta: (text: string) => void,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<string | null> {
   const resp = await expoFetch(`${BASE_URL}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ sessionId, message }),
     signal,
   })
 
@@ -69,6 +98,7 @@ export async function streamChat(
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let resolvedSessionId = sessionId
 
   for await (const chunk of resp.body) {
     buffer += decoder.decode(chunk, { stream: true })
@@ -78,10 +108,12 @@ export async function streamChat(
       const line = frame.split('\n').find((l) => l.startsWith('data: '))
       if (!line) continue
       const payload = line.slice('data: '.length)
-      if (payload === '[DONE]') return
+      if (payload === '[DONE]') return resolvedSessionId
       const parsed = JSON.parse(payload)
       if (parsed.error) throw new Error(parsed.error)
+      if (typeof parsed.sessionId === 'string') resolvedSessionId = parsed.sessionId
       if (typeof parsed.delta === 'string') onDelta(parsed.delta)
     }
   }
+  return resolvedSessionId
 }
