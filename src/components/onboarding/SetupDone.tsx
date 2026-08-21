@@ -9,7 +9,7 @@ import {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import { House, ReceiptText, Tags, CircleUser, Plus, Check, ArrowDown } from 'lucide-react-native'
+import { Check } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -115,35 +115,9 @@ export function SetupDone({
 
       <View style={{ flex: 1 }} />
 
-      <View style={styles.hintWrap}>
-        <View style={[styles.hintPill, { backgroundColor: tokens.text }]}>
-          <Text style={[styles.hintLabel, { color: tokens.bg }]}>Log your first expense here</Text>
-        </View>
-        <ArrowDown size={22} color={tokens.text} strokeWidth={2.4} />
-      </View>
-
-      <View style={[styles.tabBar, { backgroundColor: tokens.tabbarBg, borderTopColor: tokens.border }]}>
-        <TabIcon icon={House} label="Home" color={tokens.text3} />
-        <TabIcon icon={ReceiptText} label="Activity" color={tokens.text3} />
-        <View style={[styles.addButton, { backgroundColor: tokens.gold }]}>
-          <Plus size={24} color={tokens.onAccent} strokeWidth={2.5} />
-        </View>
-        <TabIcon icon={Tags} label="Envelopes" color={tokens.text3} />
-        <TabIcon icon={CircleUser} label="You" color={tokens.text3} />
-      </View>
-
       <Pressable onPress={onFinish} style={[styles.cta, { backgroundColor: tokens.gold }]}>
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Go to my dashboard</Text>
       </Pressable>
-    </View>
-  )
-}
-
-function TabIcon({ icon: IconComponent, label, color }: { icon: typeof House; label: string; color: string }) {
-  return (
-    <View style={styles.tabItem}>
-      <IconComponent size={21} color={color} strokeWidth={2} />
-      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
     </View>
   )
 }
@@ -158,24 +132,6 @@ const styles = StyleSheet.create({
   summaryIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   summaryLabel: { flex: 1, fontSize: 13 },
   summaryValue: { fontSize: 15 },
-  hintWrap: { alignItems: 'center', gap: 6 },
-  hintPill: { paddingVertical: 9, paddingHorizontal: 15, borderRadius: 14 },
-  hintLabel: { fontSize: 12, fontWeight: '800' },
-  tabBar: {
-    marginTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    paddingTop: 12,
-    paddingHorizontal: 8,
-    paddingBottom: 4,
-    borderTopWidth: 1,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  tabItem: { alignItems: 'center', gap: 4 },
-  tabLabel: { fontSize: 10, fontWeight: '600' },
-  addButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginTop: -22 },
   cta: { marginTop: 16, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontSize: 15 },
 })

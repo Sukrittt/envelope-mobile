@@ -1,11 +1,21 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
-import { House, ReceiptText, Tags, CircleUser, Plus, type LucideIcon } from 'lucide-react-native'
+import { House, ReceiptText, Tags, CircleUser, Plus, ArrowDown, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { useUser } from '@/src/hooks/useUser'
+import { useExpenses } from '@/src/hooks/useExpenses'
 
 const TAB_ICON: Record<string, LucideIcon> = {
   index: House,
@@ -29,6 +39,14 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const userQ = useUser()
+  const expensesQ = useExpenses()
+
+  // Coach mark only after onboarding is confirmed done AND the expense list
+  // has loaded empty. Either query loading or failing => hidden (no flash,
+  // no false positive for signed-out/error states).
+  const showFirstExpenseHint =
+    !!userQ.data?.onboardedAt && expensesQ.isSuccess && (expensesQ.data?.length ?? 0) === 0
 
   const byName = (name: string) => state.routes.find((r) => r.name === name)
 
@@ -89,7 +107,46 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       </Pressable>
       {renderTab('envelopes')}
       {renderTab('more')}
+      <FirstExpenseHint show={showFirstExpenseHint} onPress={() => router.push('/modals/log-expense')} />
     </View>
+  )
+}
+
+// SetupWizard.dc.html:85-86 — "Log your first expense here" pill + bobbing
+// arrow pointing at the + button. Only shown once onboarding is complete and
+// no expense has been logged yet (server-derived, so it survives restarts and
+// disappears the moment the first expense exists).
+function FirstExpenseHint({ show, onPress }: { show: boolean; onPress: () => void }) {
+  const { tokens } = useTheme()
+  // bobDown: translateY 0 -> 9px, opacity .85 -> 1, 1.5s ease-in-out loop.
+  const bob = useSharedValue(0)
+  useEffect(() => {
+    if (!show) {
+      bob.value = 0
+      return
+    }
+    const segment = { duration: 750, easing: Easing.inOut(Easing.ease) }
+    bob.value = withRepeat(withSequence(withTiming(1, segment), withTiming(0, segment)), -1, false)
+  }, [show, bob])
+
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bob.value * 9 }],
+    opacity: 0.85 + bob.value * 0.15,
+  }))
+
+  if (!show) return null
+
+  return (
+    <Pressable onPress={onPress} style={styles.hintAnchor} pointerEvents="box-none" hitSlop={6}>
+      <Reanimated.View style={styles.hintWrap} pointerEvents="box-none">
+        <View style={[styles.hintPill, { backgroundColor: tokens.text }]}>
+          <Text style={[styles.hintLabel, { color: tokens.bg }]}>Log your first expense here</Text>
+        </View>
+        <Reanimated.View style={arrowStyle} pointerEvents="none">
+          <ArrowDown size={22} color={tokens.text} strokeWidth={2.4} />
+        </Reanimated.View>
+      </Reanimated.View>
+    </Pressable>
   )
 }
 
@@ -118,4 +175,16 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
+  hintAnchor: {
+    position: 'absolute',
+    bottom: '100%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
+  },
+  hintWrap: { alignItems: 'center', gap: 4, marginBottom: -2 },
+  hintPill: { paddingVertical: 9, paddingHorizontal: 15, borderRadius: 14 },
+  hintLabel: { fontSize: 12, fontWeight: '800' },
 })
