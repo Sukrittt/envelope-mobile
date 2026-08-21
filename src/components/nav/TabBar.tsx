@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, usePathname } from 'expo-router'
 import Reanimated, {
@@ -10,6 +10,7 @@ import Reanimated, {
   withTiming,
   runOnJS,
   Easing,
+  type SharedValue,
 } from 'react-native-reanimated'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
 import { House, ReceiptText, Tags, CircleUser, Plus, ArrowDown, type LucideIcon } from 'lucide-react-native'
@@ -30,6 +31,31 @@ const TAB_LABEL: Record<string, string> = {
   activity: 'Activity',
   envelopes: 'Envelopes',
   more: 'More',
+}
+
+// Bouncy overshoot motion, ported from Tab Bar Motion.dc.html (32%/30%/38% keyframe split of a 620ms cycle).
+const BOUNCE_EASE = Easing.bezier(0.3, 1.2, 0.4, 1)
+const SEG_A = { duration: 0.32 * 620, easing: BOUNCE_EASE }
+const SEG_B = { duration: 0.3 * 620, easing: BOUNCE_EASE }
+const SEG_C = { duration: 0.38 * 620, easing: BOUNCE_EASE }
+const RING_OUT = { duration: 620, easing: Easing.out(Easing.ease) }
+const SPARK_OUT = { duration: 600, easing: Easing.out(Easing.ease) }
+
+type RingValues = { opacity: SharedValue<number>; scale: SharedValue<number> }
+
+function useRing(): RingValues {
+  return { opacity: useSharedValue(0), scale: useSharedValue(0.35) }
+}
+
+function useRingStyle(ring: RingValues) {
+  return useAnimatedStyle(() => ({
+    opacity: ring.opacity.value,
+    transform: [{ scale: ring.scale.value }],
+  }))
+}
+
+function useLabelStyle(y: SharedValue<number>) {
+  return useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }))
 }
 
 /**
@@ -59,20 +85,131 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 
   const byName = (name: string) => state.routes.find((r) => r.name === name)
 
-  const scales = useRef({
-    index: new Animated.Value(1),
-    activity: new Animated.Value(1),
-    envelopes: new Animated.Value(1),
-    more: new Animated.Value(1),
-  }).current
+  // Home: dip + scale (translateY 0 -> -7 -> 1 -> 0, scale 1 -> 1.14 -> 0.95 -> 1)
+  const homeY = useSharedValue(0)
+  const homeScale = useSharedValue(1)
+  // Activity: card-flip (rotateY 0 -> -92deg -> 0, scale bump at midpoint)
+  const activityRotateY = useSharedValue(0)
+  const activityScale = useSharedValue(1)
+  // Envelopes: pendulum swing (rotate 0 -> -17 -> 11 -> -5 -> 0)
+  const envelopesRotate = useSharedValue(0)
+  const envelopesScale = useSharedValue(1)
+  // More: nod (scale 1 -> 1.18 -> 0.97 -> 1, translateY -3 -> 1 -> 0)
+  const moreY = useSharedValue(0)
+  const moreScale = useSharedValue(1)
 
-  const bounce = (name: keyof typeof scales) => {
-    const scale = scales[name]
-    scale.setValue(0.85)
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 8, stiffness: 220 }).start()
+  const ringIndex = useRing()
+  const ringActivity = useRing()
+  const ringEnvelopes = useRing()
+  const ringMore = useRing()
+
+  const labelYIndex = useSharedValue(0)
+  const labelYActivity = useSharedValue(0)
+  const labelYEnvelopes = useSharedValue(0)
+  const labelYMore = useSharedValue(0)
+
+  const homeIconStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: homeY.value }, { scale: homeScale.value }],
+  }))
+  const activityIconStyle = useAnimatedStyle(() => ({
+    transform: [{ perspective: 800 }, { rotateY: `${activityRotateY.value}deg` }, { scale: activityScale.value }],
+  }))
+  const envelopesIconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${envelopesRotate.value}deg` }, { scale: envelopesScale.value }],
+  }))
+  const moreIconStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: moreY.value }, { scale: moreScale.value }],
+  }))
+
+  const ringStyleIndex = useRingStyle(ringIndex)
+  const ringStyleActivity = useRingStyle(ringActivity)
+  const ringStyleEnvelopes = useRingStyle(ringEnvelopes)
+  const ringStyleMore = useRingStyle(ringMore)
+
+  const labelStyleIndex = useLabelStyle(labelYIndex)
+  const labelStyleActivity = useLabelStyle(labelYActivity)
+  const labelStyleEnvelopes = useLabelStyle(labelYEnvelopes)
+  const labelStyleMore = useLabelStyle(labelYMore)
+
+  // + button: cumulative spin (rotate overshoots 45deg past each 90deg step) + radial spark burst
+  const plusRotate = useSharedValue(0)
+  const plusScale = useSharedValue(1)
+  const plusSparkOpacity = useSharedValue(0)
+  const plusSparkScale = useSharedValue(0.4)
+  const plusBaseRef = useRef(0)
+
+  const plusIconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${plusRotate.value}deg` }, { scale: plusScale.value }],
+  }))
+  const plusSparkStyle = useAnimatedStyle(() => ({
+    opacity: plusSparkOpacity.value,
+    transform: [{ scale: plusSparkScale.value }],
+  }))
+
+  const triggerRing = (ring: RingValues) => {
+    ring.opacity.value = 0.55
+    ring.scale.value = 0.35
+    ring.opacity.value = withTiming(0, RING_OUT)
+    ring.scale.value = withTiming(2.4, RING_OUT)
   }
 
-  const renderTab = (name: 'index' | 'activity' | 'envelopes' | 'more') => {
+  const triggerLabel = (y: SharedValue<number>) => {
+    y.value = withSequence(withTiming(-2, SEG_A), withTiming(0, { duration: SEG_B.duration + SEG_C.duration, easing: BOUNCE_EASE }))
+  }
+
+  const triggerHome = () => {
+    triggerRing(ringIndex)
+    triggerLabel(labelYIndex)
+    homeY.value = withSequence(withTiming(-7, SEG_A), withTiming(1, SEG_B), withTiming(0, SEG_C))
+    homeScale.value = withSequence(withTiming(1.14, SEG_A), withTiming(0.95, SEG_B), withTiming(1, SEG_C))
+  }
+
+  const triggerActivity = () => {
+    triggerRing(ringActivity)
+    triggerLabel(labelYActivity)
+    const half = { duration: 310, easing: BOUNCE_EASE }
+    activityRotateY.value = withSequence(withTiming(-92, half), withTiming(0, half))
+    activityScale.value = withSequence(withTiming(1.06, half), withTiming(1, half))
+  }
+
+  const triggerEnvelopes = () => {
+    triggerRing(ringEnvelopes)
+    triggerLabel(labelYEnvelopes)
+    envelopesRotate.value = withSequence(
+      withTiming(-17, SEG_A),
+      withTiming(11, SEG_B),
+      withTiming(-5, { duration: SEG_C.duration * 0.6, easing: BOUNCE_EASE }),
+      withTiming(0, { duration: SEG_C.duration * 0.4, easing: BOUNCE_EASE }),
+    )
+    envelopesScale.value = withSequence(withTiming(1.1, SEG_A), withTiming(1, { duration: SEG_B.duration + SEG_C.duration, easing: BOUNCE_EASE }))
+  }
+
+  const triggerMore = () => {
+    triggerRing(ringMore)
+    triggerLabel(labelYMore)
+    moreScale.value = withSequence(withTiming(1.18, SEG_A), withTiming(0.97, SEG_B), withTiming(1, SEG_C))
+    moreY.value = withSequence(withTiming(-3, SEG_A), withTiming(1, SEG_B), withTiming(0, SEG_C))
+  }
+
+  const triggerPlus = () => {
+    const from = plusBaseRef.current
+    const to = from + 90
+    plusBaseRef.current = to
+    plusRotate.value = withSequence(withTiming(from + 135, SEG_A), withTiming(to, { duration: SEG_B.duration + SEG_C.duration, easing: BOUNCE_EASE }))
+    plusScale.value = withSequence(withTiming(1.16, SEG_A), withTiming(1, { duration: SEG_B.duration + SEG_C.duration, easing: BOUNCE_EASE }))
+    plusSparkOpacity.value = 0.7
+    plusSparkScale.value = 0.4
+    plusSparkOpacity.value = withTiming(0, SPARK_OUT)
+    plusSparkScale.value = withTiming(2.9, SPARK_OUT)
+  }
+
+  const renderTab = (
+    name: 'index' | 'activity' | 'envelopes' | 'more',
+    iconStyle: ReturnType<typeof useAnimatedStyle>,
+    ringStyle: ReturnType<typeof useAnimatedStyle>,
+    labelStyle: ReturnType<typeof useAnimatedStyle>,
+    trigger: () => void,
+  ) => {
     const route = byName(name)
     if (!route) return null
     const focused = state.routes[state.index]?.key === route.key
@@ -83,15 +220,22 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       <Pressable
         key={route.key}
         onPress={() => {
-          bounce(name)
+          trigger()
           navigation.navigate(route.name)
         }}
         style={styles.tab}
       >
-        <Animated.View style={{ alignItems: 'center', gap: 3, transform: [{ scale: scales[name] }] }}>
-          <TabIcon size={24} color={color} strokeWidth={2} />
-          <Text style={[styles.label, { color, fontFamily: fontFamily.displayMedium }]}>{TAB_LABEL[name]}</Text>
-        </Animated.View>
+        <View style={{ alignItems: 'center', gap: 3 }}>
+          <View style={styles.iconWrap}>
+            <Reanimated.View style={[styles.ring, { backgroundColor: tokens.gold }, ringStyle]} pointerEvents="none" />
+            <Reanimated.View style={iconStyle}>
+              <TabIcon size={24} color={color} strokeWidth={2} />
+            </Reanimated.View>
+          </View>
+          <Reanimated.View style={labelStyle}>
+            <Text style={[styles.label, { color, fontFamily: fontFamily.displayMedium }]}>{TAB_LABEL[name]}</Text>
+          </Reanimated.View>
+        </View>
       </Pressable>
     )
   }
@@ -107,15 +251,24 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         },
       ]}
     >
-      {renderTab('index')}
-      {renderTab('activity')}
-      <Pressable onPress={() => router.push('/modals/log-expense')} style={styles.addTab}>
-        <View style={[styles.addButton, { backgroundColor: tokens.gold }]}>
-          <Plus size={24} color={tokens.onAccent} strokeWidth={2} />
+      {renderTab('index', homeIconStyle, ringStyleIndex, labelStyleIndex, triggerHome)}
+      {renderTab('activity', activityIconStyle, ringStyleActivity, labelStyleActivity, triggerActivity)}
+      <Pressable
+        onPress={() => {
+          triggerPlus()
+          router.push('/modals/log-expense')
+        }}
+        style={styles.addTab}
+      >
+        <View style={styles.plusWrap}>
+          <Reanimated.View style={[styles.spark, { backgroundColor: tokens.gold }, plusSparkStyle]} pointerEvents="none" />
+          <Reanimated.View style={[styles.addButton, { backgroundColor: tokens.gold }, plusIconStyle]}>
+            <Plus size={24} color={tokens.onAccent} strokeWidth={2} />
+          </Reanimated.View>
         </View>
       </Pressable>
-      {renderTab('envelopes')}
-      {renderTab('more')}
+      {renderTab('envelopes', envelopesIconStyle, ringStyleEnvelopes, labelStyleEnvelopes, triggerEnvelopes)}
+      {renderTab('more', moreIconStyle, ringStyleMore, labelStyleMore, triggerMore)}
       <FirstExpenseHint show={showFirstExpenseHint} onPress={() => router.push('/modals/log-expense')} />
     </View>
   )
@@ -191,13 +344,16 @@ const styles = StyleSheet.create({
   tab: { alignItems: 'center', gap: 3, flex: 1 },
   label: { fontSize: 10 },
   addTab: { alignItems: 'center', flex: 1 },
+  iconWrap: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  ring: { position: 'absolute', width: 32, height: 32, borderRadius: 16 },
+  plusWrap: { width: 46, height: 46, marginTop: -22, alignItems: 'center', justifyContent: 'center' },
+  spark: { position: 'absolute', width: 46, height: 46, borderRadius: 23 },
   addButton: {
     width: 46,
     height: 46,
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,

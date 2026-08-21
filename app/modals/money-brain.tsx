@@ -25,7 +25,6 @@ import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
-import { LoadingBar } from '@/src/components/shared/LoadingBar'
 import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
@@ -255,6 +254,7 @@ export default function MoneyBrainModal() {
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
+        {!(messages.length === 0 && briefQ.isLoading) && (
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardLabel, { color: tokens.text2 }]}>THIS MONTH SO FAR</Text>
           <Text style={[styles.cardValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -283,6 +283,7 @@ export default function MoneyBrainModal() {
             </Text>
           )}
         </View>
+        )}
 
         {brief && (
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -322,8 +323,7 @@ export default function MoneyBrainModal() {
         )}
 
         {messages.length === 0 && briefQ.isLoading && (
-          <View style={{ flex: 1, minHeight: 160, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            <LoadingBar />
+          <View style={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}>
             <LoadingCaption />
           </View>
         )}
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
-  body: { padding: 20, paddingTop: 4, gap: 16 },
+  body: { flexGrow: 1, padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
   cardLabel: { fontSize: 10, letterSpacing: 0.6 },
   cardValue: { fontSize: 18, marginTop: 6 },
