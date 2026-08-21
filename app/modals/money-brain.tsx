@@ -25,10 +25,20 @@ import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { LoadingBar } from '@/src/components/shared/LoadingBar'
 import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
+
+const CHAT_PHRASES = [
+  'Thinking it through…',
+  'Reading your recent transactions…',
+  'Checking your envelopes…',
+  'Doing the math…',
+  'Putting your answer together…',
+  'Looking at your spending…',
+]
 
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
@@ -311,6 +321,13 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
+        {messages.length === 0 && briefQ.isLoading && (
+          <View style={{ flex: 1, minHeight: 160, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <LoadingBar />
+            <LoadingCaption />
+          </View>
+        )}
+
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>
             {messages.map((m, i) => {
@@ -331,7 +348,7 @@ export default function MoneyBrainModal() {
               </View>
               )
             })}
-            {awaitingFirstDelta && <LoadingCaption />}
+            {awaitingFirstDelta && <LoadingCaption phrases={CHAT_PHRASES} />}
           </View>
         )}
       </ScrollView>

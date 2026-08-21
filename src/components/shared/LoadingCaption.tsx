@@ -34,12 +34,13 @@ function shuffleArray<T>(array: T[]): T[] {
 
 interface Props {
   style?: StyleProp<ViewStyle>
+  phrases?: string[]
 }
 
-export function LoadingCaption({ style }: Props) {
+export function LoadingCaption({ style, phrases = PHRASES }: Props) {
   const { tokens } = useTheme()
   const [phraseIndex, setPhraseIndex] = useState(0)
-  const [shuffledPhrases] = useState(() => shuffleArray(PHRASES))
+  const [shuffledPhrases] = useState(() => shuffleArray(phrases))
   const opacity = useRef(new Animated.Value(0.4)).current
 
   useEffect(() => {

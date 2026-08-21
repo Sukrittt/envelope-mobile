@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, usePathname } from 'expo-router'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
@@ -41,12 +42,20 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const router = useRouter()
   const userQ = useUser()
   const expensesQ = useExpenses()
+  const pathname = usePathname()
 
   // Coach mark only after onboarding is confirmed done AND the expense list
   // has loaded empty. Either query loading or failing => hidden (no flash,
-  // no false positive for signed-out/error states).
+  // no false positive for signed-out/error states). Also hidden off the Home
+  // tab and behind the log-expense modal so it doesn't linger on other screens.
+  const onHomeTab = state.routes[state.index]?.name === 'index'
+  const modalOpen = pathname === '/modals/log-expense'
   const showFirstExpenseHint =
-    !!userQ.data?.onboardedAt && expensesQ.isSuccess && (expensesQ.data?.length ?? 0) === 0
+    !!userQ.data?.onboardedAt &&
+    expensesQ.isSuccess &&
+    (expensesQ.data?.length ?? 0) === 0 &&
+    onHomeTab &&
+    !modalOpen
 
   const byName = (name: string) => state.routes.find((r) => r.name === name)
 
@@ -118,27 +127,47 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
 // disappears the moment the first expense exists).
 function FirstExpenseHint({ show, onPress }: { show: boolean; onPress: () => void }) {
   const { tokens } = useTheme()
+  const [mounted, setMounted] = useState(show)
+  // entrance: 0 -> 1 fade/scale/slide-up on show, reverse on hide (unmounts after finishing).
+  const entrance = useSharedValue(show ? 1 : 0)
   // bobDown: translateY 0 -> 9px, opacity .85 -> 1, 1.5s ease-in-out loop.
   const bob = useSharedValue(0)
+
   useEffect(() => {
-    if (!show) {
+    if (show) {
+      setMounted(true)
+      entrance.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) })
+    } else {
+      entrance.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.cubic) }, (finished) => {
+        if (finished) runOnJS(setMounted)(false)
+      })
+    }
+  }, [show, entrance])
+
+  useEffect(() => {
+    if (!mounted) {
       bob.value = 0
       return
     }
     const segment = { duration: 750, easing: Easing.inOut(Easing.ease) }
     bob.value = withRepeat(withSequence(withTiming(1, segment), withTiming(0, segment)), -1, false)
-  }, [show, bob])
+  }, [mounted, bob])
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: entrance.value,
+    transform: [{ scale: 0.85 + entrance.value * 0.15 }, { translateY: (1 - entrance.value) * 8 }],
+  }))
 
   const arrowStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: bob.value * 9 }],
     opacity: 0.85 + bob.value * 0.15,
   }))
 
-  if (!show) return null
+  if (!mounted) return null
 
   return (
     <Pressable onPress={onPress} style={styles.hintAnchor} pointerEvents="box-none" hitSlop={6}>
-      <Reanimated.View style={styles.hintWrap} pointerEvents="box-none">
+      <Reanimated.View style={[styles.hintWrap, containerStyle]} pointerEvents="box-none">
         <View style={[styles.hintPill, { backgroundColor: tokens.text }]}>
           <Text style={[styles.hintLabel, { color: tokens.bg }]}>Log your first expense here</Text>
         </View>
