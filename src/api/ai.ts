@@ -72,21 +72,25 @@ async function authHeader(): Promise<Record<string, string>> {
  * bodies under Hermes). Buffers decoded text and splits on the SSE frame
  * delimiter ("\n\n"), calling onDelta for each `data: {"delta":...}` frame.
  *
- * The server is the source of truth for history now (`sessionId` threads a
- * persisted session through): pass the session's id to append to it, or null
- * to start a new one — the server creates it and sends its id back as the
- * first frame, which this returns so the caller can remember it.
+ * `messages` is sent in full (as before) rather than just the newest one:
+ * the client can't tell ahead of the request whether it'll land as a signed-in
+ * user (persisted, session-scoped) or the read-only demo user (stateless,
+ * needs the whole history every call) — same body either way. `sessionId`
+ * additionally threads a persisted session through for signed-in users: pass
+ * the session's id to append to it, or null to start a new one — the server
+ * creates it and sends its id back as the first frame, which this returns so
+ * the caller can remember it. Ignored server-side for the demo user.
  */
 export async function streamChat(
   sessionId: string | null,
-  message: string,
+  messages: ChatMessage[],
   onDelta: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<string | null> {
   const resp = await expoFetch(`${BASE_URL}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({ sessionId, message }),
+    body: JSON.stringify({ sessionId, messages }),
     signal,
   })
 

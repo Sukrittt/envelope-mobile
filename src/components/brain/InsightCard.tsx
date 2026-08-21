@@ -23,16 +23,27 @@ const TONE_KEYS: Record<Tone, { solid: keyof ThemeTokens; soft: keyof ThemeToken
   warn: { solid: 'warn', soft: 'warnSoft' },
 }
 
+const DEFAULT_ICON: Record<Tone, string> = {
+  mint: '💰',
+  violet: '📈',
+  coral: '🛍️',
+  warn: '⚠️',
+}
+
+// Model-supplied icon is sometimes a plain word (e.g. "wallet") instead of an emoji; fall back per tone.
+const EMOJI_RE = /\p{Extended_Pictographic}/u
+
 export function InsightCard({ icon, title, subtitle, valueLabel, amount, tone, hideAmounts }: Props) {
   const { tokens } = useTheme()
   const { solid: solidKey, soft: softKey } = TONE_KEYS[tone]
   const soft = tokens[softKey]
   const solid = tokens[solidKey]
+  const displayIcon = icon && EMOJI_RE.test(icon) ? icon : DEFAULT_ICON[tone]
 
   return (
     <View style={styles.row}>
       <View style={[styles.iconTile, { backgroundColor: soft }]}>
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Text style={{ fontSize: 18 }}>{displayIcon}</Text>
       </View>
       <View style={styles.main}>
         <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>

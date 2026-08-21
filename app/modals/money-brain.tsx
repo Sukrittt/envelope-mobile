@@ -83,7 +83,8 @@ export default function MoneyBrainModal() {
     const trimmed = text.trim()
     if (!trimmed || sending) return
 
-    setMessages([...messages, { role: 'user', text: trimmed }, { role: 'model', text: '' }])
+    const history = [...messages, { role: 'user' as const, text: trimmed }]
+    setMessages([...history, { role: 'model', text: '' }])
     setInput('')
     setSending(true)
 
@@ -92,7 +93,7 @@ export default function MoneyBrainModal() {
 
     streamChat(
       sessionId,
-      trimmed,
+      history,
       (delta) => {
         setMessages((prev) => {
           const copy = [...prev]
