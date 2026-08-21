@@ -99,7 +99,7 @@ export default function WelcomeScreen() {
             By continuing you agree to the{' '}
             <Text style={{ color: tokens.gold }}>Terms</Text> and{' '}
             <Text style={{ color: tokens.gold }}>Privacy Policy</Text>.{'\n'}
-            Free and open source — your data stays yours.
+            Free and open source. Your data stays yours.
           </Text>
         </Animated.View>
       </View>

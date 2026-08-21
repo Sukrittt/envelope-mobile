@@ -174,7 +174,7 @@ export function TopCategoryCard({ data, color, onColor }: CardProps) {
       </WPop>
       <WRise delay={260}>
         <WrappedCaption
-          value={`${formatCurrency(top.total)} — a full ${top.pct.toFixed(0)}% of everything. ${quip}`}
+          value={`${formatCurrency(top.total)}, a full ${top.pct.toFixed(0)}% of everything. ${quip}`}
           onColor={onColor}
         />
       </WRise>
@@ -542,7 +542,7 @@ export function BadgesCard({ data, color, onColor }: CardProps) {
       </View>
       <WRise delay={500}>
         <Text style={[styles.breakdownCloser, { color: onColor, fontFamily: fontFamily.bodySemiBold }]}>
-          Keep logging — more badges unlock as your streak grows.
+          Keep logging. More badges unlock as your streak grows.
         </Text>
       </WRise>
     </WrappedCard>
@@ -580,7 +580,7 @@ export function ArchetypeCard({ data, color, onColor }: CardProps) {
     ? `, then quietly moves ${formatCurrency(second.total)} into ${splitEmoji(second.category).text} like it's nothing.`
     : '.'
   if (data.topWeekday) {
-    blurb += ` ${archetype.closer} — and then ${data.topWeekday.day} happens.`
+    blurb += ` ${archetype.closer}. And then ${data.topWeekday.day} happens.`
   }
 
   return (

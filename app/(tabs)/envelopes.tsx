@@ -388,7 +388,7 @@ export default function EnvelopesScreen() {
           : 'Rename group'
   const sheetHint = isCatSheet
     ? 'Categories live inside a group. Pick where this one belongs.'
-    : 'Groups gather related categories — Food, Home, Transport.'
+    : 'Groups gather related categories: Food, Home, Transport.'
   const draftValid = draftName.trim().length > 0
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
@@ -603,7 +603,7 @@ export default function EnvelopesScreen() {
         </View>
         {draftName.trim() !== '' && !draftHasEmoji && (
           <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6, lineHeight: 15 }}>
-            💡 Tip: start the name with an emoji — {isCatSheet ? '🛒 Groceries' : '🚗 Transport'} — to give it its own icon.
+            💡 Tip: start the name with an emoji, like {isCatSheet ? '🛒 Groceries' : '🚗 Transport'}, to give it its own icon.
           </Text>
         )}
 

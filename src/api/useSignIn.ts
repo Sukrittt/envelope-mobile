@@ -69,7 +69,7 @@ export function useSignIn(): SignInState {
         setDone(true)
       })
       .catch(() => {
-        if (!cancelled) setError('Could not complete sign-in — check your connection')
+        if (!cancelled) setError('Could not complete sign-in. Check your connection.')
       })
       .finally(() => {
         if (!cancelled) setPending(false)

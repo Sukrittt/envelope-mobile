@@ -288,7 +288,7 @@ export default function SecurityScreen() {
         <View style={[styles.dangerCard, { borderColor: tokens.coral }]}>
           <Text style={[styles.dangerTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>Delete account</Text>
           <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Removes envelopes, transactions and recaps. Export your data first — this can't be undone.
+            Removes envelopes, transactions and recaps. Export your data first. This can't be undone.
           </Text>
           <Pressable
             onPress={confirmDelete}
@@ -305,7 +305,7 @@ export default function SecurityScreen() {
       <BottomSheet visible={confirmingDelete} onClose={() => !deleting && setConfirmingDelete(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
         <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes envelopes, transactions and recaps. Export your data first — this can't be undone.
+          Removes envelopes, transactions and recaps. Export your data first. This can’t be undone.
         </Text>
         <View style={styles.sheetButtonRow}>
           <Pressable onPress={() => setConfirmingDelete(false)} disabled={deleting} style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}>

@@ -229,7 +229,7 @@ export default function HomeScreen() {
       .filter((e) => e.isOverspent && !e.isCreditCardPayment)
       .sort((a, b) => a.available - b.available)
     if (overspent.length > 0) {
-      return `${overspent[0].category} is overspent by ${formatCurrency(Math.abs(overspent[0].available), hideAmounts)} — the biggest drag this month.`
+      return `${overspent[0].category} is overspent by ${formatCurrency(Math.abs(overspent[0].available), hideAmounts)}, the biggest drag this month.`
     }
     if (creditCardEnvelope && creditCardEnvelope.available > 0) {
       return `Credit card payment of ${formatCurrency(creditCardEnvelope.available, hideAmounts)} is set aside and ready to pay.`
@@ -237,7 +237,7 @@ export default function HomeScreen() {
     const withBudget = envelopeState.envelopes.filter((e) => !e.isCreditCardPayment && e.assigned > 0)
     if (withBudget.length > 0) {
       const low = [...withBudget].sort((a, b) => a.available - b.available)[0]
-      return `${low.category} has ${formatCurrency(low.available, hideAmounts)} left — keep an eye on it.`
+      return `${low.category} has ${formatCurrency(low.available, hideAmounts)} left. Keep an eye on it.`
     }
     return 'No spending data yet this month.'
   }, [envelopeState, creditCardEnvelope, hideAmounts])

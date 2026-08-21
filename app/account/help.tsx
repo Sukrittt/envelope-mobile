@@ -9,8 +9,13 @@ import { Icon } from '@/src/components/shared/Icon'
 
 const REPO = 'Sukrittt/ynab-replacement'
 
-const ENVELOPES_EXPLAINER =
-  'Every rupee you add starts in Ready to Assign — unclaimed, waiting for a job. You move it into envelopes like Rent, Food or Football, and each envelope tracks what it has left to spend. Log an expense against an envelope and its balance drops; nothing else moves. Envelopes usually roll over: whatever is left at the end of the month carries into the next one instead of vanishing, so a light month builds a cushion for a heavy one. The only number worth watching is Ready to Assign — once it hits zero, every rupee has a job.'
+const ENVELOPES_EXPLAINER = [
+  'New money lands in Ready to Assign, unclaimed.',
+  'Move it into envelopes like Rent, Food or Football.',
+  'Log an expense against an envelope and only that envelope drops.',
+  'Whatever is left rolls into next month, so a light month cushions a heavy one.',
+  'Watch one number: Ready to Assign. At zero, every rupee has a job.',
+]
 
 function bugUrl(): string {
   const title = encodeURIComponent('Bug: ')
@@ -49,9 +54,13 @@ export default function HelpScreen() {
             <Icon icon={explainerOpen ? ChevronUp : ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
           {explainerOpen && (
-            <Text style={[styles.explainer, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {ENVELOPES_EXPLAINER}
-            </Text>
+            <View style={styles.explainerList}>
+              {ENVELOPES_EXPLAINER.map((line) => (
+                <Text key={line} style={[styles.explainer, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                  {'•  '}{line}
+                </Text>
+              ))}
+            </View>
           )}
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(bugUrl())} style={styles.row}>
@@ -93,5 +102,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
   divider: { height: StyleSheet.hairlineWidth },
-  explainer: { fontSize: 13, lineHeight: 20, paddingHorizontal: 16, paddingBottom: 16 },
+  explainerList: { paddingHorizontal: 16, paddingBottom: 16, gap: 6 },
+  explainer: { fontSize: 13, lineHeight: 18 },
 })

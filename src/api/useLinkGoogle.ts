@@ -71,7 +71,7 @@ export function useLinkGoogle(): LinkGoogleState {
         setDone(true)
       })
       .catch(() => {
-        if (!cancelled) setError('Could not link Google — check your connection')
+        if (!cancelled) setError('Could not link Google. Check your connection.')
       })
       .finally(() => {
         if (!cancelled) setPending(false)

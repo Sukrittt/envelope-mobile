@@ -198,7 +198,7 @@ export default function MoveMoneyModal() {
             >
               {resultingBalance >= 0
                 ? `${selectedSource === RTA_SENTINEL ? 'Ready to Assign' : selectedSource} will have ${formatCurrency(resultingBalance, hideAmounts)} available after this move`
-                : `Source only has ${formatCurrency(maxAvailable, hideAmounts)} — reduce the amount`}
+                : `Source only has ${formatCurrency(maxAvailable, hideAmounts)}. Reduce the amount.`}
             </Text>
           )}
 

@@ -15,7 +15,7 @@ import { StepDot } from '@/src/components/onboarding/StepDot'
 const PLACEHOLDER_ART = require('@/assets/icon.png')
 
 const SLIDES = [
-  { title: 'Give every rupee a job', body: 'Income lands in Ready to Assign. Move it into envelopes — rent, food, football — until nothing is unassigned.' },
+  { title: 'Give every rupee a job', body: 'Income lands in Ready to Assign. Move it into envelopes: rent, food, football. Keep going until nothing is unassigned.' },
   { title: 'Log in three taps', body: 'The + button in the tab bar takes an amount, an envelope, and a note. That’s the whole ritual.' },
   { title: 'Money Brain watches for you', body: 'Ask it anything about your month, and get a Wrapped recap when the month closes. Both live under You.' },
 ] as const
