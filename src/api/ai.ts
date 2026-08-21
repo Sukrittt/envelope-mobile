@@ -32,6 +32,8 @@ export interface ChatSessionSummary {
   id: string
   title: string
   updatedAt: string
+  preview: string
+  messageCount: number
 }
 
 export interface ChatSessionDetail extends ChatSessionSummary {
@@ -39,8 +41,24 @@ export interface ChatSessionDetail extends ChatSessionSummary {
   createdAt: string
 }
 
-export async function listChatSessions(): Promise<ChatSessionSummary[]> {
-  const resp = await apiFetch('/api/ai/chat/sessions')
+export interface ChatSessionsPage {
+  sessions: ChatSessionSummary[]
+  total: number
+  page: number
+  pageCount: number
+}
+
+export async function listChatSessions(params?: {
+  page?: number
+  limit?: number
+  q?: string
+}): Promise<ChatSessionsPage> {
+  const qs = new URLSearchParams()
+  if (params?.page) qs.set('page', String(params.page))
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.q) qs.set('q', params.q)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  const resp = await apiFetch(`/api/ai/chat/sessions${suffix}`)
   if (!resp.ok) throw new Error(`Failed to load chat history: ${resp.status}`)
   return resp.json()
 }

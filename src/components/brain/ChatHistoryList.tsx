@@ -1,7 +1,9 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { Icon } from '@/src/components/shared/Icon'
 import type { ChatSessionSummary } from '@/src/api/ai'
 
 /** Written by hand (no Intl) per this app's date-formatting convention — see EnvelopeRow.tsx's lastSpentLabel. */
@@ -18,61 +20,215 @@ function timeAgoLabel(iso: string): string {
   return d.toLocaleDateString()
 }
 
+const DAY_ORDER = ['Today', 'Yesterday', 'Earlier'] as const
+type DayBucket = (typeof DAY_ORDER)[number]
+
+/** Buckets by calendar day (not a rolling 24h window), same hand-written style as timeAgoLabel above. */
+function dayBucket(iso: string): DayBucket {
+  const d = new Date(iso)
+  const now = new Date()
+  const startOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86_400_000)
+  if (diffDays <= 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  return 'Earlier'
+}
+
 interface Props {
   sessions: ChatSessionSummary[] | undefined
   loading: boolean
+  page: number
+  pageCount: number
+  query: string
+  onQueryChange: (text: string) => void
+  onClearQuery: () => void
+  onPageChange: (page: number) => void
   onSelect: (id: string) => void
+  onStartNewChat: () => void
 }
 
-export function ChatHistoryList({ sessions, loading, onSelect }: Props) {
+export function ChatHistoryList({
+  sessions,
+  loading,
+  page,
+  pageCount,
+  query,
+  onQueryChange,
+  onClearQuery,
+  onPageChange,
+  onSelect,
+  onStartNewChat,
+}: Props) {
   const { tokens } = useTheme()
 
-  if (loading) {
-    return (
-      <View style={{ paddingTop: 24 }}>
-        <LoadingCaption />
-      </View>
-    )
-  }
-
-  if (!sessions || sessions.length === 0) {
-    return (
-      <View style={styles.empty}>
-        <Text style={[styles.emptyText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          No past chats yet
-        </Text>
-      </View>
-    )
-  }
+  const groups = DAY_ORDER.map((label) => ({
+    label,
+    items: (sessions ?? []).filter((s) => dayBucket(s.updatedAt) === label),
+  })).filter((g) => g.items.length > 0)
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
-      {sessions.map((s) => (
-        <Pressable
-          key={s.id}
-          onPress={() => onSelect(s.id)}
-          style={[styles.row, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-        >
-          <Text
-            style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
-            numberOfLines={1}
+    <View style={{ flex: 1 }}>
+      <View style={[styles.searchRow, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
+        <Icon icon={Search} size={16} color={tokens.text3} />
+        <TextInput
+          value={query}
+          onChangeText={onQueryChange}
+          placeholder="Search your chats…"
+          placeholderTextColor={tokens.text3}
+          style={[styles.searchInput, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+        />
+        {query.length > 0 && (
+          <Pressable onPress={onClearQuery} style={[styles.clearButton, { backgroundColor: tokens.border }]}>
+            <Text style={{ color: tokens.text2, fontSize: 12 }}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {loading && !sessions ? (
+        <View style={{ paddingTop: 24 }}>
+          <LoadingCaption />
+        </View>
+      ) : !sessions || sessions.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+            {query ? `No chats match "${query}"` : 'No past chats yet'}
+          </Text>
+          {query ? (
+            <>
+              <Text style={[styles.emptyText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                Try a shorter phrase, or start a new chat about it.
+              </Text>
+              <Pressable
+                onPress={onStartNewChat}
+                style={[styles.emptyButton, { backgroundColor: tokens.gold }]}
+              >
+                <Text style={{ color: tokens.onAccent, fontSize: 13, fontFamily: fontFamily.bodySemiBold }}>
+                  Ask Money Brain
+                </Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list}>
+          {groups.map((g) => (
+            <View key={g.label} style={{ gap: 8 }}>
+              <Text style={[styles.groupLabel, { color: tokens.text3 }]}>{g.label.toUpperCase()}</Text>
+              <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                {g.items.map((s, i) => (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => onSelect(s.id)}
+                    style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border }]}
+                  >
+                    <Text
+                      style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+                      numberOfLines={1}
+                    >
+                      {s.title}
+                    </Text>
+                    <Text
+                      style={[styles.preview, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+                      numberOfLines={1}
+                    >
+                      {s.preview}
+                    </Text>
+                    <View style={styles.metaRow}>
+                      <Text style={[styles.meta, { color: tokens.text3 }]}>{timeAgoLabel(s.updatedAt)}</Text>
+                      <View style={[styles.dot, { backgroundColor: tokens.text3 }]} />
+                      <Text style={[styles.meta, { color: tokens.text3 }]}>{s.messageCount} messages</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {pageCount > 1 && (
+        <View style={[styles.pager, { backgroundColor: tokens.headerBg, borderTopColor: tokens.border }]}>
+          <Pressable
+            onPress={() => page > 1 && onPageChange(page - 1)}
+            disabled={page <= 1}
+            style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page <= 1 ? 0.4 : 1 }]}
           >
-            {s.title}
-          </Text>
-          <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            {timeAgoLabel(s.updatedAt)}
-          </Text>
-        </Pressable>
-      ))}
-    </ScrollView>
+            <Icon icon={ChevronLeft} size={16} color={tokens.text} />
+          </Pressable>
+          <View style={styles.pagePills}>
+            {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
+              <Pressable
+                key={p}
+                onPress={() => onPageChange(p)}
+                style={[
+                  styles.pagePill,
+                  p === page
+                    ? { backgroundColor: tokens.gold }
+                    : { borderWidth: 1, borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: p === page ? tokens.onAccent : tokens.text2,
+                    fontSize: 13,
+                    fontFamily: fontFamily.bodySemiBold,
+                  }}
+                >
+                  {p}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable
+            onPress={() => page < pageCount && onPageChange(page + 1)}
+            disabled={page >= pageCount}
+            style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page >= pageCount ? 0.4 : 1 }]}
+          >
+            <Icon icon={ChevronRight} size={16} color={tokens.text} />
+          </Pressable>
+        </View>
+      )}
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 20, gap: 10 },
-  row: { padding: 16, borderWidth: 1, borderRadius: 16, gap: 4 },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    height: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  searchInput: { flex: 1, fontSize: 13, padding: 0 },
+  clearButton: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  list: { paddingHorizontal: 20, paddingBottom: 20, gap: 16 },
+  groupLabel: { fontSize: 11, letterSpacing: 0.6, fontWeight: '700', paddingLeft: 2 },
+  card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
+  row: { padding: 16, gap: 4 },
   title: { fontSize: 14 },
+  preview: { fontSize: 12 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   meta: { fontSize: 11 },
-  empty: { paddingTop: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13 },
+  dot: { width: 3, height: 3, borderRadius: 1.5 },
+  empty: { paddingTop: 40, alignItems: 'center', gap: 10, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 16, textAlign: 'center' },
+  emptyText: { fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  emptyButton: { marginTop: 4, height: 42, paddingHorizontal: 18, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  pager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  arrow: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  pagePills: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pagePill: { minWidth: 34, height: 34, paddingHorizontal: 10, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 })

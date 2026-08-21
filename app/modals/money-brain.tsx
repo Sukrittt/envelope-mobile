@@ -11,8 +11,7 @@ import {
   Alert,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { ArrowLeft, ArrowUp, Clock, SquarePen } from 'lucide-react-native'
+import { ArrowLeft, ArrowUp, Clock, Plus } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -21,7 +20,7 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { useMoneyBrief } from '@/src/hooks/useMoneyBrief'
-import { useChatSessions } from '@/src/hooks/useChatSessions'
+import { useChatSessions, useChatSessionsCount } from '@/src/hooks/useChatSessions'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
@@ -34,7 +33,6 @@ import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
-  const router = useRouter()
   const { hideAmounts } = usePrivacy()
 
   const budgetsQ = useBudgets()
@@ -73,7 +71,21 @@ export default function MoneyBrainModal() {
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<ScrollView>(null)
 
-  const historyQuery = useChatSessions(view === 'history')
+  const [historyQueryText, setHistoryQueryText] = useState('')
+  const [historyDebouncedQuery, setHistoryDebouncedQuery] = useState('')
+  const [historyPage, setHistoryPage] = useState(1)
+
+  // Debounce the search box before it reaches the server-side search param.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setHistoryDebouncedQuery(historyQueryText)
+      setHistoryPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [historyQueryText])
+
+  const historyQuery = useChatSessions(view === 'history', { page: historyPage, query: historyDebouncedQuery })
+  const historyCountQuery = useChatSessionsCount()
 
   useEffect(() => {
     return () => abortRef.current?.abort()
@@ -125,6 +137,8 @@ export default function MoneyBrainModal() {
     setSessionId(null)
     setInput('')
     setView('chat')
+    setHistoryQueryText('')
+    setHistoryPage(1)
   }
 
   async function openSession(id: string) {
@@ -153,12 +167,36 @@ export default function MoneyBrainModal() {
             <Icon icon={ArrowLeft} size={18} color={tokens.text} />
           </Pressable>
           <Text
-            style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, marginLeft: 12 }]}
+            style={[
+              styles.title,
+              { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, marginLeft: 12 },
+            ]}
           >
             Chat history
           </Text>
+          <Pressable onPress={startNewChat} style={[styles.newPill, { backgroundColor: tokens.gold }]}>
+            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Text style={[styles.newPillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
+              New
+            </Text>
+          </Pressable>
         </View>
-        <ChatHistoryList sessions={historyQuery.data} loading={historyQuery.isLoading} onSelect={openSession} />
+        <ChatHistoryList
+          sessions={historyQuery.data?.sessions}
+          loading={historyQuery.isLoading}
+          page={historyPage}
+          pageCount={historyQuery.data?.pageCount ?? 1}
+          query={historyQueryText}
+          onQueryChange={setHistoryQueryText}
+          onClearQuery={() => {
+            setHistoryQueryText('')
+            setHistoryDebouncedQuery('')
+            setHistoryPage(1)
+          }}
+          onPageChange={setHistoryPage}
+          onSelect={openSession}
+          onStartNewChat={startNewChat}
+        />
       </View>
     )
   }
@@ -179,23 +217,24 @@ export default function MoneyBrainModal() {
             </Text>
           </View>
         </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={() => setView('history')}
-            hitSlop={10}
-            style={[styles.iconButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-          >
-            <Icon icon={Clock} size={16} color={tokens.text} />
+        <View style={[styles.headerActions, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+          <Pressable onPress={() => setView('history')} hitSlop={6} style={styles.pillButton}>
+            <Icon icon={Clock} size={15} color={tokens.text2} />
+            {historyCountQuery.data !== undefined && (
+              <Text style={[styles.pillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+                {historyCountQuery.data}
+              </Text>
+            )}
           </Pressable>
           <Pressable
             onPress={startNewChat}
-            hitSlop={10}
-            style={[styles.iconButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+            hitSlop={6}
+            style={[styles.pillButton, styles.pillButtonPrimary, { backgroundColor: tokens.gold }]}
           >
-            <Icon icon={SquarePen} size={16} color={tokens.text} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/(tabs)')} hitSlop={12}>
-            <Text style={[styles.home, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>Go Home</Text>
+            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Text style={[styles.pillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
+              New
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -328,12 +367,16 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 3, borderRadius: 100, borderWidth: 1 },
+  pillButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: 100 },
+  pillButtonPrimary: { paddingHorizontal: 12 },
+  pillText: { fontSize: 12, fontWeight: '700' },
+  newPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 100 },
+  newPillText: { fontSize: 12, fontWeight: '800' },
   iconButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
-  home: { fontSize: 14 },
   body: { padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
   cardLabel: { fontSize: 10, letterSpacing: 0.6 },
