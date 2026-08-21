@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Modal as RNModal, Pressable, StyleSheet } from 'react-native'
+import { Modal as RNModal, Pressable, KeyboardAvoidingView, Keyboard, Platform, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
@@ -18,19 +18,25 @@ interface Props {
 export function BottomSheet({ visible, onClose, children }: Props) {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
+
+  // First backdrop tap just dismisses the keyboard; a second tap closes the sheet.
+  const handleBackdrop = () => (Keyboard.isVisible() ? Keyboard.dismiss() : onClose())
+
   return (
     <RNModal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.sheet,
-            { backgroundColor: tokens.modalStrong, borderColor: tokens.borderStrong, paddingBottom: insets.bottom + 16 },
-          ]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {children}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <Pressable style={styles.backdrop} onPress={handleBackdrop}>
+          <Pressable
+            style={[
+              styles.sheet,
+              { backgroundColor: tokens.modalStrong, borderColor: tokens.borderStrong, paddingBottom: insets.bottom + 16 },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {children}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </RNModal>
   )
 }

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { View, Text, Pressable, Modal, TextInput, StyleSheet } from 'react-native'
+import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { ProgressBar } from './ProgressBar'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import type { Envelope } from '@/src/lib/envelope'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -117,82 +118,75 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
         {formatCurrency(envelope.available, hideAmounts)}
       </Text>
 
-      <Modal visible={sheetOpen} transparent animationType="fade" onRequestClose={closeSheet}>
-        <Pressable style={styles.backdrop} onPress={closeSheet}>
-          <Pressable
-            style={[styles.sheet, { backgroundColor: tokens.modalBg, borderColor: tokens.borderStrong }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {name}
-            </Text>
-            {!editing ? (
-              <>
-                <Pressable
-                  style={styles.sheetBtn}
-                  onPress={() => {
-                    closeSheet()
-                    onMoveMoney(envelope.category)
-                  }}
-                >
-                  <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-                    Move money between envelopes
-                  </Text>
-                </Pressable>
-                <Pressable style={styles.sheetBtn} onPress={() => setEditing(true)}>
-                  <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-                    Edit assigned amount
-                  </Text>
-                </Pressable>
-                {!envelope.isCreditCardPayment && (
-                  <Pressable
-                    style={styles.sheetBtn}
-                    onPress={() => {
-                      closeSheet()
-                      onViewTransactions(envelope.category)
-                    }}
-                  >
-                    <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-                      View transactions
-                    </Text>
-                  </Pressable>
-                )}
-              </>
-            ) : (
-              <>
-                <View style={styles.editRow}>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
-                    keyboardType="number-pad"
-                    value={amountText}
-                    onChangeText={setAmountText}
-                    autoFocus
-                  />
-                  <Pressable
-                    style={[
-                      styles.confirmBtn,
-                      { backgroundColor: editSuccess ? tokens.mint : tokens.gold, opacity: editSaving ? 0.5 : 1 },
-                    ]}
-                    onPress={submitEdit}
-                    disabled={editSaving || editSuccess}
-                  >
-                    {editSuccess ? (
-                      <CheckIcon color={tokens.onAccent} size={16} />
-                    ) : (
-                      <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
-                        {editSaving ? 'Saving…' : 'Save'}
-                      </Text>
-                    )}
-                  </Pressable>
-                </View>
-                {editError !== '' && (
-                  <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 6 }}>{editError}</Text>
-                )}
-              </>
+      <BottomSheet visible={sheetOpen} onClose={closeSheet}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          {name}
+        </Text>
+        {!editing ? (
+          <>
+            <Pressable
+              style={styles.sheetBtn}
+              onPress={() => {
+                closeSheet()
+                onMoveMoney(envelope.category)
+              }}
+            >
+              <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                Move money between envelopes
+              </Text>
+            </Pressable>
+            <Pressable style={styles.sheetBtn} onPress={() => setEditing(true)}>
+              <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                Edit assigned amount
+              </Text>
+            </Pressable>
+            {!envelope.isCreditCardPayment && (
+              <Pressable
+                style={styles.sheetBtn}
+                onPress={() => {
+                  closeSheet()
+                  onViewTransactions(envelope.category)
+                }}
+              >
+                <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                  View transactions
+                </Text>
+              </Pressable>
             )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </>
+        ) : (
+          <>
+            <View style={styles.editRow}>
+              <TextInput
+                style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
+                keyboardType="number-pad"
+                value={amountText}
+                onChangeText={setAmountText}
+                autoFocus
+              />
+              <Pressable
+                style={[
+                  styles.confirmBtn,
+                  { backgroundColor: editSuccess ? tokens.mint : tokens.gold, opacity: editSaving ? 0.5 : 1 },
+                ]}
+                onPress={submitEdit}
+                disabled={editSaving || editSuccess}
+              >
+                {editSuccess ? (
+                  <CheckIcon color={tokens.onAccent} size={16} />
+                ) : (
+                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold }}>
+                    {editSaving ? 'Saving…' : 'Save'}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            {editError !== '' && (
+              <Text style={{ color: tokens.coral, fontSize: 12, marginTop: 6 }}>{editError}</Text>
+            )}
+          </>
+        )}
+      </BottomSheet>
     </View>
   )
 }
@@ -205,8 +199,6 @@ const styles = StyleSheet.create({
   metaLine: { fontSize: 10, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12 },
   available: { fontSize: 12, minWidth: 60, textAlign: 'right' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, padding: 16, gap: 4, paddingBottom: 32 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },

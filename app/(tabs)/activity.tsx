@@ -427,7 +427,7 @@ export default function ActivityScreen() {
           autoCorrect={false}
           style={[styles.categorySearch, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
         />
-        <ScrollView style={styles.categorySheetScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.categorySheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Pressable
             style={[styles.categoryOption, selectedCategory === '' && { backgroundColor: tokens.chipActiveBg }]}
             onPress={() => {
