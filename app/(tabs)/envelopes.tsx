@@ -148,25 +148,26 @@ function DraggableCategoryList({
                   : null,
             ]}
           >
-            <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
-              <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
-            </View>
-            <Text
-              style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
-              numberOfLines={1}
+            <Pressable
+              style={styles.catRowMain}
+              disabled={reordering}
+              onPress={() => onMenu(cat.name)}
             >
-              {splitEmoji(cat.name).text}
-            </Text>
-            <View style={styles.catActions}>
-              {!reordering && (
-                <Pressable onPress={() => onMenu(cat.name)} hitSlop={8}>
-                  <Icon icon={MoreVertical} size={15} color={tokens.text3} />
-                </Pressable>
-              )}
-              <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                <Icon icon={Equal} size={14} color={tokens.text3} />
+              <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
+                <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
               </View>
-            </View>
+              <Text
+                style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
+                numberOfLines={1}
+              >
+                {splitEmoji(cat.name).text}
+              </Text>
+              <View style={styles.catActions}>
+                <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
+                  <Icon icon={Equal} size={14} color={tokens.text3} />
+                </View>
+              </View>
+            </Pressable>
           </Animated.View>
         )
       })}
@@ -469,7 +470,11 @@ export default function EnvelopesScreen() {
             const idx = groups.indexOf(name)
             return (
               <View key={key} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                <View style={styles.groupHeader}>
+                <Pressable
+                  style={styles.groupHeader}
+                  disabled={reordering}
+                  onPress={() => toggleGroup(key)}
+                >
                   <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
                     <Icon
                       icon={ChevronDown}
@@ -521,7 +526,7 @@ export default function EnvelopesScreen() {
                   <View style={styles.dragHandle}>
                     <Icon icon={Equal} size={15} color={tokens.text3} />
                   </View>
-                </View>
+                </Pressable>
 
                 {!collapsed && (
                   <View style={styles.groupBody}>
@@ -573,7 +578,7 @@ export default function EnvelopesScreen() {
           <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
             {reordering
               ? 'Use the arrows to reorder groups · drag a category to reorder'
-              : 'Tap ⋯ to rename or delete · drag a category to reorder'}
+              : 'Tap a group to collapse · tap a category to rename or delete'}
           </Text>
         </ScrollView>
       </AnimatedTabContent>
@@ -791,7 +796,8 @@ const styles = StyleSheet.create({
   arrowBtn: { width: 26, height: 20, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dragHandle: { paddingLeft: 2 },
   groupBody: { paddingHorizontal: 13, paddingLeft: 46 },
-  catRow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderTopWidth: 1, paddingVertical: 11 },
+  catRow: { borderTopWidth: 1 },
+  catRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
   catIconChip: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   catName: { fontSize: 14, flex: 1, flexShrink: 1 },
   catActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
