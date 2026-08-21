@@ -458,7 +458,7 @@ export default function EnvelopesScreen() {
               refreshing={refreshing}
               onRefresh={onRefresh}
               enabled={!reordering}
-              tintColor={tokens.text3}
+              tintColor={tokens.gold}
               colors={[tokens.gold]}
             />
           }

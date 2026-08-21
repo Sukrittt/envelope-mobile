@@ -138,7 +138,7 @@ export default function InvestmentsScreen() {
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
           }
         >
           {errorMessage && (

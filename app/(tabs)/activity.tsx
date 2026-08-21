@@ -262,7 +262,7 @@ export default function ActivityScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
         }
       >
         <Pressable onPress={() => router.push('/modals/log-expense')} style={[styles.addButton, { backgroundColor: tokens.gold }]}>

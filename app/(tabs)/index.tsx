@@ -314,7 +314,7 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.text3} colors={[tokens.gold]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
         }
       >
         {showRolloverBanner && (
