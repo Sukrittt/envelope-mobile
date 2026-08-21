@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, StyleSheet } from 'react-native'
 import Svg, { Path, Rect } from 'react-native-svg'
+import * as Haptics from 'expo-haptics'
 
 // Renders inline in place of a button's label (the button itself keeps its
 // own background/shape — this is just the icon). Fades in, and the shackle
@@ -14,6 +15,7 @@ export function UnlockIcon({ color, size = 20 }: { color: string; size?: number 
   const shackleRotate = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     opacity.setValue(0)
     shackleRotate.setValue(0)
     Animated.timing(opacity, { toValue: 1, duration: 200, easing: Easing.ease, useNativeDriver: true }).start()

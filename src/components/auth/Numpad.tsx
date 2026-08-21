@@ -1,4 +1,5 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -22,7 +23,10 @@ export function Numpad({
           <Pressable
             key={i}
             disabled={disabled}
-            onPress={() => (k === 'del' ? onBackspace() : onDigit(k))}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              k === 'del' ? onBackspace() : onDigit(k)
+            }}
             style={[styles.key, { backgroundColor: tokens.card, borderColor: tokens.border, opacity: disabled ? 0.5 : 1 }]}
           >
             <Text style={[k === 'del' ? styles.delLabel : styles.label, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>

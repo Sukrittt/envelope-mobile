@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
+import * as Haptics from 'expo-haptics'
 import { ArrowLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -36,6 +37,7 @@ export default function CodeScreen() {
   const [done, setDone] = useState(false)
 
   const triggerShake = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
     shake.setValue(0)
     const steps = [-1, 2, -4, 4, -4, 4, -4, 2, -1, 0]
     Animated.sequence(steps.map((v) => Animated.timing(shake, { toValue: v, duration: 40, useNativeDriver: true }))).start()
