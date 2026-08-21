@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     elevation: 10,
   },
-  hintWrap: { alignItems: 'center', gap: 4, marginBottom: 8 },
+  hintWrap: { alignItems: 'center', gap: 4, marginBottom: 72 },
   hintPill: { paddingVertical: 9, paddingHorizontal: 15, borderRadius: 14 },
   hintLabel: { fontSize: 12, fontWeight: '800' },
 })

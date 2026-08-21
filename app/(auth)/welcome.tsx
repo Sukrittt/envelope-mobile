@@ -34,8 +34,8 @@ export default function WelcomeScreen() {
   }, [error])
 
   // Same 1100ms flourish beat as the email-code success — let the unlock icon
-  // finish before handing off to /(tabs). AuthGate re-routes to /onboarding
-  // on top of that if the user hasn't finished the tour yet.
+  // finish before handing off to /(tabs). AuthGate re-routes to /setup on top
+  // of that if the user hasn't finished the setup wizard yet.
   useEffect(() => {
     if (!done) return
     const timer = setTimeout(() => router.replace('/(tabs)'), 1100)

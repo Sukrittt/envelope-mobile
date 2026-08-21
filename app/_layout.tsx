@@ -99,7 +99,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authReady) return
     const inAuth = segments[0] === '(auth)'
-    const inOnboarding = segments[0] === 'onboarding'
+    const inSetup = segments[0] === 'setup'
 
     if (!hasSession) {
       if (!inAuth) router.replace('/(auth)/welcome')
@@ -110,11 +110,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (onboarded === null) return
 
     if (!onboarded) {
-      if (!inOnboarding) router.replace('/onboarding')
+      if (!inSetup) router.replace('/setup')
       // A signed-in, onboarded user can legitimately be in (auth)/email or
       // (auth)/code to change their email from Account & security — don't
       // bounce them back to the tabs mid-flow.
-    } else if ((inAuth && authScreenMode !== 'change-email') || inOnboarding) {
+    } else if ((inAuth && authScreenMode !== 'change-email') || inSetup) {
       router.replace('/(tabs)')
     }
   }, [authReady, hasSession, onboarded, segments, authScreenMode])
@@ -143,7 +143,7 @@ function RootNavigator() {
       <Stack.Screen name="(auth)/welcome" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="onboarding" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />

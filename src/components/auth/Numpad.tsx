@@ -3,21 +3,25 @@ import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'] as const
+const BASE_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'del'] as const
 
 export function Numpad({
   onDigit,
   onBackspace,
   disabled = false,
+  extraKey,
 }: {
   onDigit: (digit: string) => void
   onBackspace: () => void
   disabled?: boolean
+  /** Fills the blank slot before '0' (e.g. '00' for an amount pad). Omit for a blank slot. */
+  extraKey?: string
 }) {
   const { tokens } = useTheme()
+  const keys = [...BASE_KEYS.slice(0, 9), extraKey ?? '', ...BASE_KEYS.slice(9)]
   return (
     <View style={styles.grid}>
-      {KEYS.map((k, i) => {
+      {keys.map((k, i) => {
         if (k === '') return <View key={i} style={[styles.key, { borderWidth: 0 }]} />
         return (
           <Pressable
