@@ -1,6 +1,6 @@
 // Ported from Web/src/services/api.ts's apiFetch, aimed at the deployed API
 // instead of Next.js's own relative-path routes.
-import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
+import { clearAccess, getValidToken } from './accessMode'
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://ynab-replacement.vercel.app'
 
@@ -12,17 +12,16 @@ export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://ynab-replace
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const send = async () => {
     const token = await getValidToken()
-    const resp = await fetch(`${BASE_URL}${path}`, {
+    return fetch(`${BASE_URL}${path}`, {
       ...init,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.headers ?? {}),
       },
     })
-    return { token, resp }
   }
 
-  const first = await send()
+  const resp = await send()
   // A 401 means the token died between the expiry check and the request, or
   // was rejected server-side despite still looking locally valid (clock
   // skew, a session revoked elsewhere). getValidToken() only refreshes based
@@ -31,19 +30,11 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   // server now answers as demo/guest rather than repeating the same 401.
   // The caller still sees this first 401 surface as an error either way,
   // which app/_layout.tsx's query-cache listener turns into a sign-in bounce.
-  //
-  // But only when the token that drew the 401 is still the live session's
-  // token: a request fired just before/after a sign-in or refresh can land
-  // its stale 401 after a fresher session already took over, and clearing
-  // then would log the user straight back out of the session that just
-  // replaced it.
-  if (first.resp.status === 401) {
-    if (first.token && first.token === currentAccessToken()) {
-      await clearAccess()
-    }
-    return (await send()).resp
+  if (resp.status === 401) {
+    await clearAccess()
+    return send()
   }
-  return first.resp
+  return resp
 }
 
 /** Reads a `{error}` JSON body if present, falling back to a generic message. */

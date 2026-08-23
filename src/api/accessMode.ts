@@ -118,11 +118,6 @@ export async function getValidToken(): Promise<string | null> {
   return refreshing
 }
 
-/** The raw access token held in memory right now, without refreshing. */
-export function currentAccessToken(): string | null {
-  return session?.accessToken ?? null
-}
-
 /** The signed-in user's WorkOS id (`sub`), or null when signed out. */
 export function currentUserId(): string | null {
   return session ? tokenUserId(session.accessToken) : null
