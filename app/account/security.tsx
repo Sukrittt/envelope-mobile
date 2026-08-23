@@ -33,6 +33,7 @@ export default function SecurityScreen() {
 
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteEmailDraft, setDeleteEmailDraft] = useState('')
   const [signingOutAll, setSigningOutAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
@@ -113,7 +114,10 @@ export default function SecurityScreen() {
     ])
   }
 
-  const confirmDelete = () => setConfirmingDelete(true)
+  const confirmDelete = () => {
+    setDeleteEmailDraft('')
+    setConfirmingDelete(true)
+  }
 
   const doDelete = async () => {
     setDeleting(true)
@@ -302,19 +306,52 @@ export default function SecurityScreen() {
         </View>
       </ScrollView>
 
-      <BottomSheet visible={confirmingDelete} onClose={() => !deleting && setConfirmingDelete(false)}>
+      <BottomSheet
+        visible={confirmingDelete}
+        onClose={() => {
+          if (deleting) return
+          setConfirmingDelete(false)
+          setDeleteEmailDraft('')
+        }}
+      >
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
         <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes envelopes, transactions and recaps. Export your data first. This can’t be undone.
+          Removes envelopes, transactions and recaps. Export your data first. This can’t be undone. Type{' '}
+          <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
         </Text>
+        <TextInput
+          value={deleteEmailDraft}
+          onChangeText={setDeleteEmailDraft}
+          placeholder={user?.email ?? ''}
+          placeholderTextColor={tokens.text3}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          editable={!deleting}
+          style={[styles.sheetInput, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, fontFamily: fontFamily.bodyMedium, marginTop: 12 }]}
+        />
         <View style={styles.sheetButtonRow}>
-          <Pressable onPress={() => setConfirmingDelete(false)} disabled={deleting} style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}>
+          <Pressable
+            onPress={() => {
+              setConfirmingDelete(false)
+              setDeleteEmailDraft('')
+            }}
+            disabled={deleting}
+            style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}
+          >
             <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
           </Pressable>
           <Pressable
             onPress={doDelete}
-            disabled={deleting}
-            style={[styles.sheetSaveButton, styles.sheetDeleteButton, { backgroundColor: tokens.coral, opacity: deleting ? 0.6 : 1 }]}
+            disabled={deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase()}
+            style={[
+              styles.sheetSaveButton,
+              styles.sheetDeleteButton,
+              {
+                backgroundColor: tokens.coral,
+                opacity: deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase() ? 0.5 : 1,
+              },
+            ]}
           >
             <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {deleting ? 'Deleting…' : 'Delete permanently'}
