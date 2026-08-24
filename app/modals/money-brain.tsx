@@ -271,7 +271,7 @@ export default function MoneyBrainModal() {
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
               <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodyMedium, flex: 1 }}>
-                Couldn't load your money brief.
+                Couldn&apos;t load your money brief.
               </Text>
               <Pressable onPress={() => briefQ.refetch()}>
                 <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Retry</Text>

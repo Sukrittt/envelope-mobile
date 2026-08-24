@@ -292,7 +292,7 @@ export default function SecurityScreen() {
         <View style={[styles.dangerCard, { borderColor: tokens.coral }]}>
           <Text style={[styles.dangerTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>Delete account</Text>
           <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Removes envelopes, transactions and recaps. Export your data first. This can't be undone.
+            Removes envelopes, transactions and recaps. Export your data first. This can&apos;t be undone.
           </Text>
           <Pressable
             onPress={confirmDelete}

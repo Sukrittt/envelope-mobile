@@ -281,7 +281,7 @@ export default function HomeScreen() {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: 32 }]}>
         <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
-          Couldn't load your budget. Check your connection and reopen the app.
+          Couldn&apos;t load your budget. Check your connection and reopen the app.
         </Text>
       </View>
     )

@@ -212,42 +212,6 @@ export function WrappedScreen() {
     })
   }
 
-  // Targets the pending slide, not the displayed one, so tapping faster than the catch-up
-  // still advances one slide per tap.
-  function tapSide(dir: 1 | -1) {
-    goTo((pendingRef.current ?? index) + dir)
-  }
-
-  function tapCenter() {
-    const next = !paused
-    setPaused(next)
-    if (!next) flashHint('play')
-  }
-
-  useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
-  }, [index])
-
-  // Story-style top bar: the active segment fills over CARD_DURATION_MS, then auto-advances.
-  // Resuming from pause continues from wherever the segment was left, rather than restarting
-  // it — only an actual index change (which resets `progress` in swap()) starts over at 0.
-  useEffect(() => {
-    if (!started || paused || contentSlides.length === 0 || index < 1) return
-    let anim: Animated.CompositeAnimation | undefined
-    progress.stopAnimation((current) => {
-      anim = Animated.timing(progress, {
-        toValue: 1,
-        duration: CARD_DURATION_MS * (1 - current),
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-      anim.start(({ finished }) => {
-        if (finished) goTo(index + 1)
-      })
-    })
-    return () => anim?.stop()
-  }, [index, started, paused, contentSlides.length])
-
   function swap(next: number) {
     pendingRef.current = null
     progress.setValue(0)
@@ -285,6 +249,42 @@ export function WrappedScreen() {
       })
     })
   }
+
+  // Targets the pending slide, not the displayed one, so tapping faster than the catch-up
+  // still advances one slide per tap.
+  function tapSide(dir: 1 | -1) {
+    goTo((pendingRef.current ?? index) + dir)
+  }
+
+  function tapCenter() {
+    const next = !paused
+    setPaused(next)
+    if (!next) flashHint('play')
+  }
+
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
+  }, [index])
+
+  // Story-style top bar: the active segment fills over CARD_DURATION_MS, then auto-advances.
+  // Resuming from pause continues from wherever the segment was left, rather than restarting
+  // it — only an actual index change (which resets `progress` in swap()) starts over at 0.
+  useEffect(() => {
+    if (!started || paused || contentSlides.length === 0 || index < 1) return
+    let anim: Animated.CompositeAnimation | undefined
+    progress.stopAnimation((current) => {
+      anim = Animated.timing(progress, {
+        toValue: 1,
+        duration: CARD_DURATION_MS * (1 - current),
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+      anim.start(({ finished }) => {
+        if (finished) goTo(index + 1)
+      })
+    })
+    return () => anim?.stop()
+  }, [index, started, paused, contentSlides.length])
 
   if (isLoading) {
     return (

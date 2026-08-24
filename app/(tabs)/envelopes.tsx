@@ -308,7 +308,6 @@ export default function EnvelopesScreen() {
     if (!sheetSuccess) return
     const timer = setTimeout(closeSheet, 1100)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetSuccess])
 
   const submitting =
@@ -393,7 +392,7 @@ export default function EnvelopesScreen() {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: 32 }]}>
         <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
-          Couldn't load your categories. Check your connection and reopen the app.
+          Couldn&apos;t load your categories. Check your connection and reopen the app.
         </Text>
       </View>
     )

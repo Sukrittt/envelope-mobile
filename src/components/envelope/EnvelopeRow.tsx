@@ -86,7 +86,6 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
     if (!editSuccess) return
     const timer = setTimeout(closeSheet, 1100)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editSuccess])
 
   const availableColor = envelope.isOverspent ? tokens.coral : tokens.mint

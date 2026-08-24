@@ -243,7 +243,7 @@ export default function ActivityScreen() {
     return (
       <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: 32 }]}>
         <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
-          Couldn't load transactions. Check your connection and reopen the app.
+          Couldn&apos;t load transactions. Check your connection and reopen the app.
         </Text>
       </View>
     )
@@ -409,7 +409,7 @@ export default function ActivityScreen() {
           Delete transaction
         </Text>
         <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={2}>
-          Remove "{deleteTxn?.item}"? This cannot be undone.
+          Remove &quot;{deleteTxn?.item}&quot;? This cannot be undone.
         </Text>
         <SheetOption
           label="Delete"
