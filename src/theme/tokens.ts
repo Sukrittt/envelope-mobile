@@ -30,6 +30,7 @@ export interface ThemeTokens {
   mintSoft: string
   coral: string
   coralSoft: string
+  range: string
   violet: string
   violetSoft: string
   blue: string
@@ -67,6 +68,7 @@ export const darkTokens: ThemeTokens = {
   mintSoft: 'rgba(38, 224, 133, 0.22)',
   coral: '#ff646f',
   coralSoft: 'rgba(255, 100, 111, 0.22)',
+  range: 'rgba(131, 147, 255, 0.16)',
   violet: '#e76edf',
   violetSoft: 'rgba(231, 110, 223, 0.22)',
   blue: '#00c5df',
@@ -104,6 +106,7 @@ export const lightTokens: ThemeTokens = {
   mintSoft: 'rgba(0, 132, 53, 0.18)',
   coral: '#d70e3a',
   coralSoft: 'rgba(215, 14, 58, 0.18)',
+  range: 'rgba(68, 70, 203, 0.11)',
   violet: '#af25a9',
   violetSoft: 'rgba(175, 37, 169, 0.18)',
   blue: '#007d98',

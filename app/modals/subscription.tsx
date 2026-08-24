@@ -6,6 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddSubscription, useSubscriptions, useUpdateSubscription } from '@/src/hooks/useSubscriptions'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { DatePicker } from '@/src/components/shared/DatePicker'
 
 const CYCLES = ['monthly', 'yearly', 'quarterly', 'weekly', 'one-time']
 
@@ -152,13 +153,7 @@ export default function SubscriptionModal() {
 
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Next due date</Text>
-          <TextInput
-            value={nextDueDate}
-            onChangeText={setNextDueDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={tokens.text3}
-            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
-          />
+          <DatePicker mode="single" value={nextDueDate} onChange={setNextDueDate} disableFuture={false} />
         </View>
 
         <View style={styles.field}>

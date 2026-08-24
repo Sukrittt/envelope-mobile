@@ -19,6 +19,7 @@ import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { DatePicker } from '@/src/components/shared/DatePicker'
 import { Settings2 } from 'lucide-react-native'
 
 function todayISO(): string {
@@ -310,16 +311,7 @@ export default function LogExpenseModal() {
 
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
-          <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={tokens.text3}
-            style={[
-              styles.input,
-              { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium },
-            ]}
-          />
+          <DatePicker mode="single" value={date} onChange={setDate} />
         </View>
 
         {!isEdit && (
