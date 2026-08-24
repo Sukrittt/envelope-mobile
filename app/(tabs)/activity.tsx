@@ -204,6 +204,7 @@ export default function ActivityScreen() {
     router.push({
       pathname: '/modals/log-expense',
       params: {
+        id: t.id ?? '',
         timestamp: t.timestamp,
         item: t.item,
         amountInr: t.amount_inr,
@@ -225,7 +226,7 @@ export default function ActivityScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
     deleteSound.seekTo(0)
     deleteSound.play()
-    deleteExpense.mutate({ timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 })
+    deleteExpense.mutate({ id: t.id, timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 })
   }
 
   const isLoading = expensesQ.isLoading || categoriesQ.isLoading

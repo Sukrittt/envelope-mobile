@@ -60,6 +60,7 @@ export default function LogExpenseModal() {
   const router = useRouter()
   const params = useLocalSearchParams()
 
+  const origId = str(params.id) || undefined
   const origTimestamp = str(params.timestamp)
   const isEdit = origTimestamp !== ''
   const origItem = str(params.item)
@@ -150,6 +151,7 @@ export default function LogExpenseModal() {
     if (isEdit) {
       updateExpense.mutate(
         {
+          id: origId,
           timestamp: origTimestamp,
           item: origItem,
           amountInr: origAmountInr,

@@ -25,11 +25,12 @@ export function useUpdateExpense() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (params: {
+      id?: string
       timestamp: string
       item: string
       amountInr: number
-      updates: Parameters<typeof updateExpense>[3]
-    }) => updateExpense(params.timestamp, params.item, params.amountInr, params.updates),
+      updates: Parameters<typeof updateExpense>[4]
+    }) => updateExpense(params.id, params.timestamp, params.item, params.amountInr, params.updates),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
@@ -40,8 +41,8 @@ export function useUpdateExpense() {
 export function useDeleteExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { timestamp: string; item: string; amountInr: number }) =>
-      deleteExpense(params.timestamp, params.item, params.amountInr),
+    mutationFn: (params: { id?: string; timestamp: string; item: string; amountInr: number }) =>
+      deleteExpense(params.id, params.timestamp, params.item, params.amountInr),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
