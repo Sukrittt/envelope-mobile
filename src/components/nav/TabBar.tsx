@@ -30,9 +30,9 @@ const TAB_ICON: Record<string, LucideIcon> = {
 
 // [path, length] — each line is a straight horizontal segment, length = |dx|, used for the dash draw-on.
 const ACTIVITY_LINES = [
-  ['M14 8H8', 6],
-  ['M16 12H8', 8],
-  ['M13 16H8', 5],
+  ['M8 8H14', 6],
+  ['M8 12H16', 8],
+  ['M8 16H13', 5],
 ] as const
 const ACTIVITY_OUTLINE =
   'M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z'
