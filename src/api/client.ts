@@ -4,6 +4,8 @@ import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://ynab-replacement.vercel.app'
 
+const REQUEST_TIMEOUT_MS = 15_000
+
 /**
  * The token is fetched (and refreshed if stale) per request, so this must be
  * awaited — the old synchronous password lookup had nothing to refresh.
@@ -13,6 +15,12 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   const token = await getValidToken()
   const resp = await fetch(`${BASE_URL}${path}`, {
     ...init,
+    // RN's fetch has no default timeout — without this, a hung connection
+    // pins a screen's loading state forever. Callers already surface a
+    // thrown error as a generic "check your connection" state, so a timeout
+    // (which throws an AbortError, same as any other network failure) needs
+    // no special handling here.
+    signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
@@ -57,6 +65,7 @@ export async function verifySession(): Promise<boolean> {
   if (!token) return false
   const resp = await fetch(`${BASE_URL}/api/auth/verify`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   return resp.ok
 }
