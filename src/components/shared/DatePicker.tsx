@@ -153,9 +153,9 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
           <View style={styles.grid}>
             {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
               <View key={row} style={styles.gridRow}>
-                {cells.slice(row * 7, row * 7 + 7).map((c, i) => (
+                {Array.from({ length: 7 }, (_, i) => cells[row * 7 + i]).map((c, i) => (
                   <View key={i} style={styles.cellWrap}>
-                    {c.date && (
+                    {c?.date && (
                       <Pressable
                         disabled={c.disabled}
                         onPress={() => pick(c.date!)}
