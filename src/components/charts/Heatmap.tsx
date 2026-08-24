@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import Reanimated, { ZoomIn, ZoomOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 export interface HeatmapCell {
   date: string
@@ -60,8 +63,10 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
             const textColor = isFuture ? tokens.text3 : level <= 1 ? tokens.text2 : tokens.onAccent
             const borderColor = isToday ? tokens.mint : isFuture ? tokens.borderStrong : 'transparent'
             return (
-              <Pressable
+              <AnimatedPressable
                 key={c.date}
+                entering={ZoomIn.springify().damping(14).stiffness(300)}
+                exiting={ZoomOut.springify().damping(14).stiffness(300)}
                 disabled={isFuture || !onSelectDate}
                 onPress={() => onSelectDate?.(c.date)}
                 style={[
@@ -76,7 +81,7 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
                 ]}
               >
                 <Text style={{ color: textColor, fontSize: 11 }}>{c.day}</Text>
-              </Pressable>
+              </AnimatedPressable>
             )
           })}
         </View>
