@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as Haptics from 'expo-haptics'
+import { useAudioPlayer } from 'expo-audio'
+import Svg, { Path } from 'react-native-svg'
 import { ArrowLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -12,9 +14,63 @@ import { resendEmailCode, verifyEmailChange } from '@/src/api/account'
 import { CodeBoxes } from '@/src/components/auth/CodeBoxes'
 import { Numpad } from '@/src/components/auth/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
-import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { userKey } from '@/src/hooks/useUser'
+
+const CHECK_PATH_LENGTH = 19.8
+const AnimatedPath = Animated.createAnimatedComponent(Path)
+
+// Mirrors web's success row: mint checkPop badge (.4s cubic-bezier(.34,1.56,.64,1)),
+// checkStroke draw (.32s ease-out, 100ms delay), text via successRise (.3s ease-out).
+function VerifiedRow({ tokens }: { tokens: { mint: string; onAccent: string } }) {
+  const badgeScale = useRef(new Animated.Value(0.4)).current
+  const badgeOpacity = useRef(new Animated.Value(0)).current
+  const checkDashoffset = useRef(new Animated.Value(CHECK_PATH_LENGTH)).current
+  const rowOpacity = useRef(new Animated.Value(0)).current
+  const rowTranslateY = useRef(new Animated.Value(10)).current
+
+  useEffect(() => {
+    Animated.timing(rowOpacity, { toValue: 1, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
+    Animated.timing(rowTranslateY, { toValue: 0, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
+    Animated.timing(badgeOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start()
+    Animated.sequence([
+      Animated.timing(badgeScale, { toValue: 1.14, duration: 220, easing: Easing.bezier(0.34, 1.56, 0.64, 1), useNativeDriver: true }),
+      Animated.timing(badgeScale, { toValue: 1, duration: 180, easing: Easing.bezier(0.34, 1.56, 0.64, 1), useNativeDriver: true }),
+    ]).start()
+    Animated.timing(checkDashoffset, { toValue: 0, duration: 320, delay: 100, easing: Easing.out(Easing.ease), useNativeDriver: false }).start()
+  }, [])
+
+  return (
+    <Animated.View style={[styles.verifiedRow, { opacity: rowOpacity, transform: [{ translateY: rowTranslateY }] }]}>
+      <Animated.View style={[styles.verifiedBadge, { backgroundColor: tokens.mint, opacity: badgeOpacity, transform: [{ scale: badgeScale }] }]}>
+        <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+          <AnimatedPath
+            d="M5 13l4 4L19 7"
+            stroke={tokens.onAccent}
+            strokeWidth={3.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={[CHECK_PATH_LENGTH, CHECK_PATH_LENGTH]}
+            strokeDashoffset={checkDashoffset}
+          />
+        </Svg>
+      </Animated.View>
+      <Text style={[styles.verifiedText, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>Code verified — signing you in</Text>
+    </Animated.View>
+  )
+}
+
+// Mirrors web's @keyframes greenVeil: opacity 0 -> 1 (at 30%) -> 0, .9s ease-out.
+function GreenVeil({ color }: { color: string }) {
+  const opacity = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(opacity, { toValue: 1, duration: 270, easing: Easing.ease, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 630, easing: Easing.ease, useNativeDriver: true }),
+    ]).start()
+  }, [])
+  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color, opacity }]} />
+}
 
 // Screen 3 (mockup: isCode). Custom numpad is a deliberate mockup choice, not
 // the system keyboard. Auto-verifies once 6 digits are in, mirroring the
@@ -30,17 +86,35 @@ export default function CodeScreen() {
   const email = typeof emailParam === 'string' ? emailParam : ''
   const isChangeEmail = mode === 'change-email'
   const shake = useRef(new Animated.Value(0)).current
+  // ponytail: error.mp3 is a silent placeholder — swap the file for a real
+  // two-tone error tone once one is provided, no code change needed.
+  const errorSound = useAudioPlayer(require('@/assets/sounds/error.mp3'))
+  const successSound = useAudioPlayer(require('@/assets/sounds/code-success.mp3'))
 
   const [code, setCode] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
+  // Mirrors web's @keyframes shakeRow: 0%,100%=0, 12%=-9, 28%=8, 45%=-6,
+  // 62%=4, 80%=-2, .5s cubic-bezier(.36,.07,.19,.97).
   const triggerShake = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+    errorSound.seekTo(0)
+    errorSound.play()
     shake.setValue(0)
-    const steps = [-1, 2, -4, 4, -4, 4, -4, 2, -1, 0]
-    Animated.sequence(steps.map((v) => Animated.timing(shake, { toValue: v, duration: 40, useNativeDriver: true }))).start()
+    const easing = Easing.bezier(0.36, 0.07, 0.19, 0.97)
+    const steps: [number, number][] = [
+      [-9, 60],
+      [8, 80],
+      [-6, 85],
+      [4, 85],
+      [-2, 90],
+      [0, 100],
+    ]
+    Animated.sequence(
+      steps.map(([v, duration]) => Animated.timing(shake, { toValue: v, duration, easing, useNativeDriver: true })),
+    ).start()
   }
 
   useEffect(() => {
@@ -53,6 +127,9 @@ export default function CodeScreen() {
       if (cancelled) return
       setPending(false)
       if (ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
+        successSound.seekTo(0)
+        successSound.play()
         setDone(true)
       } else {
         setError('Wrong or expired code.')
@@ -95,28 +172,31 @@ export default function CodeScreen() {
       </Text>
 
       <Animated.View style={{ transform: [{ translateX: shake }], marginTop: 26 }}>
-        <CodeBoxes code={code} />
+        <CodeBoxes code={code} bad={error !== ''} ok={done} />
       </Animated.View>
 
-      {error !== '' && (
-        <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
+      {done ? (
+        <VerifiedRow tokens={tokens} />
+      ) : (
+        <>
+          {error !== '' && (
+            <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
+          )}
+          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode() : sendMagicAuthCode(email))} />
+        </>
       )}
-      <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode() : sendMagicAuthCode(email))} />
 
       <View style={{ flex: 1 }} />
 
-      {done ? (
-        <View style={styles.doneWrap}>
-          <UnlockIcon color={tokens.mint} size={28} />
-        </View>
-      ) : (
+      {!done && (
         <Numpad
           disabled={pending}
-          playTapSound
           onDigit={(d) => setCode((c) => (c.length >= 6 ? c : c + d))}
           onBackspace={() => setCode((c) => c.slice(0, -1))}
         />
       )}
+
+      {done && <GreenVeil color={tokens.mintSoft} />}
     </View>
   )
 }
@@ -127,5 +207,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, marginTop: 26 },
   subtitle: { fontSize: 14, marginTop: 8, lineHeight: 20 },
   error: { fontSize: 13, marginTop: 10 },
-  doneWrap: { alignItems: 'center', paddingVertical: 20 },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
+  verifiedBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  verifiedText: { fontSize: 13 },
 })

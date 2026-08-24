@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronDown, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
+import { ChevronRight, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
+import Reanimated, { useAnimatedStyle, withSpring, LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -25,6 +26,18 @@ import type { CategoryRow } from '@/src/types'
 const OTHER_LABEL = 'Other'
 const ARCHIVED_GROUP = 'Archived'
 const ROW_HEIGHT = 45
+const SPRING = { damping: 64, stiffness: 600 }
+
+function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string }) {
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: withSpring(collapsed ? '0deg' : '90deg', SPRING) }],
+  }))
+  return (
+    <Reanimated.View style={style}>
+      <Icon icon={ChevronRight} size={14} color={color} strokeWidth={2.5} />
+    </Reanimated.View>
+  )
+}
 
 function DraggableCategoryList({
   items,
@@ -469,19 +482,18 @@ export default function EnvelopesScreen() {
             const collapsed = collapsedGroups.has(key)
             const idx = groups.indexOf(name)
             return (
-              <View key={key} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <Reanimated.View
+                key={key}
+                layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
+                style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+              >
                 <Pressable
                   style={styles.groupHeader}
                   disabled={reordering}
                   onPress={() => toggleGroup(key)}
                 >
                   <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
-                    <Icon
-                      icon={ChevronDown}
-                      size={14}
-                      color={tokens.text3}
-                      strokeWidth={2.5}
-                    />
+                    <GroupChevron collapsed={collapsed} color={tokens.text3} />
                   </Pressable>
                   <View style={[styles.avatarChip, { backgroundColor: tokens.goldSoft }]}>
                     <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
@@ -529,7 +541,11 @@ export default function EnvelopesScreen() {
                 </Pressable>
 
                 {!collapsed && (
-                  <View style={styles.groupBody}>
+                  <Reanimated.View
+                    entering={FadeIn.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
+                    exiting={FadeOut.duration(150)}
+                    style={styles.groupBody}
+                  >
                     <DraggableCategoryList
                       items={items}
                       group={name}
@@ -562,24 +578,26 @@ export default function EnvelopesScreen() {
                         </Text>
                       </Pressable>
                     )}
-                  </View>
+                  </Reanimated.View>
                 )}
-              </View>
+              </Reanimated.View>
             )
           })}
 
-          <Pressable
-            onPress={openAddGroup}
-            style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
-          >
-            <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
-            <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
-          </Pressable>
-          <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
-            {reordering
-              ? 'Use the arrows to reorder groups · drag a category to reorder'
-              : 'Tap a group to collapse · tap a category to rename or delete'}
-          </Text>
+          <Reanimated.View layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}>
+            <Pressable
+              onPress={openAddGroup}
+              style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
+            >
+              <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
+              <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
+            </Pressable>
+            <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+              {reordering
+                ? 'Use the arrows to reorder groups · drag a category to reorder'
+                : 'Tap a group to collapse · tap a category to rename or delete'}
+            </Text>
+          </Reanimated.View>
         </ScrollView>
       </AnimatedTabContent>
 

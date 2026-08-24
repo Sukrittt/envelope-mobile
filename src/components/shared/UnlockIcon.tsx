@@ -10,7 +10,7 @@ import { useAudioPlayer } from 'expo-audio'
 // SVG layered under a real Animated.View: RN-SVG's own `rotation`/`origin`
 // props are JS-side convenience props that don't repaint correctly when fed a
 // live Animated.Value, so the rotation lives in RN's transform/transformOrigin
-// instead. Shared by the Google and email-code auth flourishes.
+// instead. Used by the Google sign-in flourish (welcome.tsx).
 export function UnlockIcon({ color, size = 20 }: { color: string; size?: number }) {
   const opacity = useRef(new Animated.Value(0)).current
   const shackleRotate = useRef(new Animated.Value(0)).current

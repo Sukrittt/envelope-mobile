@@ -11,15 +11,12 @@ export function Numpad({
   onBackspace,
   disabled = false,
   extraKey,
-  playTapSound = false,
 }: {
   onDigit: (digit: string) => void
   onBackspace: () => void
   disabled?: boolean
   /** Fills the blank slot before '0' (e.g. '00' for an amount pad). Omit for a blank slot. */
   extraKey?: string
-  /** Plays a tap tone on digit presses (not backspace). Off by default — only the OTP code screen opts in. */
-  playTapSound?: boolean
 }) {
   const { tokens } = useTheme()
   // ponytail: tap.mp3 is a silent 150ms placeholder — swap the file for a real
@@ -39,10 +36,8 @@ export function Numpad({
               if (k === 'del') {
                 onBackspace()
               } else {
-                if (playTapSound) {
-                  tapSound.seekTo(0)
-                  tapSound.play()
-                }
+                tapSound.seekTo(0)
+                tapSound.play()
                 onDigit(k)
               }
             }}

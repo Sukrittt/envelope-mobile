@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
+import Reanimated, { useAnimatedStyle, withSpring, LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
@@ -7,6 +8,8 @@ import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
+
+const SPRING = { damping: 64, stiffness: 600 }
 
 interface Props {
   group: string
@@ -32,14 +35,20 @@ export function EnvelopeGroup({
 }: Props) {
   const { tokens } = useTheme()
   const totalAvailable = envelopes.reduce((s, e) => s + e.available, 0)
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: withSpring(expanded ? '90deg' : '0deg', SPRING) }],
+  }))
 
   return (
-    <View style={[styles.wrap, { borderTopColor: tokens.border }]}>
+    <Reanimated.View
+      layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
+      style={[styles.wrap, { borderTopColor: tokens.border }]}
+    >
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
-          <View style={expanded ? styles.chevronOpen : undefined}>
+          <Reanimated.View style={chevronStyle}>
             <Icon icon={ChevronRight} size={16} color={tokens.text2} />
-          </View>
+          </Reanimated.View>
           <Text style={{ fontSize: 14 }}>{groupEmoji(group)}</Text>
           <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
             {splitEmoji(group).text}
@@ -50,7 +59,11 @@ export function EnvelopeGroup({
         </Text>
       </Pressable>
       {expanded && (
-        <View style={[styles.rows, { borderLeftColor: tokens.border }]}>
+        <Reanimated.View
+          entering={FadeIn.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
+          exiting={FadeOut.duration(150)}
+          style={[styles.rows, { borderLeftColor: tokens.border }]}
+        >
           {envelopes.map((e, i) => (
             <View key={e.category} style={i > 0 && [styles.rowDivider, { borderTopColor: tokens.border }]}>
               <EnvelopeRow
@@ -63,9 +76,9 @@ export function EnvelopeGroup({
               />
             </View>
           ))}
-        </View>
+        </Reanimated.View>
       )}
-    </View>
+    </Reanimated.View>
   )
 }
 
@@ -73,7 +86,6 @@ const styles = StyleSheet.create({
   wrap: { borderTopWidth: 1, paddingTop: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chevronOpen: { transform: [{ rotate: '90deg' }] },
   name: { fontSize: 13 },
   available: { fontSize: 12 },
   rows: { paddingLeft: 12, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },

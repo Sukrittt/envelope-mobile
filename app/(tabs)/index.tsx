@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Plus, ChevronRight } from 'lucide-react-native'
+import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -456,7 +457,10 @@ export default function HomeScreen() {
               />
             ))}
             {creditCardEnvelope && (
-              <View style={[styles.ccWrap, { borderTopColor: tokens.border }]}>
+              <Reanimated.View
+                layout={LinearTransition.springify().damping(64).stiffness(600)}
+                style={[styles.ccWrap, { borderTopColor: tokens.border }]}
+              >
                 <View style={styles.ccBadgeRow}>
                   <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.gold }}>PAYOFF</Text>
                 </View>
@@ -469,7 +473,7 @@ export default function HomeScreen() {
                   onEditAmount={handleEditAmount}
                   onViewTransactions={handleViewTransactions}
                 />
-              </View>
+              </Reanimated.View>
             )}
           </View>
         </View>
