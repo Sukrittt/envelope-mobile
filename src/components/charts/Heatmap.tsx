@@ -46,8 +46,9 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
     <View>
       {rows.map((row, i) => (
         <View key={i} style={styles.row}>
-          {row.map((c) => {
-            if (c.day === 0) return <View key={c.date} style={styles.cell} />
+          {row.map((c, j) => {
+            const pos = i * 7 + j // stable grid slot, unlike c.date which changes every month
+            if (c.day === 0) return <View key={pos} style={styles.cell} />
             const isToday = c.date === todayDate
             const isFuture = !!todayDate && c.date > todayDate
             const level = levels.get(c.date) ?? 0
@@ -64,9 +65,9 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
             const borderColor = isToday ? tokens.mint : isFuture ? tokens.borderStrong : 'transparent'
             return (
               <AnimatedPressable
-                key={c.date}
-                entering={ZoomIn.springify().damping(14).stiffness(300)}
-                exiting={ZoomOut.springify().damping(14).stiffness(300)}
+                key={pos}
+                entering={ZoomIn.springify().mass(0.5).damping(16).stiffness(500)}
+                exiting={ZoomOut.springify().mass(0.5).damping(16).stiffness(500)}
                 disabled={isFuture || !onSelectDate}
                 onPress={() => onSelectDate?.(c.date)}
                 style={[
