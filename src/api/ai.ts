@@ -1,5 +1,5 @@
 import { fetch as expoFetch } from 'expo/fetch'
-import { apiFetch, BASE_URL } from './client'
+import { apiFetch, BASE_URL, handleUnauthorized } from './client'
 import { getValidToken } from './accessMode'
 
 export interface BriefCard {
@@ -78,13 +78,6 @@ export async function fetchBrief(): Promise<Brief> {
   return resp.json()
 }
 
-// Second auth-header site: this path bypasses apiFetch because it needs
-// expo/fetch for streaming, so it must refresh the token itself.
-async function authHeader(): Promise<Record<string, string>> {
-  const token = await getValidToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 /**
  * Streams /api/ai/chat via expo/fetch (RN's global fetch can't read streaming
  * bodies under Hermes). Buffers decoded text and splits on the SSE frame
@@ -105,12 +98,17 @@ export async function streamChat(
   onDelta: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<string | null> {
+  const token = await getValidToken()
   const resp = await expoFetch(`${BASE_URL}/api/ai/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ sessionId, messages }),
     signal,
   })
+
+  // Bypasses apiFetch (needs expo/fetch for streaming), so this path must
+  // separately route a revoked session into the same sign-in bounce.
+  await handleUnauthorized(resp, token)
 
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))

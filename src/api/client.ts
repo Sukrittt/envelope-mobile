@@ -27,25 +27,36 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     },
   })
 
-  // A 401 means the token was rejected server-side despite still looking
-  // locally valid (clock skew, a session revoked elsewhere) — getValidToken()
-  // only refreshes against the locally cached expiry, so retrying would just
-  // resend the same dead token. Drop the session instead and hand the 401 back:
-  // app/_layout.tsx's query-cache listener turns it into a sign-in bounce.
-  //
-  // Deliberately NOT retried without the header. The API answers a
-  // credential-less request with the demo account's data at 200, so a retry
-  // renders the demo account on screen while the logout bounce is still in
-  // flight — the "why am I seeing demo data" flash.
-  //
-  // Only clear when the token that drew the 401 is still the live session's: a
-  // request fired just before a sign-in or refresh can land its stale 401 after
-  // a fresher session took over, and clearing then would log the user straight
-  // back out of the session that just replaced it.
+  await handleUnauthorized(resp, token)
+  return resp
+}
+
+/**
+ * On a 401, drops the session if the token that drew it is still the live
+ * session's. Shared by apiFetch above and streamChat (src/api/ai.ts), which
+ * bypasses apiFetch (it needs expo/fetch for streaming) but must not skip
+ * this — a revoked session on that endpoint used to never log the user out.
+ *
+ * A 401 means the token was rejected server-side despite still looking
+ * locally valid (clock skew, a session revoked elsewhere) — getValidToken()
+ * only refreshes against the locally cached expiry, so retrying would just
+ * resend the same dead token. Drop the session instead and hand the 401 back:
+ * app/_layout.tsx's query-cache listener turns it into a sign-in bounce.
+ *
+ * Deliberately NOT retried without the header. The API answers a
+ * credential-less request with the demo account's data at 200, so a retry
+ * renders the demo account on screen while the logout bounce is still in
+ * flight — the "why am I seeing demo data" flash.
+ *
+ * Only clear when the token that drew the 401 is still the live session's: a
+ * request fired just before a sign-in or refresh can land its stale 401 after
+ * a fresher session took over, and clearing then would log the user straight
+ * back out of the session that just replaced it.
+ */
+export async function handleUnauthorized(resp: Response, token: string | null): Promise<void> {
   if (resp.status === 401 && token && token === currentAccessToken()) {
     await clearAccess()
   }
-  return resp
 }
 
 /** Reads a `{error}` JSON body if present, falling back to a generic message. */
