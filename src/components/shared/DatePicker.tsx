@@ -151,29 +151,33 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
           </View>
 
           <View style={styles.grid}>
-            {cells.map((c, i) => (
-              <View key={i} style={styles.cellWrap}>
-                {c.date && (
-                  <Pressable
-                    disabled={c.disabled}
-                    onPress={() => pick(c.date!)}
-                    style={[
-                      styles.cell,
-                      { borderColor: c.isToday && !c.isSelected ? tokens.gold : 'transparent' },
-                      c.isSelected && { backgroundColor: tokens.gold },
-                      c.disabled && { opacity: 0.4 },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.cellText,
-                        { color: c.disabled ? tokens.text3 : c.isSelected ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodySemiBold },
-                      ]}
-                    >
-                      {c.day}
-                    </Text>
-                  </Pressable>
-                )}
+            {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
+              <View key={row} style={styles.gridRow}>
+                {cells.slice(row * 7, row * 7 + 7).map((c, i) => (
+                  <View key={i} style={styles.cellWrap}>
+                    {c.date && (
+                      <Pressable
+                        disabled={c.disabled}
+                        onPress={() => pick(c.date!)}
+                        style={[
+                          styles.cell,
+                          { borderColor: c.isToday && !c.isSelected ? tokens.gold : 'transparent' },
+                          c.isSelected && { backgroundColor: tokens.gold },
+                          c.disabled && { opacity: 0.4 },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.cellText,
+                            { color: c.disabled ? tokens.text3 : c.isSelected ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodySemiBold },
+                          ]}
+                        >
+                          {c.day}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
               </View>
             ))}
           </View>
@@ -202,8 +206,9 @@ const styles = StyleSheet.create({
   monthLabel: { fontSize: 14 },
   weekdays: { flexDirection: 'row' },
   weekday: { flex: 1, textAlign: 'center', fontSize: 10 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cellWrap: { width: `${100 / 7}%`, height: 36, alignItems: 'center', justifyContent: 'center' },
+  grid: { gap: 2 },
+  gridRow: { flexDirection: 'row' },
+  cellWrap: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center' },
   cell: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 13 },
   done: { alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 18, borderRadius: 100 },
