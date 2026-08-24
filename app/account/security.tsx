@@ -122,7 +122,7 @@ export default function SecurityScreen() {
   const doDelete = async () => {
     setDeleting(true)
     try {
-      await deleteAccount()
+      await deleteAccount(deleteEmailDraft.trim())
       await clearAccess()
       router.replace('/(auth)/welcome')
     } catch {

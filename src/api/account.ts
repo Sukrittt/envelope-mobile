@@ -41,11 +41,11 @@ export async function updateUser(patch: Partial<UserProfile>): Promise<UserProfi
   return resp.json()
 }
 
-export async function deleteAccount(): Promise<void> {
+export async function deleteAccount(email: string): Promise<void> {
   const resp = await apiFetch('/api/user', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ confirm: true }),
+    body: JSON.stringify({ email }),
   })
   if (!resp.ok) throw new Error(`Failed to delete account: ${resp.status}`)
 }
