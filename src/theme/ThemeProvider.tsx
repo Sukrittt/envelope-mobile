@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useColorScheme } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { darkTokens, lightTokens, type ThemeTokens } from './tokens'
+import { accessMode } from '../api/accessMode'
 
 type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -26,6 +27,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         setPreferenceState(stored)
       }
+    })
+    // Otherwise the next account signed into on this device inherits
+    // whatever the previous one set.
+    return accessMode.subscribeLogout(() => {
+      setPreferenceState('system')
+      SecureStore.deleteItemAsync(PREF_KEY).catch(() => {})
     })
   }, [])
 

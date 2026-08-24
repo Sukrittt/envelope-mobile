@@ -3,6 +3,7 @@
 // ThemeProvider's pattern.
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import * as SecureStore from 'expo-secure-store'
+import { accessMode } from '../api/accessMode'
 
 const PREF_KEY = 'mc-hide-amounts'
 
@@ -19,6 +20,12 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     SecureStore.getItemAsync(PREF_KEY).then((stored) => {
       if (stored === 'true') setHideAmountsState(true)
+    })
+    // Otherwise the next account signed into on this device inherits
+    // whatever the previous one set.
+    return accessMode.subscribeLogout(() => {
+      setHideAmountsState(false)
+      SecureStore.deleteItemAsync(PREF_KEY).catch(() => {})
     })
   }, [])
 

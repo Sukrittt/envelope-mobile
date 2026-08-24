@@ -22,7 +22,6 @@ const subs = new Set<(m: AccessMode) => void>()
 const logoutSubs = new Set<() => void>()
 
 export const accessMode = {
-  get: () => mode,
   subscribe(fn: (m: AccessMode) => void): () => void {
     subs.add(fn)
     return () => subs.delete(fn)
@@ -31,10 +30,6 @@ export const accessMode = {
     logoutSubs.add(fn)
     return () => logoutSubs.delete(fn)
   },
-}
-
-export function isGuest(): boolean {
-  return mode === 'guest'
 }
 
 function notify() {
@@ -56,11 +51,6 @@ async function store(next: WorkOSTokens | null): Promise<void> {
 /** Save a freshly issued token pair and switch to real mode. */
 export function persistSession(tokens: WorkOSTokens): Promise<void> {
   return store(tokens)
-}
-
-/** Explicitly continue without signing in. */
-export async function persistGuest(): Promise<void> {
-  await store(null)
 }
 
 /**
@@ -140,13 +130,29 @@ export function sessionId(): string | null {
   }
 }
 
-/** Log out: drop the stored session, fall back to guest, re-lock the app. */
-export async function clearAccess(): Promise<void> {
-  // Revoke on WorkOS's side too, so the session dies everywhere and not just on
-  // this device. Fire-and-forget: a failed revoke must not block logging out.
+/**
+ * Log out: drop the stored session, fall back to guest, re-lock the app.
+ * Returns false if the remote revoke failed — the local session is still
+ * cleared either way (a user must always be able to sign out of this device
+ * regardless of network), but a false return means the WorkOS session may
+ * still be alive server-side and callers may want to say so.
+ */
+export async function clearAccess(): Promise<boolean> {
+  // Revoke on WorkOS's side too, so the session dies everywhere and not just
+  // on this device. Awaited (not fire-and-forget) so a failure is actually
+  // observed instead of racing store(null) silently.
   const sid = sessionId()
-  if (sid) void fetch(logoutUrl(sid)).catch(() => {})
+  let revoked = true
+  if (sid) {
+    try {
+      await fetch(logoutUrl(sid), { signal: AbortSignal.timeout(10_000) })
+    } catch (err) {
+      revoked = false
+      console.warn('Remote session revoke failed — WorkOS session may still be active', err)
+    }
+  }
 
   await store(null)
   for (const fn of logoutSubs) fn()
+  return revoked
 }

@@ -14,6 +14,7 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { useSubscriptions } from '@/src/hooks/useSubscriptions'
+import { useUser } from '@/src/hooks/useUser'
 import { computeEnvelopeState, currentMonthKey, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -85,6 +86,9 @@ export default function HomeScreen() {
   const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+
+  const user = useUser().data
+  const greetingName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
 
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
@@ -297,7 +301,7 @@ export default function HomeScreen() {
       >
         <View style={styles.headerTop}>
           <Text style={[styles.greeting, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            Hey Sukrit 👋
+            Hey {greetingName} 👋
           </Text>
         </View>
         <View style={styles.headerSub}>

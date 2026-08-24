@@ -1,4 +1,4 @@
-import { View, Text, Image, Pressable, Switch, ScrollView, Linking, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, Switch, ScrollView, Linking, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -206,7 +206,13 @@ export default function MoreScreen() {
           </View>
 
           <Pressable
-            onPress={() => clearAccess()}
+            onPress={() => {
+              clearAccess().then((revoked) => {
+                if (!revoked) {
+                  Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
+                }
+              })
+            }}
             style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral }]}
           >
             <Text style={[styles.logoutText, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>Sign out</Text>
