@@ -425,7 +425,10 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Reanimated.View
+          layout={LinearTransition.springify().damping(64).stiffness(600)}
+          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+        >
           <View style={styles.cardHeadRow}>
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Envelopes
@@ -476,9 +479,12 @@ export default function HomeScreen() {
               </Reanimated.View>
             )}
           </View>
-        </View>
+        </Reanimated.View>
 
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Reanimated.View
+          layout={LinearTransition.springify().damping(64).stiffness(600)}
+          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+        >
           <View style={styles.cardHeadRow}>
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Insights
@@ -509,9 +515,12 @@ export default function HomeScreen() {
           <Text style={{ color: tokens.mint, fontSize: 12, marginTop: 12, fontFamily: fontFamily.bodyMedium }}>
             {insightText}
           </Text>
-        </View>
+        </Reanimated.View>
 
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Reanimated.View
+          layout={LinearTransition.springify().damping(64).stiffness(600)}
+          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+        >
           <View style={styles.cardHeadRow}>
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Subscriptions
@@ -522,7 +531,7 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <SubscriptionsPanel subscriptions={subscriptions} hideAmounts={hideAmounts} />
-        </View>
+        </Reanimated.View>
       </ScrollView>
       </AnimatedTabContent>
     </View>

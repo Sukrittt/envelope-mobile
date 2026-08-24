@@ -1,6 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
-import Reanimated, { useAnimatedStyle, withSpring, LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated'
+import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
@@ -10,6 +10,7 @@ import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
 
 const SPRING = { damping: 64, stiffness: 600 }
+const TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
 
 interface Props {
   group: string
@@ -40,10 +41,7 @@ export function EnvelopeGroup({
   }))
 
   return (
-    <Reanimated.View
-      layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
-      style={[styles.wrap, { borderTopColor: tokens.border }]}
-    >
+    <Reanimated.View layout={TRANSITION} style={[styles.wrap, { borderTopColor: tokens.border }]}>
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Reanimated.View style={chevronStyle}>
@@ -60,8 +58,8 @@ export function EnvelopeGroup({
       </Pressable>
       {expanded && (
         <Reanimated.View
-          entering={FadeIn.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
-          exiting={FadeOut.duration(150)}
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(120)}
           style={[styles.rows, { borderLeftColor: tokens.border }]}
         >
           {envelopes.map((e, i) => (
@@ -83,12 +81,12 @@ export function EnvelopeGroup({
 }
 
 const styles = StyleSheet.create({
-  wrap: { borderTopWidth: 1, paddingTop: 8 },
+  wrap: { borderTopWidth: 1, paddingTop: 8, paddingBottom: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13 },
   available: { fontSize: 12 },
-  rows: { paddingLeft: 12, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
+  rows: { paddingLeft: 12, paddingBottom: 10, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
   // Pulled back to x=0 (rows' own left border) then repadded, so the horizontal
   // line meets the vertical group line instead of starting after paddingLeft.
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, marginLeft: -12, paddingLeft: 12 },

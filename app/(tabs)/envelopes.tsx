@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
-import Reanimated, { useAnimatedStyle, withSpring, LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated'
+import Reanimated, { FadeIn, FadeOut, useAnimatedStyle, withSpring, LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -35,6 +35,17 @@ function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string 
   return (
     <Reanimated.View style={style}>
       <Icon icon={ChevronRight} size={14} color={color} strokeWidth={2.5} />
+    </Reanimated.View>
+  )
+}
+
+const BODY_TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
+
+function GroupBody({ collapsed, style, children }: { collapsed: boolean; style: object; children: React.ReactNode }) {
+  if (collapsed) return null
+  return (
+    <Reanimated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)} style={style}>
+      {children}
     </Reanimated.View>
   )
 }
@@ -484,7 +495,7 @@ export default function EnvelopesScreen() {
             return (
               <Reanimated.View
                 key={key}
-                layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
+                layout={BODY_TRANSITION}
                 style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
               >
                 <Pressable
@@ -540,46 +551,40 @@ export default function EnvelopesScreen() {
                   </View>
                 </Pressable>
 
-                {!collapsed && (
-                  <Reanimated.View
-                    entering={FadeIn.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}
-                    exiting={FadeOut.duration(150)}
-                    style={styles.groupBody}
-                  >
-                    <DraggableCategoryList
-                      items={items}
-                      group={name}
-                      tokens={tokens}
-                      reordering={reordering}
-                      onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
-                      onMenu={openCategoryMenu}
-                    />
+                <GroupBody collapsed={collapsed} style={styles.groupBody}>
+                  <DraggableCategoryList
+                    items={items}
+                    group={name}
+                    tokens={tokens}
+                    reordering={reordering}
+                    onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
+                    onMenu={openCategoryMenu}
+                  />
 
-                    {items.length === 0 ? (
-                      <Pressable
-                        onPress={() => openAddCategory(name)}
-                        style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
-                      >
-                        <Icon icon={Plus} size={14} color={tokens.gold} strokeWidth={2.5} />
-                        <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
-                          Add first category
-                        </Text>
-                      </Pressable>
-                    ) : (
-                      <Pressable
-                        onPress={() => openAddCategory(name)}
-                        style={[styles.addCatRow, { borderTopColor: tokens.border }]}
-                      >
-                        <View style={[styles.dashedIconChip, { borderColor: tokens.gold }]}>
-                          <Icon icon={Plus} size={12} color={tokens.gold} strokeWidth={3} />
-                        </View>
-                        <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
-                          Add category
-                        </Text>
-                      </Pressable>
-                    )}
-                  </Reanimated.View>
-                )}
+                  {items.length === 0 ? (
+                    <Pressable
+                      onPress={() => openAddCategory(name)}
+                      style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
+                    >
+                      <Icon icon={Plus} size={14} color={tokens.gold} strokeWidth={2.5} />
+                      <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                        Add first category
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => openAddCategory(name)}
+                      style={[styles.addCatRow, { borderTopColor: tokens.border }]}
+                    >
+                      <View style={[styles.dashedIconChip, { borderColor: tokens.gold }]}>
+                        <Icon icon={Plus} size={12} color={tokens.gold} strokeWidth={3} />
+                      </View>
+                      <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                        Add category
+                      </Text>
+                    </Pressable>
+                  )}
+                </GroupBody>
               </Reanimated.View>
             )
           })}
