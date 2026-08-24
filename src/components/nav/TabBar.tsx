@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'expo-router'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -12,8 +14,9 @@ import Reanimated, {
   Easing,
   type SharedValue,
 } from 'react-native-reanimated'
+import { Svg, Path } from 'react-native-svg'
 import type { BottomTabBarProps } from 'expo-router/js-tabs'
-import { House, ReceiptText, Tags, CircleUser, Plus, ArrowDown, type LucideIcon } from 'lucide-react-native'
+import { House, Tags, CircleUser, Plus, ArrowDown, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useUser } from '@/src/hooks/useUser'
@@ -21,9 +24,39 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 
 const TAB_ICON: Record<string, LucideIcon> = {
   index: House,
-  activity: ReceiptText,
   envelopes: Tags,
   more: CircleUser,
+}
+
+const ACTIVITY_LINES = ['M14 8H8', 'M16 12H8', 'M13 16H8'] as const
+const ACTIVITY_OUTLINE =
+  'M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z'
+
+const AnimatedPath = Reanimated.createAnimatedComponent(Path)
+
+// ReceiptText glyph (lucide) with its 3 text lines split out so each can jump independently.
+function ActivityIcon({ color, lineYs }: { color: string; lineYs: [SharedValue<number>, SharedValue<number>, SharedValue<number>] }) {
+  const line0Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[0].value }] }))
+  const line1Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[1].value }] }))
+  const line2Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[2].value }] }))
+  const lineProps = [line0Props, line1Props, line2Props]
+
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d={ACTIVITY_OUTLINE} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      {ACTIVITY_LINES.map((d, i) => (
+        <AnimatedPath
+          key={d}
+          d={d}
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          animatedProps={lineProps[i]}
+        />
+      ))}
+    </Svg>
+  )
 }
 
 const TAB_LABEL: Record<string, string> = {
@@ -88,9 +121,12 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   // Home: dip + scale (translateY 0 -> -7 -> 1 -> 0, scale 1 -> 1.14 -> 0.95 -> 1)
   const homeY = useSharedValue(0)
   const homeScale = useSharedValue(1)
-  // Activity: card-flip (rotateY 0 -> -92deg -> 0, scale bump at midpoint)
-  const activityRotateY = useSharedValue(0)
-  const activityScale = useSharedValue(1)
+  // Activity: text lines jump in a staggered wave, icon itself does a small hop
+  const activityY = useSharedValue(0)
+  const line0Y = useSharedValue(0)
+  const line1Y = useSharedValue(0)
+  const line2Y = useSharedValue(0)
+  const activityLineYs: [SharedValue<number>, SharedValue<number>, SharedValue<number>] = [line0Y, line1Y, line2Y]
   // Envelopes: pendulum swing (rotate 0 -> -17 -> 11 -> -5 -> 0)
   const envelopesRotate = useSharedValue(0)
   const envelopesScale = useSharedValue(1)
@@ -112,7 +148,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     transform: [{ translateY: homeY.value }, { scale: homeScale.value }],
   }))
   const activityIconStyle = useAnimatedStyle(() => ({
-    transform: [{ perspective: 800 }, { rotateY: `${activityRotateY.value}deg` }, { scale: activityScale.value }],
+    transform: [{ translateY: activityY.value }],
   }))
   const envelopesIconStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${envelopesRotate.value}deg` }, { scale: envelopesScale.value }],
@@ -167,9 +203,12 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const triggerActivity = () => {
     triggerRing(ringActivity)
     triggerLabel(labelYActivity)
-    const half = { duration: 310, easing: BOUNCE_EASE }
-    activityRotateY.value = withSequence(withTiming(-92, half), withTiming(0, half))
-    activityScale.value = withSequence(withTiming(1.06, half), withTiming(1, half))
+    activityY.value = withSequence(withTiming(-3, SEG_A), withTiming(1, SEG_B), withTiming(0, SEG_C))
+    const jump = { duration: 160, easing: BOUNCE_EASE }
+    const settle = { duration: 160, easing: BOUNCE_EASE }
+    activityLineYs.forEach((y, i) => {
+      y.value = withDelay(i * 60, withSequence(withTiming(-3, jump), withTiming(0, settle)))
+    })
   }
 
   const triggerEnvelopes = () => {
@@ -229,7 +268,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           <View style={styles.iconWrap}>
             <Reanimated.View style={[styles.ring, { backgroundColor: tokens.gold }, ringStyle]} pointerEvents="none" />
             <Reanimated.View style={iconStyle}>
-              <TabIcon size={24} color={color} strokeWidth={2} />
+              {name === 'activity' ? <ActivityIcon color={color} lineYs={activityLineYs} /> : <TabIcon size={24} color={color} strokeWidth={2} />}
             </Reanimated.View>
           </View>
           <Reanimated.View style={labelStyle}>
