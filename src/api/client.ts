@@ -2,6 +2,14 @@
 // instead of Next.js's own relative-path routes.
 import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
 
+// A dev build with no API URL set would otherwise silently point at
+// production data (see the fallback below) with no warning — fail loudly
+// instead. Release builds keep the fallback: it's the intended default when
+// EXPO_PUBLIC_API_URL isn't baked in.
+if (__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
+  throw new Error('EXPO_PUBLIC_API_URL is not set. Set it in Mobile/.env for local development.')
+}
+
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://ynab-replacement.vercel.app'
 
 const REQUEST_TIMEOUT_MS = 15_000
