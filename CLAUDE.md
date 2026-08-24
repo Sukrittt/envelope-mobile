@@ -26,6 +26,25 @@ For any task expected to span multiple tool calls or involve 3+ files:
 4. Keep exactly one in_progress at a time
 5. If blocked, add follow-up todo describing the blocker
 
+# tests are the norm
+
+Every new feature gets a test; run `npm run typecheck && npm run lint` before every
+commit (no `npm test` yet — no test framework installed here yet, unlike `Web/`'s
+Vitest setup; add one when the first feature needs it rather than deferring forever).
+
+Lessons from the Code Quality Checks pass (2026-08), worth not re-learning:
+- One shared code path per concern (fetch, 401-handling, auth) — a second path that
+  bypasses it (M3: streaming chat skipped the shared 401 handler) silently loses
+  whatever the shared path was enforcing.
+- Network calls need a timeout (M2) — RN `fetch` has no default; a hung request pins
+  a loading state forever.
+- Fail loud on missing config at startup (M4) — a silently-defaulted env var pointed
+  a dev build at production data with no warning.
+- Delete dead code, don't leave it commented as if live (M5) — it actively misleads
+  the next reader into thinking a path still works.
+- Clear all per-user local state on logout (M10), not just the obvious auth token —
+  the next account on the device otherwise inherits the previous user's settings.
+
 # success animation
 
 App uses one shared success-tech animation (`src/components/shared/CheckIcon.tsx`: checkmark draw-on + haptic, swaps button label, background goes `tokens.mint`, auto-dismiss ~1100ms). Every synchronous success CTA (save/confirm button that resolves in-place) must reuse this pattern instead of a new toast/animation.
