@@ -28,23 +28,28 @@ const TAB_ICON: Record<string, LucideIcon> = {
   more: CircleUser,
 }
 
-const ACTIVITY_LINES = ['M14 8H8', 'M16 12H8', 'M13 16H8'] as const
+// [path, length] — each line is a straight horizontal segment, length = |dx|, used for the dash draw-on.
+const ACTIVITY_LINES = [
+  ['M14 8H8', 6],
+  ['M16 12H8', 8],
+  ['M13 16H8', 5],
+] as const
 const ACTIVITY_OUTLINE =
   'M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z'
 
 const AnimatedPath = Reanimated.createAnimatedComponent(Path)
 
-// ReceiptText glyph (lucide) with its 3 text lines split out so each can jump independently.
-function ActivityIcon({ color, lineYs }: { color: string; lineYs: [SharedValue<number>, SharedValue<number>, SharedValue<number>] }) {
-  const line0Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[0].value }] }))
-  const line1Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[1].value }] }))
-  const line2Props = useAnimatedProps(() => ({ transform: [{ translateY: lineYs[2].value }] }))
+// ReceiptText glyph (lucide) with its 3 text lines split out so each can draw on (width 0 -> full) independently.
+function ActivityIcon({ color, lineProgress }: { color: string; lineProgress: [SharedValue<number>, SharedValue<number>, SharedValue<number>] }) {
+  const line0Props = useAnimatedProps(() => ({ strokeDashoffset: ACTIVITY_LINES[0][1] * (1 - lineProgress[0].value) }))
+  const line1Props = useAnimatedProps(() => ({ strokeDashoffset: ACTIVITY_LINES[1][1] * (1 - lineProgress[1].value) }))
+  const line2Props = useAnimatedProps(() => ({ strokeDashoffset: ACTIVITY_LINES[2][1] * (1 - lineProgress[2].value) }))
   const lineProps = [line0Props, line1Props, line2Props]
 
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path d={ACTIVITY_OUTLINE} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {ACTIVITY_LINES.map((d, i) => (
+      {ACTIVITY_LINES.map(([d, length], i) => (
         <AnimatedPath
           key={d}
           d={d}
@@ -52,6 +57,7 @@ function ActivityIcon({ color, lineYs }: { color: string; lineYs: [SharedValue<n
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
+          strokeDasharray={length}
           animatedProps={lineProps[i]}
         />
       ))}
@@ -121,12 +127,12 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   // Home: dip + scale (translateY 0 -> -7 -> 1 -> 0, scale 1 -> 1.14 -> 0.95 -> 1)
   const homeY = useSharedValue(0)
   const homeScale = useSharedValue(1)
-  // Activity: text lines jump in a staggered wave, icon itself does a small hop
+  // Activity: text lines draw on (width 0 -> full) in a staggered wave, icon itself does a small hop
   const activityY = useSharedValue(0)
-  const line0Y = useSharedValue(0)
-  const line1Y = useSharedValue(0)
-  const line2Y = useSharedValue(0)
-  const activityLineYs: [SharedValue<number>, SharedValue<number>, SharedValue<number>] = [line0Y, line1Y, line2Y]
+  const line0Progress = useSharedValue(1)
+  const line1Progress = useSharedValue(1)
+  const line2Progress = useSharedValue(1)
+  const activityLineProgress: [SharedValue<number>, SharedValue<number>, SharedValue<number>] = [line0Progress, line1Progress, line2Progress]
   // Envelopes: pendulum swing (rotate 0 -> -17 -> 11 -> -5 -> 0)
   const envelopesRotate = useSharedValue(0)
   const envelopesScale = useSharedValue(1)
@@ -204,10 +210,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     triggerRing(ringActivity)
     triggerLabel(labelYActivity)
     activityY.value = withSequence(withTiming(-3, SEG_A), withTiming(1, SEG_B), withTiming(0, SEG_C))
-    const jump = { duration: 160, easing: BOUNCE_EASE }
-    const settle = { duration: 160, easing: BOUNCE_EASE }
-    activityLineYs.forEach((y, i) => {
-      y.value = withDelay(i * 60, withSequence(withTiming(-3, jump), withTiming(0, settle)))
+    const draw = { duration: 220, easing: BOUNCE_EASE }
+    activityLineProgress.forEach((progress, i) => {
+      progress.value = 0
+      progress.value = withDelay(i * 70, withTiming(1, draw))
     })
   }
 
@@ -268,7 +274,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           <View style={styles.iconWrap}>
             <Reanimated.View style={[styles.ring, { backgroundColor: tokens.gold }, ringStyle]} pointerEvents="none" />
             <Reanimated.View style={iconStyle}>
-              {name === 'activity' ? <ActivityIcon color={color} lineYs={activityLineYs} /> : <TabIcon size={24} color={color} strokeWidth={2} />}
+              {name === 'activity' ? <ActivityIcon color={color} lineProgress={activityLineProgress} /> : <TabIcon size={24} color={color} strokeWidth={2} />}
             </Reanimated.View>
           </View>
           <Reanimated.View style={labelStyle}>
