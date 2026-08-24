@@ -41,5 +41,11 @@ yarn-error.*
 /ios
 /android
 
+# Firebase config — the android/app/ copy was already ignored above; this is
+# the repo-root copy app.json's googleServicesFile points the build at. Keep
+# it on disk locally (the build needs it), just out of git. Also restrict the
+# Android API key it contains in the GCP console — see Mobile/README.md.
+/google-services.json
+
 # graphify local knowledge graph (machine-specific paths + volatile state)
 .graphify/

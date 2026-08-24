@@ -55,8 +55,10 @@ npm run web      # expo start --web
 
 ## Environment
 
-- `EXPO_PUBLIC_API_URL` — API base URL. Defaults to `https://ynab-replacement.vercel.app` if unset.
+- `EXPO_PUBLIC_API_URL` — API base URL. Falls back to `https://ynab-replacement.vercel.app` in a release build; in a dev build (`__DEV__`), leaving it unset throws at startup instead of silently pointing at production data — set it in `.env` (gitignored).
 - `EXPO_PUBLIC_WORKOS_CLIENT_ID` — WorkOS client id for Google PKCE sign-in.
+
+`google-services.json` (repo root, referenced by `app.json`'s `googleServicesFile`) is gitignored — keep it on disk locally (the build needs it) but never commit it. Android Firebase API keys are semi-public by design, but restrict it in the GCP console (Credentials → the key → API restrictions) to just the APIs this app actually calls, rather than leaving it unrestricted.
 
 ## Auth
 
