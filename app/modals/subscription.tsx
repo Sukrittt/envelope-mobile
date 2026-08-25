@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, Pressable, Alert, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -70,7 +70,10 @@ export default function SubscriptionModal() {
             notes: notes.trim(),
           },
         },
-        { onSuccess: () => setSaved(true) },
+        {
+          onSuccess: () => setSaved(true),
+          onError: (e) => Alert.alert('Failed to save subscription', e instanceof Error ? e.message : String(e)),
+        },
       )
     } else {
       addSub.mutate(
@@ -81,7 +84,10 @@ export default function SubscriptionModal() {
           next_due_date: nextDueDate.trim(),
           notes: notes.trim(),
         },
-        { onSuccess: () => setSaved(true) },
+        {
+          onSuccess: () => setSaved(true),
+          onError: (e) => Alert.alert('Failed to add subscription', e instanceof Error ? e.message : String(e)),
+        },
       )
     }
   }
