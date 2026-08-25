@@ -28,9 +28,11 @@ For any task expected to span multiple tool calls or involve 3+ files:
 
 # tests are the norm
 
-Every new feature gets a test; run `npm run typecheck && npm run lint` before every
-commit (no `npm test` yet — no test framework installed here yet, unlike `Web/`'s
-Vitest setup; add one when the first feature needs it rather than deferring forever).
+Every new feature gets a test; run `npm run typecheck && npm run lint && npm test`
+before every commit. Jest (`jest-expo` preset) + React Native Testing Library,
+config in `jest.config.js`/`jest.setup.js`. Tests are co-located as `*.test.ts(x)`
+next to their source, matching `Web/`'s Vitest convention. CI runs `npm test` on
+every push/PR via `.github/workflows/test.yml`.
 
 Lessons from the Code Quality Checks pass (2026-08), worth not re-learning:
 - One shared code path per concern (fetch, 401-handling, auth) — a second path that

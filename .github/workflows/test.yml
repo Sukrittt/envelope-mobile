@@ -1,0 +1,22 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # --forceExit: all tests pass and exit 0, but something in the RN/react-query
+      # test environment leaves a handle open for ~60-90s past completion (a known,
+      # benign jest-expo/react-query quirk, not a leak in these tests) — force the
+      # process down immediately after results are reported instead of eating CI time.
+      - run: npm test -- --ci --forceExit

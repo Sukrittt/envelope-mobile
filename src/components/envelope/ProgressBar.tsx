@@ -10,7 +10,7 @@ export function ProgressBar({ pct }: { pct: number }) {
 
   return (
     <View style={[styles.track, { backgroundColor: tokens.borderStrong }]}>
-      <View style={[styles.fill, { width: `${clamped}%`, backgroundColor: color }]} />
+      <View testID="progress-bar-fill" style={[styles.fill, { width: `${clamped}%`, backgroundColor: color }]} />
     </View>
   )
 }
