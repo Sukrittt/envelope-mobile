@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Calendar, ChevronDown } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -7,6 +7,7 @@ import { fontFamily } from '@/src/theme/fonts'
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const WEEKDAY_SHORT2 = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 const WEEKDAY_SHORT3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function parseISO(value: string): Date | null {
@@ -26,6 +27,7 @@ const addDays = (d: Date, n: number) => {
 }
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const fmt = (d: Date | null) => (d ? `${d.getDate()} ${SHORT[d.getMonth()]} ${d.getFullYear()}` : '—')
+const fmtShort = (d: Date) => `${d.getDate()} ${SHORT[d.getMonth()]}`
 const dayDiff = (a: Date, b: Date) =>
   Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime() - new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime()) / 86400000)
 
@@ -71,6 +73,8 @@ interface SingleProps {
   value: string
   onChange: (value: string) => void
   disableFuture?: boolean
+  /** Renders the date strip for the flood screen, where a same-color accent fill on the selected chip would vanish into the ground. */
+  onAccent?: boolean
 }
 
 interface RangeProps {
@@ -94,9 +98,15 @@ export function DatePicker(props: Props) {
   return <SingleDatePicker {...props} />
 }
 
+function presetRange(today: Date, days: number, useMonthStart: boolean): DateRange {
+  const start = useMonthStart ? new Date(today.getFullYear(), today.getMonth(), 1) : addDays(today, -(days - 1))
+  return { from: toISO(start), to: toISO(today) }
+}
+
 function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) {
   const { tokens } = useTheme()
   const [open, setOpen] = useState(false)
+  const [editingField, setEditingField] = useState<'from' | 'to' | null>(null)
   const today = new Date()
   const from = parseISO(value.from)
   const to = parseISO(value.to)
@@ -105,31 +115,64 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   const cells = buildCells(view, today, from, disableFuture)
   const kFrom = from ? key(from) : null
   const kTo = to ? key(to) : null
+  const days = from && to ? dayDiff(to, from) + 1 : 0
+
+  function toggle() {
+    if (!open) setView(monthStart(from ?? today))
+    setEditingField(null)
+    setOpen((o) => !o)
+  }
 
   function pick(d: Date) {
-    const k = key(d)
-    if (!from || (from && to)) {
-      onChange({ from: toISO(d), to: '' })
-    } else if (k < kFrom!) {
-      onChange({ from: toISO(d), to: value.from })
+    const iso = toISO(d)
+    let newFrom = value.from
+    let newTo = value.to
+    if (editingField === 'from') {
+      newFrom = iso
+    } else if (editingField === 'to') {
+      newTo = iso
+    } else if (!from || (from && to)) {
+      newFrom = iso
+      newTo = ''
+    } else if (key(d) < kFrom!) {
+      newTo = value.from
+      newFrom = iso
     } else {
-      onChange({ from: value.from, to: toISO(d) })
+      newTo = iso
     }
+    if (newFrom && newTo && newFrom > newTo) [newFrom, newTo] = [newTo, newFrom]
+    setEditingField(null)
+    onChange({ from: newFrom, to: newTo })
+    if (newFrom && newTo) setOpen(false)
   }
 
-  function applyPreset(days: number, useMonthStart: boolean) {
-    const end = today
-    const start = useMonthStart ? new Date(today.getFullYear(), today.getMonth(), 1) : addDays(today, -(days - 1))
-    onChange({ from: toISO(start), to: toISO(end) })
-    setView(monthStart(start))
+  function applyPreset(presetDays: number, useMonthStart: boolean) {
+    const range = presetRange(today, presetDays, useMonthStart)
+    onChange(range)
+    setView(monthStart(parseISO(range.from)!))
+    setEditingField(null)
+    setOpen(false)
   }
 
-  const label = from && to ? `${fmt(from)} – ${fmt(to)}` : from ? 'Pick an end date' : 'Custom range'
+  const label =
+    from && to
+      ? `${fmtShort(from)}${from.getFullYear() === to.getFullYear() ? '' : ` ${from.getFullYear()}`} – ${fmtShort(to)} ${to.getFullYear()} · ${days} day${days === 1 ? '' : 's'}`
+      : from
+        ? 'Pick an end date'
+        : 'Custom range'
+
+  const statusText = editingField
+    ? `Editing ${editingField} date`
+    : !from
+      ? 'Tap a start date'
+      : !to
+        ? 'Now tap an end date'
+        : `${days} day${days === 1 ? '' : 's'} selected`
 
   return (
     <View>
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        onPress={toggle}
         style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.accent : tokens.border }]}
       >
         <View style={styles.fieldLeft}>
@@ -143,22 +186,33 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
 
       {open && (
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
-          <View style={styles.quick}>
-            {RANGE_PRESETS.map(([pLabel, days, useMonthStart]) => (
-              <Pressable
-                key={pLabel}
-                onPress={() => applyPreset(days, useMonthStart)}
-                style={[styles.chip, { borderColor: tokens.borderStrong, backgroundColor: 'transparent' }]}
-              >
-                <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{pLabel}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text style={[styles.statusText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{statusText}</Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quick}>
+            {RANGE_PRESETS.map(([pLabel, pDays, useMonthStart]) => {
+              const preset = presetRange(today, pDays, useMonthStart)
+              const active = value.from === preset.from && value.to === preset.to
+              return (
+                <Pressable
+                  key={pLabel}
+                  onPress={() => applyPreset(pDays, useMonthStart)}
+                  style={[
+                    styles.chip,
+                    { borderColor: active ? 'transparent' : tokens.borderStrong, backgroundColor: active ? tokens.accent : 'transparent' },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+                    {pLabel}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
 
           <View style={styles.nav}>
             <Pressable
               onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))}
-              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
             </Pressable>
@@ -167,14 +221,14 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
             </Text>
             <Pressable
               onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))}
-              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
             </Pressable>
           </View>
 
           <View style={styles.weekdays}>
-            {WEEKDAY_SHORT.map((w, i) => (
+            {WEEKDAY_SHORT2.map((w, i) => (
               <Text key={i} style={[styles.weekday, { color: tokens.text3 }]}>
                 {w}
               </Text>
@@ -189,20 +243,25 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
                   const isStart = k !== null && k === kFrom
                   const isEnd = k !== null && k === kTo
                   const inRange = kFrom !== null && kTo !== null && k !== null && k > kFrom && k < kTo
+                  const bandLeft = isEnd && !isStart ? '0%' : isStart && !isEnd ? '50%' : '0%'
+                  const bandRight = isStart && !isEnd ? '0%' : isEnd && !isStart ? '50%' : '0%'
+                  const showBand = !!(kFrom !== null && kTo !== null && kFrom !== kTo && (isStart || isEnd || inRange))
                   return (
-                    <View
-                      key={i}
-                      style={[styles.cellWrap, inRange && { backgroundColor: tokens.accentSoft }]}
-                    >
+                    <View key={i} style={[styles.cellWrapLarge]}>
+                      {showBand && (
+                        <View
+                          pointerEvents="none"
+                          style={{ position: 'absolute', top: 0, bottom: 0, left: bandLeft, right: bandRight, backgroundColor: tokens.accentSoft }}
+                        />
+                      )}
                       {c?.date && (
                         <Pressable
                           disabled={c.disabled}
                           onPress={() => pick(c.date!)}
                           style={[
-                            styles.cell,
-                            { borderColor: c.isToday && !isStart && !isEnd ? tokens.accent : 'transparent' },
+                            styles.cellLarge,
                             (isStart || isEnd) && { backgroundColor: tokens.accent },
-                            c.disabled && { opacity: 0.4 },
+                            c.disabled && { opacity: 0.6 },
                           ]}
                         >
                           <Text
@@ -225,15 +284,40 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
             ))}
           </View>
 
+          <View style={styles.fromToRow}>
+            <Pressable
+              onPress={() => setEditingField('from')}
+              style={[styles.fromToPill, { borderColor: editingField === 'from' ? tokens.accent : tokens.border }]}
+            >
+              <Text style={[styles.fromToLabel, { color: tokens.text3 }]}>FROM</Text>
+              <Text style={[styles.fromToValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{fmt(from)}</Text>
+            </Pressable>
+            <View style={[styles.fromToDivider, { backgroundColor: tokens.border }]} />
+            <Pressable
+              onPress={() => setEditingField('to')}
+              style={[styles.fromToPill, { borderColor: editingField === 'to' ? tokens.accent : tokens.border }]}
+            >
+              <Text style={[styles.fromToLabel, { color: tokens.text3 }]}>TO</Text>
+              <Text style={[styles.fromToValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{fmt(to)}</Text>
+            </Pressable>
+          </View>
+
           <View style={styles.rangeFooter}>
-            <Pressable onPress={() => onChange({ from: '', to: '' })} style={[styles.clear, { borderColor: tokens.borderStrong }]}>
+            <Pressable
+              onPress={() => {
+                setEditingField(null)
+                onChange({ from: '', to: '' })
+              }}
+              style={[styles.clear, { borderColor: tokens.borderStrong }]}
+            >
               <Text style={[styles.clearText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Clear</Text>
             </Pressable>
             <Pressable
               onPress={() => setOpen(false)}
-              style={[styles.done, { backgroundColor: tokens.accentSoft, flex: 1, alignItems: 'center' }]}
+              disabled={!from}
+              style={[styles.done, { flex: 1, alignItems: 'center', backgroundColor: from ? tokens.accent : tokens.inputBg }]}
             >
-              <Text style={[styles.doneText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Done</Text>
+              <Text style={[styles.doneText, { color: from ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }]}>Done</Text>
             </Pressable>
           </View>
         </View>
@@ -242,7 +326,7 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   )
 }
 
-function SingleDatePicker({ value, onChange, disableFuture = true }: SingleProps) {
+function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = false }: SingleProps) {
   const { tokens } = useTheme()
   const [open, setOpen] = useState(false)
   const today = new Date()
@@ -281,7 +365,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true }: SingleProps
   return (
     <View>
       <View style={styles.dateHeader}>
-        <Text style={[styles.dateHeaderLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>DATE</Text>
+        <Text style={[styles.dateHeaderLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
         {!!daysAgoText && <Text style={[styles.daysAgo, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{daysAgoText}</Text>}
       </View>
 
@@ -289,19 +373,21 @@ function SingleDatePicker({ value, onChange, disableFuture = true }: SingleProps
         {stripDays.map((d) => {
           const k = key(d)
           const active = kSel === k
+          const activeBg = onAccent ? tokens.onAccent : tokens.accent
+          const activeText = onAccent ? tokens.accentInk : tokens.onAccent
           return (
             <Pressable
               key={k}
               onPress={() => pick(d)}
               style={[
                 styles.stripCell,
-                { backgroundColor: active ? tokens.accent : tokens.inputBg, borderColor: active ? tokens.accent : tokens.border },
+                { backgroundColor: active ? activeBg : tokens.inputBg, borderColor: active ? activeBg : tokens.border },
               ]}
             >
-              <Text style={[styles.stripDay, { color: active ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+              <Text style={[styles.stripDay, { color: active ? activeText : tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
                 {stripLabel(d)}
               </Text>
-              <Text style={[styles.stripNum, { color: active ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodyBold }]}>{d.getDate()}</Text>
+              <Text style={[styles.stripNum, { color: active ? activeText : tokens.text, fontFamily: fontFamily.bodyBold }]}>{d.getDate()}</Text>
             </Pressable>
           )
         })}
@@ -416,20 +502,29 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12 },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  navBtnLarge: { width: 44, height: 44, borderRadius: 22 },
   navBtnText: { fontSize: 14 },
   monthLabel: { fontSize: 14 },
   weekdays: { flexDirection: 'row' },
   weekday: { flex: 1, textAlign: 'center', fontSize: 10 },
-  grid: { gap: 2 },
+  grid: { gap: 0 },
   gridRow: { flexDirection: 'row' },
   cellWrap: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center' },
+  cellWrapLarge: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   cell: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cellLarge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 13 },
-  done: { alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 18, borderRadius: 100 },
-  doneText: { fontSize: 12.5 },
+  done: { paddingVertical: 13, paddingHorizontal: 18, borderRadius: 100, minHeight: 44, justifyContent: 'center' },
+  doneText: { fontSize: 14 },
   rangeFooter: { flexDirection: 'row', gap: 8 },
-  clear: { paddingVertical: 9, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
-  clearText: { fontSize: 12.5 },
+  clear: { paddingVertical: 13, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1, minHeight: 44, justifyContent: 'center' },
+  clearText: { fontSize: 14 },
+  statusText: { fontSize: 12.5 },
+  fromToRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  fromToPill: { flex: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, gap: 2 },
+  fromToLabel: { fontSize: 10, letterSpacing: 0.5 },
+  fromToValue: { fontSize: 13 },
+  fromToDivider: { width: 1, height: 26 },
   dateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   dateHeaderLabel: { fontSize: 11, letterSpacing: 0.5 },
   daysAgo: { fontSize: 11 },
