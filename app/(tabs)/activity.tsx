@@ -17,13 +17,14 @@ import { useExpenses, useDeleteExpense } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { DatePicker, type DateRange } from '@/src/components/shared/DatePicker'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { SwipeableRow } from '@/src/components/activity/SwipeableRow'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 
-type PeriodKey = 'week' | 'month'
+type PeriodKey = 'week' | 'month' | 'custom'
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -120,6 +121,7 @@ export default function ActivityScreen() {
   }, [paramDate])
 
   const [period, setPeriod] = useState<PeriodKey>('week')
+  const [customRange, setCustomRange] = useState<DateRange>({ from: '', to: '' })
   // Category drill-in from an envelope's "View transactions" action.
   const [selectedCategory, setSelectedCategory] = useState(paramCategory)
   useEffect(() => {
@@ -171,6 +173,9 @@ export default function ActivityScreen() {
     let rows = expenses
     if (selectedDate) {
       rows = rows.filter((e) => e.date === selectedDate)
+    } else if (period === 'custom') {
+      if (customRange.from) rows = rows.filter((e) => e.date >= customRange.from)
+      if (customRange.to) rows = rows.filter((e) => e.date <= customRange.to)
     } else {
       const end = new Date(latestDate)
       let start: Date
@@ -196,7 +201,7 @@ export default function ActivityScreen() {
       const cmp = b.date.localeCompare(a.date)
       return cmp !== 0 ? cmp : b.timestamp.localeCompare(a.timestamp)
     })
-  }, [expenses, period, selectedDate, selectedCategory, search, latestDate])
+  }, [expenses, period, selectedDate, selectedCategory, search, latestDate, customRange])
 
   const totalSpend = useMemo(() => filtered.reduce((s, e) => s + (Number(e.amount_inr) || 0), 0), [filtered])
 
@@ -382,15 +387,20 @@ export default function ActivityScreen() {
           Filter
         </Text>
         <View style={styles.periodRow}>
-          {(['week', 'month'] as PeriodKey[]).map((key) => (
+          {(['week', 'month', 'custom'] as PeriodKey[]).map((key) => (
             <Chip
               key={key}
               selected={period === key}
-              label={key === 'week' ? 'This week' : 'This month'}
+              label={key === 'week' ? 'This week' : key === 'month' ? 'This month' : 'Custom range'}
               onPress={() => setPeriod(key)}
             />
           ))}
         </View>
+        {period === 'custom' && (
+          <View style={styles.customRangeWrap}>
+            <DatePicker mode="range" value={customRange} onChange={setCustomRange} />
+          </View>
+        )}
         <TextInput
           value={categorySearch}
           onChangeText={setCategorySearch}
@@ -419,21 +429,27 @@ export default function ActivityScreen() {
                   <Text style={[styles.categoryGroupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
                     {group.name ? `${groupEmoji(group.name)} ${splitEmoji(group.name).text}` : 'Other'}
                   </Text>
-                  {group.items.map((c) => (
-                    <Pressable
-                      key={c.name}
-                      style={[styles.categoryOption, selectedCategory === c.name && { backgroundColor: tokens.chipActiveBg }]}
-                      onPress={() => {
-                        setSelectedCategory(c.name)
-                        setCategorySheetOpen(false)
-                        setCategorySearch('')
-                      }}
-                    >
-                      <Text style={[styles.categoryOptionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-                        {categoryEmoji(c.name, group.name)} {splitEmoji(c.name).text}
-                      </Text>
-                    </Pressable>
-                  ))}
+                  <View style={[styles.categoryGroupItems, { borderLeftColor: tokens.border }]}>
+                    {group.items.map((c, i) => (
+                      <Pressable
+                        key={c.name}
+                        style={[
+                          styles.categoryOption,
+                          i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+                          selectedCategory === c.name && { backgroundColor: tokens.chipActiveBg },
+                        ]}
+                        onPress={() => {
+                          setSelectedCategory(c.name)
+                          setCategorySheetOpen(false)
+                          setCategorySearch('')
+                        }}
+                      >
+                        <Text style={[styles.categoryOptionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+                          {categoryEmoji(c.name, group.name)} {splitEmoji(c.name).text}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               ),
           )}
