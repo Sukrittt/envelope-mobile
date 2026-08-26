@@ -8,7 +8,6 @@ import {
   type NativeScrollEvent,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { BlurView } from 'expo-blur'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -88,7 +87,7 @@ const SLOT = 72
 const ROW_TOP_BLEED = 10
 const ROW_BOTTOM_BLEED = 24
 const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
-// Blurred backdrop behind the ring track: content scrolls underneath the nav,
+// Opaque backdrop behind the ring track: content scrolls underneath the nav,
 // and the circles alone don't cover the gaps between slots, so a scrolled row
 // can show through at the same height. A small vertical pad beyond the ring
 // itself keeps the pill from clipping tight against the icons.
@@ -139,7 +138,7 @@ export function FloatingNav({
   variant?: 'default' | 'onAccent'
   children?: React.ReactNode
 }) {
-  const { tokens, space, elevation, radius, scheme } = useTheme()
+  const { tokens, space, elevation, radius } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const onAccent = variant === 'onAccent'
@@ -196,11 +195,12 @@ export function FloatingNav({
       style={[styles.wrap, { paddingBottom: insets.bottom + space.xs }]}
     >
       {children}
-      <BlurView
+      <View
         pointerEvents="none"
-        intensity={40}
-        tint={onAccent ? 'dark' : scheme}
-        style={[styles.backdrop, { left: space.lg, right: space.lg, borderRadius: radius.full }]}
+        style={[
+          styles.backdrop,
+          { left: space.lg, right: space.lg, borderRadius: radius.full, backgroundColor: onAccent ? tokens.accent : tokens.bg },
+        ]}
       />
       <Reanimated.ScrollView
         ref={scrollRef}
@@ -419,7 +419,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: ROW_TOP_BLEED - BACKDROP_PAD,
     height: BACKDROP_HEIGHT,
-    overflow: 'hidden',
   },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
   ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
