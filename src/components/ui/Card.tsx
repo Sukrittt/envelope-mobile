@@ -10,11 +10,13 @@ export function Card({
   children,
   onPress,
   padded = true,
+  elevated = true,
   style,
 }: {
   children: ReactNode
   onPress?: () => void
   padded?: boolean
+  elevated?: boolean
   style?: StyleProp<ViewStyle>
 }) {
   const { tokens, radius, space, elevation } = useTheme()
@@ -26,7 +28,7 @@ export function Card({
       borderRadius: radius.lg,
       padding: padded ? space.lg : 0,
     },
-    elevation.card,
+    elevated ? elevation.card : { borderWidth: 1, borderColor: tokens.border },
     style,
   ]
 

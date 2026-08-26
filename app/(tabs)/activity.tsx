@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, StyleShee
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { SlidersHorizontal } from 'lucide-react-native'
+import type { ThemeTokens } from '@/src/theme/tokens'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Chip } from '@/src/components/ui/Chip'
@@ -32,11 +33,6 @@ function toDateInput(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-function formatTime(ts: string): string {
-  const m = ts.match(/T(\d{2}:\d{2})/)
-  return m ? m[1] : ''
-}
-
 function formatDateHeader(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
@@ -53,7 +49,32 @@ function formatDateHeader(iso: string): string {
   })
 }
 
-type TimelineItem = { kind: 'header'; date: string; label: string; total: number } | { kind: 'txn'; txn: ExpenseRow }
+function formatShortDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const day = d.getDate()
+  const month = d.toLocaleDateString('en-IN', { month: 'short' })
+  const year = String(d.getFullYear()).slice(2)
+  return `${day} ${month} '${year}`
+}
+
+// Category avatars cycle through the existing soft-hue tokens (hash of the name) so
+// the flat list reads with the same varied-but-controlled color as Slice's own rows,
+// without inventing a new palette.
+const AVATAR_HUES: Array<(t: ThemeTokens) => string> = [
+  (t) => t.mintSoft,
+  (t) => t.violetSoft,
+  (t) => t.blueSoft,
+  (t) => t.accentSoft,
+  (t) => t.warnSoft,
+  (t) => t.coralSoft,
+]
+
+function avatarColorFor(name: string, tokens: ThemeTokens): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  return AVATAR_HUES[hash % AVATAR_HUES.length](tokens)
+}
 
 function keyOf(t: ExpenseRow): string {
   return `t-${t.timestamp}-${t.item}`
@@ -177,22 +198,6 @@ export default function ActivityScreen() {
     })
   }, [expenses, period, selectedDate, selectedCategory, search, latestDate])
 
-  const grouped: TimelineItem[] = useMemo(() => {
-    const byDate = new Map<string, ExpenseRow[]>()
-    for (const e of filtered) {
-      const arr = byDate.get(e.date) ?? []
-      arr.push(e)
-      byDate.set(e.date, arr)
-    }
-    const items: TimelineItem[] = []
-    for (const [date, txns] of byDate) {
-      const total = txns.reduce((s, t) => s + (Number(t.amount_inr) || 0), 0)
-      items.push({ kind: 'header', date, label: formatDateHeader(date), total })
-      for (const t of txns) items.push({ kind: 'txn', txn: t })
-    }
-    return items
-  }, [filtered])
-
   const totalSpend = useMemo(() => filtered.reduce((s, e) => s + (Number(e.amount_inr) || 0), 0), [filtered])
 
   function openEdit(t: ExpenseRow) {
@@ -248,7 +253,6 @@ export default function ActivityScreen() {
     <AnimatedTabContent>
       <Screen
         title="Activity"
-        actions={<IconButton icon={SlidersHorizontal} accessibilityLabel="Filter by category" onPress={() => setCategorySheetOpen(true)} />}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
@@ -256,17 +260,6 @@ export default function ActivityScreen() {
       >
         {/* No "Log expense" button here: the nav's centre action is always on
             screen and is the single entry point for the app's primary verb. */}
-        <View style={styles.filterRow}>
-          {(['week', 'month'] as PeriodKey[]).map((key) => (
-            <Chip
-              key={key}
-              selected={period === key}
-              label={key === 'week' ? 'This week' : 'This month'}
-              onPress={() => setPeriod(key)}
-            />
-          ))}
-        </View>
-
         {selectedDate ? (
           <Pressable
             onPress={() => setSelectedDate('')}
@@ -278,56 +271,40 @@ export default function ActivityScreen() {
           </Pressable>
         ) : null}
 
-        <Pressable
-          onPress={() => setCategorySheetOpen(true)}
-          style={[styles.categoryTrigger, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
-        >
-          <Text style={[styles.chipText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-            {selectedCategory ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}` : 'All categories'}
-          </Text>
-          <Text style={{ color: tokens.text2, fontSize: 12 }}>▾</Text>
-        </Pressable>
+        <View style={styles.searchRow}>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search transactions"
+            placeholderTextColor={tokens.text3}
+            style={[styles.search, { backgroundColor: tokens.inputBg, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+          />
+          <IconButton icon={SlidersHorizontal} accessibilityLabel="Filter transactions" onPress={() => setCategorySheetOpen(true)} />
+        </View>
 
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search transactions…"
-          placeholderTextColor={tokens.text3}
-          style={[styles.search, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
-        />
-
-        {grouped.length === 0 ? (
-          <View style={[styles.card, styles.emptyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        {filtered.length === 0 ? (
+          <View style={styles.emptyState}>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
               No transactions for this filter.
             </Text>
           </View>
         ) : (
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            {grouped.map((item, i) =>
-              item.kind === 'header' ? (
-                <View
-                  key={`h-${item.date}`}
-                  style={[styles.dateHeader, i > 0 && { borderTopColor: tokens.border, borderTopWidth: StyleSheet.hairlineWidth }]}
-                >
-                  <Text style={[styles.dateHeaderLabel, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{item.label}</Text>
-                  <Text style={[styles.dateHeaderTotal, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                    {formatCurrency(item.total, hideAmounts)}
-                  </Text>
-                </View>
-              ) : (
+          <View>
+            {filtered.map((txn) => {
+              const avatarBg = avatarColorFor(txn.category, tokens)
+              return (
                 <DeletingRow
-                  key={keyOf(item.txn)}
-                  active={pendingDelete !== null && keyOf(pendingDelete) === keyOf(item.txn)}
+                  key={keyOf(txn)}
+                  active={pendingDelete !== null && keyOf(pendingDelete) === keyOf(txn)}
                   onDone={() => {
                     if (pendingDelete) runDelete(pendingDelete)
                     setPendingDelete(null)
                   }}
                 >
                   <SwipeableRow
-                    rowKey={keyOf(item.txn)}
-                    onDelete={() => confirmDelete(item.txn)}
-                    onEdit={() => openEdit(item.txn)}
+                    rowKey={keyOf(txn)}
+                    onDelete={() => confirmDelete(txn)}
+                    onEdit={() => openEdit(txn)}
                     onOpen={(key, close) => {
                       if (openRowRef.current && openRowRef.current.key !== key) {
                         openRowRef.current.close()
@@ -335,32 +312,31 @@ export default function ActivityScreen() {
                       openRowRef.current = { key, close }
                     }}
                   >
-                    <Pressable onPress={() => setSheetTxn(item.txn)} style={[styles.row, { backgroundColor: tokens.cardSolid }]}>
-                      <View style={[styles.icon, { backgroundColor: tokens.pillBg }]}>
-                        <Text style={{ fontSize: 15 }}>{categoryEmoji(item.txn.category)}</Text>
+                    <Pressable onPress={() => setSheetTxn(txn)} style={[styles.row, { backgroundColor: tokens.bg }]}>
+                      <View style={[styles.icon, { backgroundColor: avatarBg }]}>
+                        <Text style={{ fontSize: 15 }}>{categoryEmoji(txn.category)}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                          {item.txn.item}
+                        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+                          {txn.item}
                         </Text>
                         <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                          {formatTime(item.txn.timestamp)} · {splitEmoji(item.txn.category).text}
+                          {formatShortDate(txn.date)} · {splitEmoji(txn.category).text}
                         </Text>
                       </View>
                       <Text
                         style={[
                           styles.rowAmount,
-                          { color: INCOME_CATEGORIES.has(item.txn.category) ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodySemiBold },
+                          { color: INCOME_CATEGORIES.has(txn.category) ? tokens.mint : tokens.text, fontFamily: fontFamily.bodySemiBold },
                         ]}
                       >
-                        {INCOME_CATEGORIES.has(item.txn.category) ? '+' : '-'}
-                        {formatCurrency(Number(item.txn.amount_inr) || 0, hideAmounts)}
+                        {formatCurrency(Number(txn.amount_inr) || 0, hideAmounts)}
                       </Text>
                     </Pressable>
                   </SwipeableRow>
                 </DeletingRow>
-              ),
-            )}
+              )
+            })}
           </View>
         )}
 
@@ -403,8 +379,18 @@ export default function ActivityScreen() {
 
       <BottomSheet visible={categorySheetOpen} onClose={() => { setCategorySheetOpen(false); setCategorySearch('') }}>
         <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-          Filter by category
+          Filter
         </Text>
+        <View style={styles.periodRow}>
+          {(['week', 'month'] as PeriodKey[]).map((key) => (
+            <Chip
+              key={key}
+              selected={period === key}
+              label={key === 'week' ? 'This week' : 'This month'}
+              onPress={() => setPeriod(key)}
+            />
+          ))}
+        </View>
         <TextInput
           value={categorySearch}
           onChangeText={setCategorySearch}
@@ -473,36 +459,23 @@ function SheetOption({ label, color, onPress }: { label: string; color: string; 
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scrollContent: { gap: 14 },
-  filterRow: { flexDirection: 'row', gap: 8 },
-  dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
-  categoryTrigger: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 100,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
+  scrollContent: { gap: 4 },
+  dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 10 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  periodRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   categorySheetScroll: { height: 420 },
   categorySearch: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, marginBottom: 8 },
   categoryOption: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
   categoryOptionText: { fontSize: 14 },
   categoryGroupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
   chipText: { fontSize: 12 },
-  search: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, fontSize: 13 },
-  card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14 },
-  emptyCard: { paddingVertical: 24, minHeight: 96, justifyContent: 'center' },
-  dateHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingTop: 14 },
-  dateHeaderLabel: { fontSize: 12 },
-  dateHeaderTotal: { fontSize: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderRadius: 16 },
-  icon: { width: 34, height: 34, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  rowItem: { fontSize: 13 },
-  rowMeta: { fontSize: 11, marginTop: 2 },
-  rowAmount: { fontSize: 13 },
+  search: { flex: 1, borderRadius: 100, paddingHorizontal: 18, paddingVertical: 13, fontSize: 14 },
+  emptyState: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  rowItem: { fontSize: 15 },
+  rowMeta: { fontSize: 12, marginTop: 2 },
+  rowAmount: { fontSize: 15 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 4 },
   sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   confirmTitle: { fontSize: 17, textAlign: 'center', marginBottom: 6 },

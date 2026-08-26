@@ -32,16 +32,15 @@ export function activeRouteFor(pathname: string): NavRoute | null {
 }
 
 const CIRCLE = 46
-const ADD_CIRCLE = 62
 
 /**
  * Detached navigation: free-floating circles laid over the page, with no bar,
  * border or scrim behind them. Content scrolls underneath, so every screen
  * reserves NAV_HEIGHT of bottom padding (see Screen / useNavPadding).
  *
- * The centre slot is an action, not a destination, and is permanently large —
- * logging an expense is the app's primary verb. The active route is therefore
- * marked by an accent fill rather than by size, which would compete with it.
+ * The centre slot is an action, not a destination — logging an expense — but
+ * sized and colored like every other circle until pressed, so it doesn't
+ * compete with the active route's accent fill.
  *
  * All five circles share one press motion. Per-icon signature animations were
  * tried and removed: five different flourishes read as busy rather than crafted.
@@ -93,10 +92,10 @@ export function FloatingNav({
       <NavCircle
         icon={addActive ? X : Plus}
         label={addActive ? 'Close' : 'Log expense'}
-        size={ADD_CIRCLE}
+        size={CIRCLE}
         selected={addActive}
-        background={addActive ? activeFill : onAccent ? tokens.onAccent : tokens.accent}
-        color={addActive ? activeIcon : onAccent ? tokens.accent : tokens.onAccent}
+        background={addActive ? activeFill : idle}
+        color={addActive ? activeIcon : idleIcon}
         onPress={onAdd}
         style={elevation.floating}
       />

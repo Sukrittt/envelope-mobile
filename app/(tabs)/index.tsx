@@ -96,9 +96,6 @@ export default function HomeScreen() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
-  const nonCcEnvelopes = envelopeState.envelopes.filter((e) => !e.isCreditCardPayment)
-  const overspentCount = nonCcEnvelopes.filter((e) => e.isOverspent).length
-
   const rolloverTotal = envelopeState.envelopes.reduce((s, e) => s + (e.rolledOver || 0), 0)
   const showRolloverBanner = !rolloverDismissed && rolloverTotal > 0
 
@@ -169,7 +166,7 @@ export default function HomeScreen() {
         </View>
 
         {showRolloverBanner && (
-          <Card style={styles.rolloverCard}>
+          <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
               {formatCurrency(rolloverTotal, hideAmounts)} rolled over from last month across your envelopes.
             </Text>
@@ -179,18 +176,8 @@ export default function HomeScreen() {
           </Card>
         )}
 
-        <View style={[styles.statRow, { gap: space.md }]}>
-          <Stat label="INCOME" value={formatCurrency(envelopeState.income, hideAmounts)} />
-          <Stat label="ASSIGNED" value={formatCurrency(envelopeState.totalAssigned, hideAmounts)} />
-          <Stat
-            label="OVERSPENT"
-            value={`${overspentCount}/${nonCcEnvelopes.length}`}
-            color={overspentCount > 0 ? tokens.coral : undefined}
-          />
-        </View>
-
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(600)}>
-          <Card>
+          <Card elevated={false}>
             <View style={styles.cardHeadRow}>
               <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
                 Envelopes
@@ -258,7 +245,7 @@ export default function HomeScreen() {
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   const { tokens, type } = useTheme()
   return (
-    <Card style={styles.statCard}>
+    <Card style={styles.statCard} elevated={false}>
       <Text style={[styles.statLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
       <Text style={{ color: color ?? tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.bodyExtraBold, marginTop: 4 }}>
         {value}
