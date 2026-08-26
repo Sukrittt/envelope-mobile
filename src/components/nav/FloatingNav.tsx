@@ -67,7 +67,10 @@ const RING_WIDTH = 2
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
 /** Fixed carousel step: distance between two slot centres. */
 const SLOT = 72
-const ROW_HEIGHT = RING_SIZE + 8
+// Extra headroom beyond the ring so the "floating" shadow (radius 16,
+// vertical offset 6) has room to render inside the ScrollView's own bounds
+// instead of getting clipped by it.
+const ROW_HEIGHT = RING_SIZE + 48
 
 /** Carousel x-offset that puts slot `i` at the centre of the screen. */
 export const slotOffset = (i: number): number => i * SLOT

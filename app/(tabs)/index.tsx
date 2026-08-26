@@ -40,9 +40,6 @@ export default function HomeScreen() {
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
 
-  const user = useUser().data
-  const greetingName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
-
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
@@ -140,7 +137,7 @@ export default function HomeScreen() {
   return (
     <AnimatedTabContent>
       <Screen
-        title={`Hey ${greetingName}`}
+        title="Envelope"
         actions={
           <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
