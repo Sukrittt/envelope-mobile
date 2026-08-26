@@ -116,7 +116,7 @@ export default function HoldingActionModal() {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: confirmSuccess ? tokens.mint : tokens.gold,
+              backgroundColor: confirmSuccess ? tokens.mint : tokens.accent,
               opacity: !canSubmit || performAction.isPending ? 0.5 : 1,
             },
           ]}

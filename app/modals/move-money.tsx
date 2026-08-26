@@ -121,7 +121,7 @@ export default function MoveMoneyModal() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.center, { backgroundColor: tokens.bg }]}>
-        <ActivityIndicator color={tokens.gold} />
+        <ActivityIndicator color={tokens.accentInk} />
       </View>
     )
   }
@@ -227,7 +227,7 @@ export default function MoveMoneyModal() {
             disabled={!canSubmit || saving || moveSuccess}
             style={[
               styles.confirmButton,
-              { backgroundColor: moveSuccess ? tokens.mint : tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 },
+              { backgroundColor: moveSuccess ? tokens.mint : tokens.accent, opacity: !canSubmit || saving ? 0.5 : 1 },
             ]}
           >
             {moveSuccess ? (
@@ -260,11 +260,11 @@ function SourceOption({
       onPress={onPress}
       style={[
         styles.sourceOption,
-        { backgroundColor: selected ? tokens.goldSoft : tokens.inputBg, borderColor: selected ? tokens.gold : tokens.border },
+        { backgroundColor: selected ? tokens.accentSoft : tokens.inputBg, borderColor: selected ? tokens.accent : tokens.border },
       ]}
     >
-      <View style={[styles.radioDot, { borderColor: selected ? tokens.gold : tokens.text3 }]}>
-        {selected && <View style={[styles.radioDotFill, { backgroundColor: tokens.gold }]} />}
+      <View style={[styles.radioDot, { borderColor: selected ? tokens.accent : tokens.text3 }]}>
+        {selected && <View style={[styles.radioDotFill, { backgroundColor: tokens.accent }]} />}
       </View>
       <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
         {label}

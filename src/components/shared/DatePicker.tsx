@@ -90,11 +90,11 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
     <View>
       <Pressable
         onPress={toggle}
-        style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.gold : tokens.border }]}
+        style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.accent : tokens.border }]}
       >
         <View style={styles.fieldLeft}>
-          <View style={[styles.iconWrap, { backgroundColor: tokens.goldSoft }]}>
-            <Calendar size={15} color={tokens.gold} />
+          <View style={[styles.iconWrap, { backgroundColor: tokens.accentSoft }]}>
+            <Calendar size={15} color={tokens.accentInk} />
           </View>
           <Text style={[styles.fieldText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
         </View>
@@ -113,7 +113,7 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
                   onPress={() => pick(d)}
                   style={[
                     styles.chip,
-                    { borderColor: active ? 'transparent' : tokens.borderStrong, backgroundColor: active ? tokens.gold : 'transparent' },
+                    { borderColor: active ? 'transparent' : tokens.borderStrong, backgroundColor: active ? tokens.accent : 'transparent' },
                   ]}
                 >
                   <Text style={[styles.chipText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
@@ -161,8 +161,8 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
                         onPress={() => pick(c.date!)}
                         style={[
                           styles.cell,
-                          { borderColor: c.isToday && !c.isSelected ? tokens.gold : 'transparent' },
-                          c.isSelected && { backgroundColor: tokens.gold },
+                          { borderColor: c.isToday && !c.isSelected ? tokens.accent : 'transparent' },
+                          c.isSelected && { backgroundColor: tokens.accent },
                           c.disabled && { opacity: 0.4 },
                         ]}
                       >
@@ -182,8 +182,8 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
             ))}
           </View>
 
-          <Pressable onPress={() => setOpen(false)} style={[styles.done, { backgroundColor: tokens.goldSoft }]}>
-            <Text style={[styles.doneText, { color: tokens.gold, fontFamily: fontFamily.bodyBold }]}>Done</Text>
+          <Pressable onPress={() => setOpen(false)} style={[styles.done, { backgroundColor: tokens.accentSoft }]}>
+            <Text style={[styles.doneText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Done</Text>
           </Pressable>
         </View>
       )}

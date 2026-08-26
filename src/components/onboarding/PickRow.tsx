@@ -26,7 +26,7 @@ export function PickRow({
     <View
       style={[
         styles.row,
-        { backgroundColor: on ? tokens.card : 'transparent', borderColor: on ? tokens.gold : tokens.border },
+        { backgroundColor: on ? tokens.card : 'transparent', borderColor: on ? tokens.accent : tokens.border },
       ]}
     >
       <Pressable
@@ -46,7 +46,7 @@ export function PickRow({
         onPress={onToggle}
         style={[
           styles.check,
-          { borderColor: on ? tokens.gold : tokens.borderStrong, backgroundColor: on ? tokens.gold : 'transparent' },
+          { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accent : 'transparent' },
         ]}
       >
         {on && <Text style={[styles.checkLabel, { color: tokens.onAccent }]}>✓</Text>}

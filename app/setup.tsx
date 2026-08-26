@@ -8,7 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } 
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
-import { Numpad } from '@/src/components/auth/Numpad'
+import { Numpad } from '@/src/components/ui/Numpad'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { PickRow } from '@/src/components/onboarding/PickRow'
 import { SetupDone } from '@/src/components/onboarding/SetupDone'
@@ -109,7 +109,7 @@ const TITLES: Record<number, [string, string]> = {
 function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg: string } {
   if (rem === 0) return { color: tokens.mint, bg: tokens.mintSoft }
   if (rem < 0) return { color: tokens.coral, bg: tokens.coralSoft }
-  return { color: tokens.gold, bg: tokens.goldSoft }
+  return { color: tokens.accentInk, bg: tokens.accentSoft }
 }
 
 export default function SetupScreen() {
@@ -364,7 +364,7 @@ export default function SetupScreen() {
         </Pressable>
         <View style={styles.dots}>
           {[1, 2, 3, 4].map((n) => (
-            <StepDot key={n} active={n <= step} activeColor={tokens.gold} inactiveColor={tokens.borderStrong} onPress={() => {}} />
+            <StepDot key={n} active={n <= step} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
           ))}
         </View>
         <Text style={[styles.stepCounter, { color: tokens.text3 }]}>step {step}/4</Text>
@@ -488,7 +488,7 @@ export default function SetupScreen() {
                         onPress={() => openRow(key)}
                         style={[
                           styles.assignRow,
-                          { backgroundColor: active ? tokens.goldSoft : tokens.card, borderColor: active ? tokens.gold : tokens.border },
+                          { backgroundColor: active ? tokens.accentSoft : tokens.card, borderColor: active ? tokens.accent : tokens.border },
                         ]}
                       >
                         <View style={[styles.assignEmoji, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
@@ -515,7 +515,7 @@ export default function SetupScreen() {
       <Pressable
         onPress={next}
         disabled={!canAdvance || pending}
-        style={[styles.cta, { backgroundColor: canAdvance ? tokens.gold : tokens.inputBg, opacity: pending ? 0.7 : 1 }]}
+        style={[styles.cta, { backgroundColor: canAdvance ? tokens.accent : tokens.inputBg, opacity: pending ? 0.7 : 1 }]}
       >
         <Text style={[styles.ctaText, { color: canAdvance ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.displaySemiBold }]}>
           {pending ? 'Saving…' : step === 4 ? 'Finish setup' : 'Continue'}
@@ -545,12 +545,12 @@ export default function SetupScreen() {
               {formatINR(amounts[activeCat.key] ?? 0)}
             </Text>
             {rem !== 0 && (
-              <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.gold, backgroundColor: tokens.goldSoft }]}>
-                <Text style={[styles.fillButtonLabel, { color: tokens.gold }]}>Give this the leftover</Text>
+              <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}>
+                <Text style={[styles.fillButtonLabel, { color: tokens.accentInk }]}>Give this the leftover</Text>
               </Pressable>
             )}
             <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} />
-            <Pressable onPress={closeRow} style={[styles.sheetDone, { backgroundColor: tokens.gold }]}>
+            <Pressable onPress={closeRow} style={[styles.sheetDone, { backgroundColor: tokens.accent }]}>
               <Text style={[styles.sheetDoneLabel, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Done</Text>
             </Pressable>
           </View>
@@ -561,7 +561,7 @@ export default function SetupScreen() {
 }
 
 // SetupWizard.dc.html:505-511 — the selected chip bounces (pillPop) and picks
-// up a gold shadow instead of a flat border/background swap.
+// up a accent shadow instead of a flat border/background swap.
 function QuickPickChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   const { tokens } = useTheme()
   const scale = useSharedValue(1)
@@ -577,17 +577,17 @@ function QuickPickChip({ label, on, onPress }: { label: string; on: boolean; onP
     <Animated.View
       style={[
         style,
-        on && { shadowColor: tokens.gold, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+        on && { shadowColor: tokens.accent, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
       ]}
     >
       <Pressable
         onPress={onPressWithBounce}
         style={[
           styles.quickPick,
-          { borderColor: on ? tokens.gold : tokens.borderStrong, backgroundColor: on ? tokens.goldSoft : tokens.inputBg },
+          { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accentSoft : tokens.inputBg },
         ]}
       >
-        <Text style={[styles.quickPickLabel, { color: on ? tokens.gold : tokens.text2 }]}>{label}</Text>
+        <Text style={[styles.quickPickLabel, { color: on ? tokens.accent : tokens.text2 }]}>{label}</Text>
       </Pressable>
     </Animated.View>
   )

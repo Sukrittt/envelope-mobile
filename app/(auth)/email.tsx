@@ -99,7 +99,7 @@ export default function EmailScreen() {
       <Pressable
         onPress={handleSend}
         disabled={pending || !email}
-        style={[styles.sendButton, { backgroundColor: tokens.gold, opacity: pending || !email ? 0.6 : 1 }]}
+        style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: pending || !email ? 0.6 : 1 }]}
       >
         <Text style={[styles.sendText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
           {pending ? 'Sending...' : 'Send code'}

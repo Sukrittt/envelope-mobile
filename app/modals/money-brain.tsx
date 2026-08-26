@@ -183,7 +183,7 @@ export default function MoneyBrainModal() {
           >
             Chat history
           </Text>
-          <Pressable onPress={startNewChat} style={[styles.newPill, { backgroundColor: tokens.gold }]}>
+          <Pressable onPress={startNewChat} style={[styles.newPill, { backgroundColor: tokens.accent }]}>
             <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
             <Text style={[styles.newPillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
               New
@@ -238,7 +238,7 @@ export default function MoneyBrainModal() {
           <Pressable
             onPress={startNewChat}
             hitSlop={6}
-            style={[styles.pillButton, styles.pillButtonPrimary, { backgroundColor: tokens.gold }]}
+            style={[styles.pillButton, styles.pillButtonPrimary, { backgroundColor: tokens.accent }]}
           >
             <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
             <Text style={[styles.pillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
@@ -274,7 +274,7 @@ export default function MoneyBrainModal() {
                 Couldn&apos;t load your money brief.
               </Text>
               <Pressable onPress={() => briefQ.refetch()}>
-                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Retry</Text>
+                <Text style={{ color: tokens.accentInk, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Retry</Text>
               </Pressable>
             </View>
           ) : (
@@ -338,7 +338,7 @@ export default function MoneyBrainModal() {
                 style={[
                   styles.bubble,
                   m.role === 'user'
-                    ? { alignSelf: 'flex-end', backgroundColor: tokens.goldSoft }
+                    ? { alignSelf: 'flex-end', backgroundColor: tokens.accentSoft }
                     : { alignSelf: 'flex-start', backgroundColor: tokens.card, borderColor: tokens.border, borderWidth: 1 },
                 ]}
               >
@@ -366,7 +366,7 @@ export default function MoneyBrainModal() {
         <Pressable
           onPress={() => send(input)}
           disabled={sending || input.trim() === ''}
-          style={[styles.sendButton, { backgroundColor: tokens.gold, opacity: sending || input.trim() === '' ? 0.5 : 1 }]}
+          style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: sending || input.trim() === '' ? 0.5 : 1 }]}
         >
           <Icon icon={ArrowUp} size={18} color={tokens.onAccent} />
         </Pressable>

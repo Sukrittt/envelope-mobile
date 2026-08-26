@@ -144,10 +144,10 @@ export default function SecurityScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
           {user?.avatarUrl ? (
-            <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.gold }]} />
+            <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.accent }]} />
           ) : (
-            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: tokens.goldSoft, borderColor: tokens.gold }]}>
-              <Text style={[styles.avatarText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>
+            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent }]}>
+              <Text style={[styles.avatarText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>
                 {(user?.name || user?.email || '?').trim().charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -183,7 +183,7 @@ export default function SecurityScreen() {
                       <Text style={[styles.verified, { color: tokens.mint, fontFamily: fontFamily.bodyMedium }]}>Verified</Text>
                     </>
                   ) : (
-                    <Text style={[styles.verified, { color: tokens.gold, fontFamily: fontFamily.bodyMedium }]}>Unverified</Text>
+                    <Text style={[styles.verified, { color: tokens.accentInk, fontFamily: fontFamily.bodyMedium }]}>Unverified</Text>
                   )}
                 </View>
               </View>
@@ -196,22 +196,22 @@ export default function SecurityScreen() {
             </View>
 
             {user && !user.emailVerified && (
-              <View style={[styles.warnBanner, { backgroundColor: tokens.goldSoft, borderColor: tokens.gold }]}>
-                <Text style={[styles.warnTitle, { color: tokens.gold, fontFamily: fontFamily.bodyExtraBold }]}>Verify your email</Text>
+              <View style={[styles.warnBanner, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent }]}>
+                <Text style={[styles.warnTitle, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>Verify your email</Text>
                 <Text style={[styles.warnCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                   Enter the 6-digit code sent to {user.email}.
                 </Text>
                 <View style={styles.warnActions}>
                   <Pressable onPress={enterCode}>
-                    <Text style={[styles.warnAction, { color: tokens.gold, fontFamily: fontFamily.bodyBold }]}>Enter code</Text>
+                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Enter code</Text>
                   </Pressable>
                   <Pressable onPress={resend} disabled={resending}>
-                    <Text style={[styles.warnAction, { color: tokens.gold, fontFamily: fontFamily.bodyBold }]}>
+                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
                       {resending ? 'Sending…' : resent ? 'Code resent' : 'Resend code'}
                     </Text>
                   </Pressable>
                   <Pressable onPress={startEmailChange}>
-                    <Text style={[styles.warnAction, { color: tokens.gold, fontFamily: fontFamily.bodyBold }]}>Change back</Text>
+                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Change back</Text>
                   </Pressable>
                 </View>
               </View>
@@ -220,7 +220,7 @@ export default function SecurityScreen() {
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <View style={styles.row}>
             <View style={[styles.gBadge, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-              <Text style={[styles.gBadgeText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
+              <Text style={[styles.gBadgeText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Google</Text>
@@ -284,7 +284,7 @@ export default function SecurityScreen() {
         </View>
 
         <Pressable onPress={confirmSignOutAll} disabled={signingOutAll} style={styles.signOutEverywhere}>
-          <Text style={[styles.signOutText, { color: tokens.gold, fontFamily: fontFamily.bodyBold }]}>
+          <Text style={[styles.signOutText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
             {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
           </Text>
         </Pressable>
@@ -376,7 +376,7 @@ export default function SecurityScreen() {
           disabled={updateUser.isPending || nameSuccess}
           style={[
             styles.sheetSaveButton,
-            { backgroundColor: nameSuccess ? tokens.mint : tokens.gold, opacity: updateUser.isPending ? 0.5 : 1 },
+            { backgroundColor: nameSuccess ? tokens.mint : tokens.accent, opacity: updateUser.isPending ? 0.5 : 1 },
           ]}
         >
           {nameSuccess ? (

@@ -166,7 +166,7 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
               <Pressable
                 style={[
                   styles.confirmBtn,
-                  { backgroundColor: editSuccess ? tokens.mint : tokens.gold, opacity: editSaving ? 0.5 : 1 },
+                  { backgroundColor: editSuccess ? tokens.mint : tokens.accent, opacity: editSaving ? 0.5 : 1 },
                 ]}
                 onPress={submitEdit}
                 disabled={editSaving || editSuccess}

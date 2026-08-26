@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { useAudioPlayer } from 'expo-audio'
-import { Plus } from 'lucide-react-native'
+import { SlidersHorizontal } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
-import { Icon } from '@/src/components/shared/Icon'
+import { Screen } from '@/src/components/ui/Screen'
+import { Chip } from '@/src/components/ui/Chip'
+import { IconButton } from '@/src/components/ui/Button'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -63,16 +63,12 @@ export default function ActivityScreen() {
   const { tokens } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const { hideAmounts } = usePrivacy()
-  const insets = useSafeAreaInsets()
   const router = useRouter()
 
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
   const deleteExpense = useDeleteExpense()
-  // ponytail: delete.mp3 is a silent 300ms placeholder — swap the file for a real
-  // effect (same filename/path) once one is provided, no code change needed.
-  const deleteSound = useAudioPlayer(require('@/assets/sounds/delete.mp3'))
 
   const expenses = expensesQ.data ?? []
   const categories = categoriesQ.data ?? []
@@ -224,8 +220,6 @@ export default function ActivityScreen() {
   function runDelete(t: ExpenseRow) {
     setDeleteTxn(null)
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
-    deleteSound.seekTo(0)
-    deleteSound.play()
     deleteExpense.mutate({ id: t.id, timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 })
   }
 
@@ -251,41 +245,26 @@ export default function ActivityScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      <View
-        style={[styles.header, { paddingTop: insets.top + 14, backgroundColor: tokens.headerBg, borderBottomColor: tokens.border }]}
-      >
-        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Activity</Text>
-      </View>
-
-      <AnimatedTabContent>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 110 }]}
+    <AnimatedTabContent>
+      <Screen
+        title="Activity"
+        actions={<IconButton icon={SlidersHorizontal} accessibilityLabel="Filter by category" onPress={() => setCategorySheetOpen(true)} />}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
         }
       >
-        <Pressable onPress={() => router.push('/modals/log-expense')} style={[styles.addButton, { backgroundColor: tokens.gold }]}>
-          <Icon icon={Plus} size={16} color={tokens.onAccent} />
-          <Text style={[styles.addButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Log expense</Text>
-        </Pressable>
-
+        {/* No "Log expense" button here: the nav's centre action is always on
+            screen and is the single entry point for the app's primary verb. */}
         <View style={styles.filterRow}>
-          {(['week', 'month'] as PeriodKey[]).map((key) => {
-            const active = period === key
-            return (
-              <Pressable
-                key={key}
-                onPress={() => setPeriod(key)}
-                style={[styles.periodChip, { backgroundColor: active ? tokens.gold : tokens.pillBg, borderColor: active ? tokens.gold : tokens.border }]}
-              >
-                <Text style={[styles.chipText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                  {key === 'week' ? 'This week' : 'This month'}
-                </Text>
-              </Pressable>
-            )
-          })}
+          {(['week', 'month'] as PeriodKey[]).map((key) => (
+            <Chip
+              key={key}
+              selected={period === key}
+              label={key === 'week' ? 'This week' : 'This month'}
+              onPress={() => setPeriod(key)}
+            />
+          ))}
         </View>
 
         {selectedDate ? (
@@ -393,8 +372,6 @@ export default function ActivityScreen() {
             Total: {formatCurrency(totalSpend, hideAmounts)}
           </Text>
         </View>
-      </ScrollView>
-      </AnimatedTabContent>
 
       <BottomSheet visible={sheetTxn !== null} onClose={() => setSheetTxn(null)}>
         <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
@@ -481,7 +458,8 @@ export default function ActivityScreen() {
           )}
         </ScrollView>
       </BottomSheet>
-    </View>
+      </Screen>
+    </AnimatedTabContent>
   )
 }
 
@@ -494,16 +472,10 @@ function SheetOption({ label, color, onPress }: { label: string; color: string; 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
-  title: { fontSize: 20 },
-  scrollContent: { padding: 16, gap: 14 },
-  addButton: { flexDirection: 'row', gap: 6, borderRadius: 100, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
-  addButtonText: { fontSize: 14 },
+  scrollContent: { gap: 14 },
   filterRow: { flexDirection: 'row', gap: 8 },
   dateChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
-  periodChip: { borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 9 },
   categoryTrigger: {
     flexDirection: 'row',
     alignSelf: 'flex-start',

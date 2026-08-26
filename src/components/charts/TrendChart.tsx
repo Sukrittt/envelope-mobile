@@ -125,18 +125,18 @@ export function TrendChart({ data, variant, height = 200, hideAmounts = false, o
         <Svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height={height}>
           <Defs>
             <LinearGradient id="trendAreaFill" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor={tokens.gold} stopOpacity={0.45} />
-              <Stop offset="100%" stopColor={tokens.gold} stopOpacity={0} />
+              <Stop offset="0%" stopColor={tokens.accent} stopOpacity={0.45} />
+              <Stop offset="100%" stopColor={tokens.accent} stopOpacity={0} />
             </LinearGradient>
           </Defs>
           {variant === 'area' ? (
             <>
               <Path d={chart.area} fill="url(#trendAreaFill)" stroke="none" />
-              <Path d={chart.path} fill="none" stroke={tokens.gold} strokeWidth={4} strokeLinecap="round" />
+              <Path d={chart.path} fill="none" stroke={tokens.accent} strokeWidth={4} strokeLinecap="round" />
             </>
           ) : (
             chart.bars.map((b, i) => (
-              <Rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx={4} fill="url(#trendAreaFill)" stroke={tokens.gold} />
+              <Rect key={i} x={b.x} y={b.y} width={b.w} height={b.h} rx={4} fill="url(#trendAreaFill)" stroke={tokens.accent} />
             ))
           )}
         </Svg>

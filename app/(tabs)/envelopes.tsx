@@ -4,6 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
 import Reanimated, { FadeIn, FadeOut, useAnimatedStyle, withSpring, LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
+import { Screen, useNavPadding } from '@/src/components/ui/Screen'
+import { Chip } from '@/src/components/ui/Chip'
+import { IconButton } from '@/src/components/ui/Button'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -209,6 +212,7 @@ export default function EnvelopesScreen() {
   const { tokens } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
+  const navPadding = useNavPadding()
 
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
@@ -417,73 +421,40 @@ export default function EnvelopesScreen() {
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
   return (
-    <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 14, backgroundColor: tokens.headerBg, borderBottomColor: tokens.border },
-        ]}
+    <AnimatedTabContent>
+      <Screen
+        title="Envelopes"
+        actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
+        scroll={false}
       >
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Envelopes
-            </Text>
-            <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 4, fontFamily: fontFamily.bodyMedium }}>
-              {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
-              {categories.length === 1 ? 'y' : 'ies'}
-            </Text>
+        <View style={styles.metaRow}>
+          <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
+            {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
+            {categories.length === 1 ? 'y' : 'ies'}
+          </Text>
+          <View style={styles.metaActions}>
+            <Chip
+              label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+              onPress={toggleCollapseAll}
+            />
+            <Chip
+              label={reordering ? 'Done' : 'Reorder'}
+              selected={reordering}
+              onPress={() => setReordering((r) => !r)}
+            />
           </View>
-          <Pressable
-            onPress={() => setReordering((r) => !r)}
-            style={[
-              styles.reorderBtn,
-              {
-                backgroundColor: reordering ? tokens.gold : 'transparent',
-                borderColor: reordering ? tokens.gold : tokens.borderStrong,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                color: reordering ? tokens.onAccent : tokens.text2,
-                fontSize: 12,
-                fontFamily: fontFamily.bodyBold,
-              }}
-            >
-              {reordering ? 'Done' : 'Reorder'}
-            </Text>
-          </Pressable>
         </View>
-        <View style={styles.headerActionsRow}>
-          <Pressable onPress={openAddGroup} style={[styles.newGroupPill, { backgroundColor: tokens.gold }]}>
-            <Icon icon={Plus} size={13} color={tokens.onAccent} strokeWidth={2.5} />
-            <Text style={{ color: tokens.onAccent, fontSize: 12, fontFamily: fontFamily.bodyBold }}>
-              New group
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={toggleCollapseAll}
-            style={[styles.collapseAllPill, { borderColor: tokens.borderStrong }]}
-          >
-            <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>
-              {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
 
-      <AnimatedTabContent>
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: navPadding }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
               enabled={!reordering}
-              tintColor={tokens.gold}
-              colors={[tokens.gold]}
+              tintColor={tokens.accent}
+              colors={[tokens.accent]}
             />
           }
         >
@@ -505,7 +476,7 @@ export default function EnvelopesScreen() {
                   <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
                     <GroupChevron collapsed={collapsed} color={tokens.text3} />
                   </Pressable>
-                  <View style={[styles.avatarChip, { backgroundColor: tokens.goldSoft }]}>
+                  <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
                     <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
                   </View>
                   <View style={styles.groupHeaderLeft}>
@@ -565,8 +536,8 @@ export default function EnvelopesScreen() {
                       onPress={() => openAddCategory(name)}
                       style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
                     >
-                      <Icon icon={Plus} size={14} color={tokens.gold} strokeWidth={2.5} />
-                      <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                      <Icon icon={Plus} size={14} color={tokens.accentInk} strokeWidth={2.5} />
+                      <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                         Add first category
                       </Text>
                     </Pressable>
@@ -575,10 +546,10 @@ export default function EnvelopesScreen() {
                       onPress={() => openAddCategory(name)}
                       style={[styles.addCatRow, { borderTopColor: tokens.border }]}
                     >
-                      <View style={[styles.dashedIconChip, { borderColor: tokens.gold }]}>
-                        <Icon icon={Plus} size={12} color={tokens.gold} strokeWidth={3} />
+                      <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
+                        <Icon icon={Plus} size={12} color={tokens.accentInk} strokeWidth={3} />
                       </View>
-                      <Text style={{ color: tokens.gold, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                      <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                         Add category
                       </Text>
                     </Pressable>
@@ -603,7 +574,6 @@ export default function EnvelopesScreen() {
             </Text>
           </Reanimated.View>
         </ScrollView>
-      </AnimatedTabContent>
 
       <BottomSheet visible={sheet !== null} onClose={closeSheet}>
         <View style={[styles.sheetHandle, { backgroundColor: tokens.borderStrong }]} />
@@ -643,8 +613,8 @@ export default function EnvelopesScreen() {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: draftGroup === '' ? tokens.gold : tokens.inputBg,
-                    borderColor: draftGroup === '' ? tokens.gold : tokens.border,
+                    backgroundColor: draftGroup === '' ? tokens.accent : tokens.inputBg,
+                    borderColor: draftGroup === '' ? tokens.accent : tokens.border,
                   },
                 ]}
               >
@@ -665,8 +635,8 @@ export default function EnvelopesScreen() {
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: draftGroup === g ? tokens.gold : tokens.inputBg,
-                      borderColor: draftGroup === g ? tokens.gold : tokens.border,
+                      backgroundColor: draftGroup === g ? tokens.accent : tokens.inputBg,
+                      borderColor: draftGroup === g ? tokens.accent : tokens.border,
                     },
                   ]}
                 >
@@ -695,7 +665,7 @@ export default function EnvelopesScreen() {
             style={[
               styles.saveBtn,
               {
-                backgroundColor: sheetSuccess ? tokens.mint : draftValid ? tokens.gold : tokens.inputBg,
+                backgroundColor: sheetSuccess ? tokens.mint : draftValid ? tokens.accent : tokens.inputBg,
                 opacity: submitting ? 0.6 : 1,
               },
             ]}
@@ -775,7 +745,8 @@ export default function EnvelopesScreen() {
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: 13 }}>{toastMsg}</Text>
         </View>
       )}
-    </View>
+      </Screen>
+    </AnimatedTabContent>
   )
 }
 
@@ -798,16 +769,10 @@ function SheetOption({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 20 },
-  reorderBtn: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
-  headerActionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  newGroupPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100 },
-  collapseAllPill: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
-  scrollContent: { padding: 16, paddingBottom: 110, gap: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
+  metaActions: { flexDirection: 'row', gap: 8 },
+  scrollContent: { paddingVertical: 4, gap: 10 },
   card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13 },
   chevronBtn: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },

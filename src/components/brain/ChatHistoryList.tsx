@@ -100,7 +100,7 @@ export function ChatHistoryList({
               </Text>
               <Pressable
                 onPress={onStartNewChat}
-                style={[styles.emptyButton, { backgroundColor: tokens.gold }]}
+                style={[styles.emptyButton, { backgroundColor: tokens.accent }]}
               >
                 <Text style={{ color: tokens.onAccent, fontSize: 13, fontFamily: fontFamily.bodySemiBold }}>
                   Ask Money Brain
@@ -163,7 +163,7 @@ export function ChatHistoryList({
                 style={[
                   styles.pagePill,
                   p === page
-                    ? { backgroundColor: tokens.gold }
+                    ? { backgroundColor: tokens.accent }
                     : { borderWidth: 1, borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg },
                 ]}
               >

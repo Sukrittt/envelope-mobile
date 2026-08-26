@@ -124,7 +124,7 @@ export function SubscriptionsPanel({ subscriptions, hideAmounts }: Props) {
                   {sub.service}
                 </Text>
                 <View style={[styles.barTrack, { backgroundColor: tokens.inputBg }]}>
-                  <View style={[styles.barFill, { width: `${Math.max(3, pct)}%`, backgroundColor: tokens.gold }]} />
+                  <View style={[styles.barFill, { width: `${Math.max(3, pct)}%`, backgroundColor: tokens.accent }]} />
                 </View>
                 <Text style={[styles.barValue, { color: tokens.text2 }]}>
                   {Math.round(pct)}% · {formatCurrency(Math.round(meq), hideAmounts)}/mo

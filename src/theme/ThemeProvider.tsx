@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useColorScheme } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { darkTokens, lightTokens, type ThemeTokens } from './tokens'
+import { space, radius, type as type_, motion, elevation } from './scale'
 import { accessMode } from '../api/accessMode'
 
 type ThemePreference = 'light' | 'dark' | 'system'
@@ -13,13 +14,20 @@ interface ThemeContextValue {
   tokens: ThemeTokens
   preference: ThemePreference
   setPreference: (pref: ThemePreference) => void
+  space: typeof space
+  radius: typeof radius
+  type: typeof type_
+  motion: typeof motion
+  elevation: typeof elevation
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const rawScheme = useColorScheme()
-  const systemScheme: 'light' | 'dark' = rawScheme === 'light' ? 'light' : 'dark'
+  // Light is the default: the design is light-first, and `useColorScheme()`
+  // returns null before the native module reports in.
+  const systemScheme: 'light' | 'dark' = rawScheme === 'dark' ? 'dark' : 'light'
   const [preference, setPreferenceState] = useState<ThemePreference>('system')
 
   useEffect(() => {
@@ -45,7 +53,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const tokens = scheme === 'dark' ? darkTokens : lightTokens
 
   const value = useMemo(
-    () => ({ scheme, tokens, preference, setPreference }),
+    () => ({
+      scheme,
+      tokens,
+      preference,
+      setPreference,
+      space,
+      radius,
+      type: type_,
+      motion,
+      elevation,
+    }),
     [scheme, tokens, preference],
   )
 

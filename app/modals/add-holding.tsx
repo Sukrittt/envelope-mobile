@@ -84,8 +84,8 @@ export default function AddHoldingModal() {
                   style={[
                     styles.typePill,
                     {
-                      backgroundColor: selected ? tokens.gold : tokens.pillBg,
-                      borderColor: selected ? tokens.gold : tokens.border,
+                      backgroundColor: selected ? tokens.accent : tokens.pillBg,
+                      borderColor: selected ? tokens.accent : tokens.border,
                     },
                   ]}
                 >
@@ -126,7 +126,7 @@ export default function AddHoldingModal() {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: addSuccess ? tokens.mint : tokens.gold,
+              backgroundColor: addSuccess ? tokens.mint : tokens.accent,
               opacity: !canSubmit || addHolding.isPending ? 0.5 : 1,
             },
           ]}

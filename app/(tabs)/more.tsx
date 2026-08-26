@@ -1,8 +1,8 @@
-import { View, Text, Image, Pressable, Switch, ScrollView, Linking, StyleSheet, Alert } from 'react-native'
+import { View, Text, Image, Pressable, Switch, Linking, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Screen } from '@/src/components/ui/Screen'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -27,7 +27,6 @@ const NOTIFY_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label:
 export default function MoreScreen() {
   const { tokens, preference, setPreference } = useTheme()
   const { hideAmounts, setHideAmounts } = usePrivacy()
-  const insets = useSafeAreaInsets()
   const router = useRouter()
 
   const userQuery = useUser()
@@ -38,31 +37,18 @@ export default function MoreScreen() {
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.bg }}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 14, backgroundColor: tokens.headerBg, borderBottomColor: tokens.border },
-        ]}
-      >
-        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>You</Text>
-      </View>
-
-      <AnimatedTabContent>
-        <ScrollView
-          style={{ flex: 1, backgroundColor: tokens.bg }}
-          contentContainerStyle={[styles.container, { paddingTop: 16, paddingBottom: insets.bottom + 40 }]}
-        >
+    <AnimatedTabContent>
+      <Screen title="You" contentContainerStyle={styles.container}>
           {/* Profile */}
           <Pressable
             onPress={() => router.push('/account/security')}
             style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}
           >
             {user?.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.gold }]} />
+              <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.accent }]} />
             ) : (
-              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: tokens.goldSoft, borderColor: tokens.gold }]}>
-                <Text style={[styles.avatarText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>{initial}</Text>
+              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent }]}>
+                <Text style={[styles.avatarText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>{initial}</Text>
               </View>
             )}
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -97,8 +83,8 @@ export default function MoreScreen() {
                 icon={Brain}
                 label="Money Brain"
                 blurb="Ask about your spending"
-                iconBg={tokens.goldSoft}
-                iconColor={tokens.gold}
+                iconBg={tokens.accentSoft}
+                iconColor={tokens.accent}
                 onPress={() => router.push('/modals/money-brain')}
               />
               <FeatureCard
@@ -132,7 +118,7 @@ export default function MoreScreen() {
                       <Pressable
                         key={opt.value}
                         onPress={() => setPreference(opt.value)}
-                        style={[styles.segment, { backgroundColor: active ? tokens.gold : 'transparent' }]}
+                        style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent' }]}
                       >
                         <Text style={[styles.segmentText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
                           {opt.label}
@@ -151,7 +137,7 @@ export default function MoreScreen() {
                 <Switch
                   value={hideAmounts}
                   onValueChange={setHideAmounts}
-                  trackColor={{ false: tokens.borderStrong, true: tokens.gold }}
+                  trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
                   thumbColor={tokens.onAccent}
                 />
               </View>
@@ -165,7 +151,7 @@ export default function MoreScreen() {
                       <Pressable
                         key={opt.value}
                         onPress={() => updateUser.mutate({ notifyCadence: opt.value })}
-                        style={[styles.segment, { backgroundColor: active ? tokens.gold : 'transparent' }]}
+                        style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent' }]}
                       >
                         <Text style={[styles.segmentText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
                           {opt.label}
@@ -221,9 +207,8 @@ export default function MoreScreen() {
           <Text style={[styles.version, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
             v{appJson.expo.version} · built in the open
           </Text>
-        </ScrollView>
-      </AnimatedTabContent>
-    </View>
+      </Screen>
+    </AnimatedTabContent>
   )
 }
 
@@ -275,9 +260,7 @@ function AccountRow({
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
-  container: { paddingHorizontal: 20, gap: 22 },
-  title: { fontSize: 20 },
+  container: { gap: 22, paddingTop: 4 },
   profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
   avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },

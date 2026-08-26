@@ -149,18 +149,11 @@ function RootNavigator() {
       <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-      <Stack.Screen
-        name="modals/log-expense"
-        options={{
-          presentation: 'formSheet',
-          sheetAllowedDetents: [0.75],
-          sheetCornerRadius: 24,
-          sheetGrabberVisible: true,
-        }}
-      />
+      {/* Not a sheet: logging is a full-bleed screen with its own keypad and nav. */}
+      <Stack.Screen name="modals/log-expense" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/category-manager" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
       <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />

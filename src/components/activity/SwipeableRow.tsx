@@ -60,7 +60,7 @@ export function SwipeableRow({
       renderLeftActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
           icon="✏️"
-          color={tokens.gold}
+          color={tokens.accentInk}
           progress={progress}
           onPress={() => {
             swipeable.close()

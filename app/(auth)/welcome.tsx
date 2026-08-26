@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 28 }]}>
         <View style={styles.heroWrap}>
           <View style={styles.hero}>
-            <View style={[styles.iconChip, { backgroundColor: tokens.gold, shadowColor: tokens.gold }]}>
+            <View style={[styles.iconChip, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]}>
               <Icon icon={Mail} size={28} color={tokens.onAccent} />
             </View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -76,7 +76,7 @@ export default function WelcomeScreen() {
             ) : (
               <>
                 <View style={[styles.gBadge, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-                  <Text style={[styles.gBadgeText, { color: tokens.gold, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
+                  <Text style={[styles.gBadgeText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
                 </View>
                 <Text style={[styles.googleText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
                   {pending ? 'Signing in...' : 'Continue with Google'}
@@ -88,7 +88,7 @@ export default function WelcomeScreen() {
           <Pressable
             onPress={() => router.push('/(auth)/email')}
             disabled={pending || done}
-            style={[styles.emailButton, { backgroundColor: tokens.gold }]}
+            style={[styles.emailButton, { backgroundColor: tokens.accent }]}
           >
             <Text style={[styles.emailText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
               Continue with email
@@ -97,8 +97,8 @@ export default function WelcomeScreen() {
 
           <Text style={[styles.legal, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
             By continuing you agree to the{' '}
-            <Text style={{ color: tokens.gold }}>Terms</Text> and{' '}
-            <Text style={{ color: tokens.gold }}>Privacy Policy</Text>.{'\n'}
+            <Text style={{ color: tokens.accentInk }}>Terms</Text> and{' '}
+            <Text style={{ color: tokens.accentInk }}>Privacy Policy</Text>.{'\n'}
             Free and open source. Your data stays yours.
           </Text>
         </Animated.View>

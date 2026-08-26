@@ -1,8 +1,8 @@
 import { View, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
-/** Spend-vs-assigned bar. Color thresholds match the design spec exactly
- * (dc.html: pct===100 -> muted, >90 -> coral, >75 -> warn, else mint). */
+/** Spend-vs-assigned bar.
+ * pct===100 -> muted, >90 -> coral, >75 -> warn, else mint. */
 export function ProgressBar({ pct }: { pct: number }) {
   const { tokens } = useTheme()
   const clamped = Math.max(0, Math.min(100, pct))

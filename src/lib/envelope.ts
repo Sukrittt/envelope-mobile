@@ -47,9 +47,25 @@ export function currentMonthKey(date: Date = new Date()): string {
 }
 
 export function prevMonthKey(key: string): string {
+  return shiftMonthKey(key, -1)
+}
+
+/** Month key `delta` months away from `key`. Negative goes back. */
+export function shiftMonthKey(key: string, delta: number): string {
   const [y, m] = key.split('-').map(Number)
-  const d = new Date(y, m - 2, 1)
+  const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+/** "2026-08" -> "August 2026". */
+export function monthLabel(key: string): string {
+  const [y, m] = key.split('-').map(Number)
+  return `${MONTH_NAMES[m - 1]} ${y}`
 }
 
 function monthSpendingByCategory(expenses: ExpenseNum[], month: string): Map<string, number> {

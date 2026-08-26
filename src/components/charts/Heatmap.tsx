@@ -60,7 +60,7 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
                   ? tokens.heatA
                   : level === 3
                     ? tokens.heatB
-                    : tokens.gold
+                    : tokens.accent
             const textColor = isFuture ? tokens.text3 : level <= 1 ? tokens.text2 : tokens.onAccent
             const borderColor = isToday ? tokens.mint : isFuture ? tokens.borderStrong : 'transparent'
             return (

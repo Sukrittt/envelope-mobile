@@ -1,26 +1,25 @@
-import { useEffect, useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { ChevronDown, ChevronUp, X } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { NAV_HEIGHT } from '@/src/theme/scale'
 import { useAddCategory, useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { suggestCategoryLLM } from '@/src/api/categoryMap'
-import { useAddExpense, useUpdateExpense } from '@/src/hooks/useExpenses'
+import { useAddExpense, useExpenses, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
-import { Settings2 } from 'lucide-react-native'
+import { BottomSheet } from '@/src/components/shared/Modal'
+import { AmountText } from '@/src/components/ui/AmountText'
+import { Chip } from '@/src/components/ui/Chip'
+import { Numpad } from '@/src/components/ui/Numpad'
+import { FloatingNav, NAV_HREF } from '@/src/components/nav/FloatingNav'
+
+const RAIL_LIMIT = 4
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -52,11 +51,19 @@ function suggestCategory(item: string, words: Record<string, string>, categories
   return best
 }
 
-// Route-param driven: Activity passes {timestamp, item, amountInr, category,
-// date, notes, paymentMethod} of an existing row to enter edit mode (mirrors
-// holding-action.tsx's param pattern). No params → fresh "log expense" form.
-export default function LogExpenseModal() {
-  const { tokens } = useTheme()
+/**
+ * The app's primary verb, as a full-bleed accent screen rather than a form:
+ * amount first on a custom keypad, description second, category picked from a
+ * recently-used rail. Date, payment method and notes all have good defaults and
+ * live behind the "More" disclosure, so the common path stays three inputs.
+ *
+ * Route-param driven: Activity passes {id, timestamp, item, amountInr, category,
+ * date, notes, paymentMethod} of an existing row to enter edit mode. No params →
+ * a fresh entry. Edit reuses this screen rather than a second form; the keypad
+ * starts on the existing amount and backspaces from there.
+ */
+export default function LogExpenseScreen() {
+  const { tokens, space, radius, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -69,15 +76,15 @@ export default function LogExpenseModal() {
 
   const categoriesQ = useCategories()
   const categoryMapQ = useCategoryMap()
+  const expensesQ = useExpenses()
   const addExpense = useAddExpense()
   const updateExpense = useUpdateExpense()
   const addCategory = useAddCategory()
 
-  const categories = categoriesQ.data ?? []
+  const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
 
   const [newCategoryName, setNewCategoryName] = useState('')
-
-  const [amount, setAmount] = useState(isEdit ? String(origAmountInr) : '')
+  const [amount, setAmount] = useState(isEdit && origAmountInr ? String(origAmountInr) : '')
   const [item, setItem] = useState(origItem)
   const [category, setCategory] = useState(str(params.category))
   const [categoryTouched, setCategoryTouched] = useState(str(params.category) !== '')
@@ -88,6 +95,31 @@ export default function LogExpenseModal() {
   )
   const [error, setError] = useState('')
   const [logSuccess, setLogSuccess] = useState(false)
+  const [showMore, setShowMore] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  // Most-recently-used first. A single-line rail only shows a handful, and users
+  // routinely keep 20+ envelopes — recency is what makes the visible few the
+  // right few. Ties and never-used categories keep their configured order.
+  const orderedCategories = useMemo(() => {
+    const lastUsed = new Map<string, string>()
+    for (const row of expensesQ.data ?? []) {
+      const seen = lastUsed.get(row.category)
+      if (!seen || row.date > seen) lastUsed.set(row.category, row.date)
+    }
+    return [...categories].sort((a, b) => (lastUsed.get(b.name) ?? '').localeCompare(lastUsed.get(a.name) ?? ''))
+  }, [categories, expensesQ.data])
+
+  // The chosen category is always on the rail, even when it is not recent —
+  // otherwise the selection the LLM just made can be invisible.
+  const railCategories = useMemo(() => {
+    const head = orderedCategories.slice(0, RAIL_LIMIT)
+    if (category && !head.some((c) => c.name === category)) {
+      const chosen = orderedCategories.find((c) => c.name === category)
+      if (chosen) return [chosen, ...head.slice(0, RAIL_LIMIT - 1)]
+    }
+    return head
+  }, [orderedCategories, category])
 
   // Debounced auto-suggest while typing the description, only until the user
   // manually picks a category (so we never fight a deliberate choice).
@@ -125,6 +157,15 @@ export default function LogExpenseModal() {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess])
+
+  // Cap at a paise-free integer of sane length; the pad is the only input, so
+  // there is no other place to reject a bad value.
+  function pushDigit(digit: string) {
+    setAmount((prev) => {
+      const next = (prev + digit).replace(/^0+(?=\d)/, '')
+      return next.length > 9 ? prev : next
+    })
+  }
 
   function handleCreateCategory() {
     const name = newCategoryName.trim()
@@ -186,239 +227,217 @@ export default function LogExpenseModal() {
     }
   }
 
+  const onAccentDim = 'rgba(255, 255, 255, 0.7)'
+  const fieldBg = 'rgba(255, 255, 255, 0.16)'
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: tokens.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {Platform.OS === 'android' && (
-        // sheetGrabberVisible is iOS-only (react-native-screens), so Android's formSheet
-        // has no built-in drag handle — draw one so the drawer reads as a sheet, not a page.
-        <View style={styles.grabberWrap}>
-          <View style={[styles.grabber, { backgroundColor: tokens.borderStrong }]} />
-        </View>
-      )}
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} disabled={logSuccess}>
-          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            Cancel
-          </Text>
+    <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
+      <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg }]}>
+        <Pressable onPress={() => router.back()} hitSlop={12} disabled={logSuccess} accessibilityLabel="Close">
+          <X size={24} color={tokens.onAccent} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+        <Text style={[styles.headerTitle, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
           {isEdit ? 'Edit expense' : 'Log expense'}
         </Text>
-        <View style={{ width: 52 }} />
+        <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-          <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
-          <TextInput
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor={tokens.text3}
-            style={[styles.amountInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
-            autoFocus={!isEdit}
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.lg, gap: space.lg }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.amountWrap}>
+          <AmountText
+            value={parsedAmount || 0}
+            size={type.hero}
+            color={amount === '' ? onAccentDim : tokens.onAccent}
+            weight="displayBold"
+            animate
           />
         </View>
 
         <TextInput
           value={item}
           onChangeText={setItem}
-          placeholder="Description"
-          placeholderTextColor={tokens.text3}
+          placeholder="What was it for?"
+          placeholderTextColor={onAccentDim}
           style={[
-            styles.input,
-            { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium },
+            styles.itemInput,
+            { backgroundColor: fieldBg, borderRadius: radius.md, color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.bodyLg },
           ]}
         />
 
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
-          <View style={styles.chipRow}>
-            {categories.map((c) => {
-              const selected = category === c.name
-              return (
-                <Pressable
-                  key={c.name}
-                  onPress={() => {
-                    setCategory(c.name)
-                    setCategoryTouched(true)
-                  }}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: selected ? tokens.gold : tokens.pillBg, borderColor: selected ? tokens.gold : tokens.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold },
-                    ]}
-                  >
-                    {categoryEmoji(c.name, c.group)}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold, marginLeft: 4 },
-                    ]}
-                  >
-                    {splitEmoji(c.name).text}
-                  </Text>
-                </Pressable>
-              )
-            })}
-            <Pressable
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }} keyboardShouldPersistTaps="handled">
+          {railCategories.map((c) => (
+            <Chip
+              key={c.name}
+              onAccent
+              selected={category === c.name}
+              label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
               onPress={() => {
-                router.back()
-                router.push('/(tabs)/envelopes')
+                setCategory(c.name)
+                setCategoryTouched(true)
               }}
-              style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
-            >
-              <Settings2 size={13} color={tokens.text2} style={{ marginRight: 4 }} />
-              <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                Manage
-              </Text>
-            </Pressable>
-          </View>
-          {categories.length === 0 && (
-            <View style={styles.newCategoryRow}>
-              <TextInput
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="New category name"
-                placeholderTextColor={tokens.text3}
-                onSubmitEditing={handleCreateCategory}
-                style={[
-                  styles.input,
-                  styles.newCategoryInput,
-                  { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium },
-                ]}
-              />
-              <Pressable
-                onPress={handleCreateCategory}
-                disabled={!newCategoryName.trim() || addCategory.isPending}
-                style={[styles.addCategoryButton, { backgroundColor: tokens.gold, opacity: !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1 }]}
-              >
-                <Text style={[styles.chipText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
+            />
+          ))}
+          {orderedCategories.length > railCategories.length || categories.length === 0 ? (
+            <Chip onAccent label="⋯ All" onPress={() => setPickerOpen(true)} />
+          ) : null}
+        </ScrollView>
 
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
-          <DatePicker mode="single" value={date} onChange={setDate} />
-        </View>
+        <Numpad onAccent onDigit={pushDigit} onBackspace={() => setAmount((p) => p.slice(0, -1))} extraKey="00" />
 
-        {!isEdit && (
-          <>
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                Notes (optional)
-              </Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Notes"
-                placeholderTextColor={tokens.text3}
-                style={[
-                  styles.input,
-                  { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium },
-                ]}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                Payment method
-              </Text>
-              <View style={styles.payRow}>
-                {(['bank', 'credit_card'] as const).map((m) => {
-                  const selected = paymentMethod === m
-                  return (
-                    <Pressable
-                      key={m}
-                      onPress={() => setPaymentMethod(m)}
-                      style={[
-                        styles.payOption,
-                        { backgroundColor: selected ? tokens.gold : tokens.pillBg, borderColor: selected ? tokens.gold : tokens.border },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold },
-                        ]}
-                      >
-                        {m === 'bank' ? 'Bank/UPI' : 'Credit Card'}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
-            </View>
-          </>
-        )}
-      </ScrollView>
-
-      <View style={[styles.footer, { borderTopColor: tokens.border, paddingBottom: insets.bottom + 12 }]}>
         {error !== '' && (
-          <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
+          <Text style={[styles.error, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>{error}</Text>
         )}
 
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit || saving || logSuccess}
-          style={[styles.confirmButton, { backgroundColor: logSuccess ? tokens.mint : tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
+          style={[
+            styles.confirm,
+            {
+              backgroundColor: logSuccess ? tokens.mint : tokens.onAccent,
+              borderRadius: radius.full,
+              paddingVertical: space.md + 2,
+              opacity: !canSubmit || saving ? 0.5 : 1,
+            },
+          ]}
         >
           {logSuccess ? (
             <CheckIcon color={tokens.onAccent} />
           ) : (
-            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+            <Text style={[styles.confirmText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }]}>
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add transaction'}
             </Text>
           )}
         </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+
+        <Pressable onPress={() => setShowMore((v) => !v)} style={[styles.moreToggle, { gap: space.xs }]} hitSlop={8}>
+          <Text style={[styles.moreLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}>
+            {showMore ? 'Less' : 'More — date, payment, notes'}
+          </Text>
+          {showMore ? <ChevronUp size={16} color={onAccentDim} /> : <ChevronDown size={16} color={onAccentDim} />}
+        </Pressable>
+
+        {showMore && (
+          <View style={{ gap: space.lg }}>
+            <View style={{ gap: space.sm }}>
+              <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
+              <DatePicker mode="single" value={date} onChange={setDate} />
+            </View>
+
+            {!isEdit && (
+              <>
+                <View style={{ gap: space.sm }}>
+                  <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Payment method</Text>
+                  <View style={{ flexDirection: 'row', gap: space.sm }}>
+                    {(['bank', 'credit_card'] as const).map((m) => (
+                      <Chip
+                        key={m}
+                        onAccent
+                        selected={paymentMethod === m}
+                        label={m === 'bank' ? 'Bank/UPI' : 'Credit Card'}
+                        onPress={() => setPaymentMethod(m)}
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                <View style={{ gap: space.sm }}>
+                  <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Notes (optional)</Text>
+                  <TextInput
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder="Notes"
+                    placeholderTextColor={onAccentDim}
+                    style={[
+                      styles.itemInput,
+                      { backgroundColor: fieldBg, borderRadius: radius.md, color: tokens.onAccent, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
+                    ]}
+                  />
+                </View>
+              </>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* The nav stays on the flood screen, restyled for the accent ground: it is
+          what makes this read as a screen inside the app rather than a takeover. */}
+      <FloatingNav
+        variant="onAccent"
+        active={null}
+        addActive
+        onSelect={(name) => router.replace(NAV_HREF[name])}
+        onAdd={() => router.back()}
+      />
+
+      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+          Choose a category
+        </Text>
+        <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
+          <View style={[styles.sheetChips, { gap: space.sm }]}>
+            {orderedCategories.map((c) => (
+              <Chip
+                key={c.name}
+                selected={category === c.name}
+                label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
+                onPress={() => {
+                  setCategory(c.name)
+                  setCategoryTouched(true)
+                  setPickerOpen(false)
+                }}
+              />
+            ))}
+          </View>
+        </ScrollView>
+        {categories.length === 0 && (
+          <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
+            <TextInput
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              placeholder="New category name"
+              placeholderTextColor={tokens.text3}
+              onSubmitEditing={handleCreateCategory}
+              style={[
+                styles.itemInput,
+                { flex: 1, backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
+              ]}
+            />
+            <Pressable
+              onPress={handleCreateCategory}
+              disabled={!newCategoryName.trim() || addCategory.isPending}
+              style={[
+                styles.addCategory,
+                { backgroundColor: tokens.accentInk, borderRadius: radius.md, opacity: !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1 },
+              ]}
+            >
+              <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Add</Text>
+            </Pressable>
+          </View>
+        )}
+      </BottomSheet>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  grabberWrap: { alignItems: 'center', paddingTop: 8 },
-  grabber: { width: 40, height: 5, borderRadius: 3 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerAction: { fontSize: 14, width: 52 },
-  headerTitle: { fontSize: 16 },
-  body: { padding: 20, gap: 16 },
-  footer: { padding: 20, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
-  field: { gap: 8 },
+  screen: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
+  headerTitle: {},
+  body: { paddingTop: 8 },
+  amountWrap: { alignItems: 'center', justifyContent: 'center', minHeight: 96 },
+  itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, gap: 6 },
-  currency: { fontSize: 20 },
-  amountInput: { flex: 1, fontSize: 20, paddingVertical: 14 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  newCategoryRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  newCategoryInput: { flex: 1, paddingVertical: 12 },
-  addCategoryButton: { borderRadius: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  chip: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 },
-  chipText: { fontSize: 13 },
-  payRow: { flexDirection: 'row', gap: 8 },
-  payOption: { flex: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  error: { fontSize: 12 },
-  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
-  confirmText: { fontSize: 16 },
+  error: { fontSize: 12, textAlign: 'center' },
+  confirm: { alignItems: 'center' },
+  confirmText: {},
+  moreToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  moreLabel: {},
+  sheetTitle: { marginBottom: 12 },
+  sheetList: { maxHeight: 320 },
+  sheetChips: { flexDirection: 'row', flexWrap: 'wrap' },
+  addCategory: { paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
 })

@@ -33,7 +33,7 @@ export function AuthBackdrop() {
 
   return (
     <>
-      <Animated.View pointerEvents="none" style={[styles.blobGold, { backgroundColor: tokens.goldSoft }, style1]} />
+      <Animated.View pointerEvents="none" style={[styles.blobGold, { backgroundColor: tokens.accentSoft }, style1]} />
       <Animated.View pointerEvents="none" style={[styles.blobMint, { backgroundColor: tokens.mintSoft }, style2]} />
     </>
   )

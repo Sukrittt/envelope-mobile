@@ -18,7 +18,7 @@ import { formatINR } from '@/src/lib/format'
 // SetupWizard.dc.html:44,53-93,537-542 — the "your budget is ready" celebration
 // screen. Each piece follows confettiFall: fade in by 12%, fall 320px while
 // drifting dx and rotating 180+i*37deg, fading out.
-const CONFETTI_COLORS = ['gold', 'mint', 'coral', 'violet', 'blue'] as const
+const CONFETTI_COLORS = ['accent', 'mint', 'coral', 'violet', 'blue'] as const
 
 function ConfettiPiece({ index, tokens }: { index: number; tokens: ThemeTokens }) {
   const left = 6 + ((index * 5.3) % 88)
@@ -104,8 +104,8 @@ export function SetupDone({
       <Animated.View entering={FadeIn.delay(200).duration(350)} style={styles.summaryList}>
         {summary.map((s) => (
           <View key={s.label} style={[styles.summaryRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={[styles.summaryIcon, { backgroundColor: tokens.goldSoft }]}>
-              <Text style={{ color: tokens.gold, fontSize: 14 }}>{s.icon}</Text>
+            <View style={[styles.summaryIcon, { backgroundColor: tokens.accentSoft }]}>
+              <Text style={{ color: tokens.accentInk, fontSize: 14 }}>{s.icon}</Text>
             </View>
             <Text style={[styles.summaryLabel, { color: tokens.text2 }, { fontFamily: fontFamily.bodyMedium }]}>{s.label}</Text>
             <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
@@ -115,7 +115,7 @@ export function SetupDone({
 
       <View style={{ flex: 1 }} />
 
-      <Pressable onPress={onFinish} style={[styles.cta, { backgroundColor: tokens.gold }]}>
+      <Pressable onPress={onFinish} style={[styles.cta, { backgroundColor: tokens.accent }]}>
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Go to my dashboard</Text>
       </Pressable>
     </View>

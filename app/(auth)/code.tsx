@@ -3,7 +3,6 @@ import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-nativ
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as Haptics from 'expo-haptics'
-import { useAudioPlayer } from 'expo-audio'
 import Svg, { Path } from 'react-native-svg'
 import { ArrowLeft } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -12,7 +11,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { sendMagicAuthCode, verifyMagicAuthCode } from '@/src/api/magicAuth'
 import { resendEmailCode, verifyEmailChange } from '@/src/api/account'
 import { CodeBoxes } from '@/src/components/auth/CodeBoxes'
-import { Numpad } from '@/src/components/auth/Numpad'
+import { Numpad } from '@/src/components/ui/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
 import { Icon } from '@/src/components/shared/Icon'
 import { userKey } from '@/src/hooks/useUser'
@@ -86,10 +85,6 @@ export default function CodeScreen() {
   const email = typeof emailParam === 'string' ? emailParam : ''
   const isChangeEmail = mode === 'change-email'
   const shake = useRef(new Animated.Value(0)).current
-  // ponytail: error.mp3 is a silent placeholder — swap the file for a real
-  // two-tone error tone once one is provided, no code change needed.
-  const errorSound = useAudioPlayer(require('@/assets/sounds/error.mp3'))
-  const successSound = useAudioPlayer(require('@/assets/sounds/code-success.mp3'))
 
   const [code, setCode] = useState('')
   const [pending, setPending] = useState(false)
@@ -100,8 +95,6 @@ export default function CodeScreen() {
   // 62%=4, 80%=-2, .5s cubic-bezier(.36,.07,.19,.97).
   const triggerShake = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
-    errorSound.seekTo(0)
-    errorSound.play()
     shake.setValue(0)
     const easing = Easing.bezier(0.36, 0.07, 0.19, 0.97)
     const steps: [number, number][] = [
@@ -128,8 +121,6 @@ export default function CodeScreen() {
       setPending(false)
       if (ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
-        successSound.seekTo(0)
-        successSound.play()
         setDone(true)
       } else {
         setError('Wrong or expired code.')

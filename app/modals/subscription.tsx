@@ -146,7 +146,7 @@ export default function SubscriptionModal() {
                 <Pressable
                   key={c}
                   onPress={() => setCycle(c)}
-                  style={[styles.chip, { backgroundColor: selected ? tokens.gold : tokens.pillBg, borderColor: selected ? tokens.gold : tokens.border }]}
+                  style={[styles.chip, { backgroundColor: selected ? tokens.accent : tokens.pillBg, borderColor: selected ? tokens.accent : tokens.border }]}
                 >
                   <Text style={[styles.chipText, { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
                     {c}
@@ -176,7 +176,7 @@ export default function SubscriptionModal() {
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit || saving || saved}
-          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.gold, opacity: !canSubmit || saving ? 0.5 : 1 }]}
+          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving ? 0.5 : 1 }]}
         >
           {saved ? (
             <CheckIcon color={tokens.onAccent} />

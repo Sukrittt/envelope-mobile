@@ -23,7 +23,7 @@ export function ResendTimer({ onResend }: { onResend: () => void }) {
 
   return (
     <Pressable onPress={handlePress} disabled={seconds > 0} hitSlop={8}>
-      <Text style={[styles.text, { color: seconds > 0 ? tokens.text3 : tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
+      <Text style={[styles.text, { color: seconds > 0 ? tokens.text3 : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
         {seconds > 0 ? `Resend code in ${seconds}s` : "Didn't get it? Resend now"}
       </Text>
     </Pressable>

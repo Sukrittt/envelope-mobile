@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, Pressable, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Plus, ChevronRight } from 'lucide-react-native'
+import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -13,27 +12,17 @@ import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudget
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
-import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { useUser } from '@/src/hooks/useUser'
-import { computeEnvelopeState, currentMonthKey, type Envelope } from '@/src/lib/envelope'
+import { computeEnvelopeState, currentMonthKey, monthLabel, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
-import { TrendChart, type TrendPoint } from '@/src/components/charts/TrendChart'
-import { Heatmap, type HeatmapCell } from '@/src/components/charts/Heatmap'
-import { SubscriptionsPanel } from '@/src/components/subscriptions/SubscriptionsPanel'
-
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-function monthLabel(monthKey: string): string {
-  const [y, m] = monthKey.split('-').map(Number)
-  return `${MONTH_NAMES[m - 1]} ${y}`
-}
+import { Screen } from '@/src/components/ui/Screen'
+import { Card } from '@/src/components/ui/Card'
+import { IconButton } from '@/src/components/ui/Button'
+import { AmountText } from '@/src/components/ui/AmountText'
 
 function daysLeftInMonth(): number {
   const now = new Date()
@@ -41,50 +30,14 @@ function daysLeftInMonth(): number {
   return daysInMonth - now.getDate()
 }
 
-function shiftMonth(monthKey: string, delta: number): string {
-  const [y, m] = monthKey.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function weekStartKey(dateStr: string): string {
-  const d = new Date(dateStr)
-  const day = (d.getDay() + 6) % 7 // Monday = 0
-  d.setDate(d.getDate() - day)
-  return d.toISOString().slice(0, 10)
-}
-
-function monthRangeFromKey(key: string): { start: string; end: string } {
-  const [y, m] = key.split('-').map(Number)
-  const start = `${key}-01`
-  const end = new Date(y, m, 0).toISOString().slice(0, 10)
-  return { start, end }
-}
-
-function weekRangeFromKey(startIso: string): { start: string; end: string } {
-  const d = new Date(startIso)
-  d.setDate(d.getDate() + 6)
-  return { start: startIso, end: d.toISOString().slice(0, 10) }
-}
-
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-function formatDrillRange(start: string, end: string): string {
-  const s = new Date(start)
-  const e = new Date(end)
-  const fmt = (d: Date) => `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`
-  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
-    return `${s.getDate()}–${e.getDate()} ${SHORT_MONTHS[e.getMonth()]}`
-  }
-  return `${fmt(s)} – ${fmt(e)}`
-}
-
-type DrillFilter = { start: string; end: string; parentView: 'monthly' | 'weekly' } | null
-
+/**
+ * The month's state, and only that: what is left to assign, where it went, and
+ * which envelopes are in trouble. The trend chart, heatmap and subscriptions
+ * moved to /insights — six modules on one scroll left nothing room to be large.
+ */
 export default function HomeScreen() {
-  const { tokens } = useTheme()
+  const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
-  const insets = useSafeAreaInsets()
   const router = useRouter()
 
   const user = useUser().data
@@ -94,15 +47,10 @@ export default function HomeScreen() {
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
-  const subsQ = useSubscriptions()
   const updateBudget = useUpdateBudget()
   const addBudget = useAddBudget()
 
   const { hideAmounts } = usePrivacy()
-  const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
-  const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
-  const [drillFilter, setDrillFilter] = useState<DrillFilter>(null)
-  const [insightMonth, setInsightMonth] = useState(() => currentMonthKey())
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
@@ -110,7 +58,6 @@ export default function HomeScreen() {
   const expenses = expensesQ.data ?? []
   const categories = categoriesQ.data ?? []
   const groups = groupsQ.data ?? []
-  const subscriptions = subsQ.data ?? []
 
   const month = currentMonthKey()
 
@@ -149,104 +96,6 @@ export default function HomeScreen() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
-  const trendData: TrendPoint[] = useMemo(() => {
-    const source = drillFilter
-      ? expenses.filter((e) => e.date >= drillFilter.start && e.date <= drillFilter.end)
-      : expenses
-
-    if (trendPeriod === 'weekly') {
-      const totals = new Map<string, number>()
-      for (const e of source) {
-        const key = weekStartKey(e.date)
-        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0))
-      }
-      const weeks = [...totals.keys()].sort()
-      const trimmed = drillFilter ? weeks : weeks.slice(-10)
-      return trimmed.map((date) => ({ date, value: totals.get(date) ?? 0 }))
-    }
-    if (trendPeriod === 'monthly') {
-      const totals = new Map<string, number>()
-      for (const e of source) {
-        const key = e.date.slice(0, 7)
-        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0))
-      }
-      const months = [...totals.keys()].sort().slice(-6)
-      return months.map((date) => ({ date, value: totals.get(date) ?? 0 }))
-    }
-    const totals = new Map<string, number>()
-    for (const e of source) {
-      totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0))
-    }
-    if (drillFilter) {
-      // Fill every day in the drilled week, including zero-spend days, so the chart isn't sparse.
-      const dates: string[] = []
-      const cursor = new Date(drillFilter.start)
-      const end = new Date(drillFilter.end)
-      while (cursor <= end) {
-        dates.push(cursor.toISOString().slice(0, 10))
-        cursor.setDate(cursor.getDate() + 1)
-      }
-      return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }))
-    }
-    const dates = [...totals.keys()].sort().slice(-14)
-    return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }))
-  }, [expenses, trendPeriod, drillFilter])
-
-  function selectTrendPeriod(p: 'daily' | 'weekly' | 'monthly') {
-    setTrendPeriod(p)
-    setDrillFilter(null)
-  }
-
-  function handleTrendDrill(index: number) {
-    const key = trendData[index]?.date
-    if (!key) return
-    if (trendPeriod === 'monthly') {
-      setDrillFilter({ ...monthRangeFromKey(key), parentView: 'monthly' })
-      setTrendPeriod('weekly')
-    } else if (trendPeriod === 'weekly') {
-      setDrillFilter({ ...weekRangeFromKey(key), parentView: 'weekly' })
-      setTrendPeriod('daily')
-    }
-  }
-
-  const heatmapCells: HeatmapCell[] = useMemo(() => {
-    const totals = new Map<string, number>()
-    for (const e of expenses) {
-      if (!e.date.startsWith(insightMonth)) continue
-      totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0))
-    }
-    const [y, m] = insightMonth.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const firstWeekday = (new Date(y, m - 1, 1).getDay() + 6) % 7 // Monday = 0
-    const cells: HeatmapCell[] = []
-    for (let i = 0; i < firstWeekday; i++) cells.push({ date: `pad-${i}`, day: 0, value: 0 })
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${insightMonth}-${String(d).padStart(2, '0')}`
-      cells.push({ date, day: d, value: totals.get(date) ?? 0 })
-    }
-    return cells
-  }, [expenses, insightMonth])
-
-  const todayIso = new Date().toISOString().slice(0, 10)
-
-  const insightText = useMemo(() => {
-    const overspent = envelopeState.envelopes
-      .filter((e) => e.isOverspent && !e.isCreditCardPayment)
-      .sort((a, b) => a.available - b.available)
-    if (overspent.length > 0) {
-      return `${overspent[0].category} is overspent by ${formatCurrency(Math.abs(overspent[0].available), hideAmounts)}, the biggest drag this month.`
-    }
-    if (creditCardEnvelope && creditCardEnvelope.available > 0) {
-      return `Credit card payment of ${formatCurrency(creditCardEnvelope.available, hideAmounts)} is set aside and ready to pay.`
-    }
-    const withBudget = envelopeState.envelopes.filter((e) => !e.isCreditCardPayment && e.assigned > 0)
-    if (withBudget.length > 0) {
-      const low = [...withBudget].sort((a, b) => a.available - b.available)[0]
-      return `${low.category} has ${formatCurrency(low.available, hideAmounts)} left. Keep an eye on it.`
-    }
-    return 'No spending data yet this month.'
-  }, [envelopeState, creditCardEnvelope, hideAmounts])
-
   const nonCcEnvelopes = envelopeState.envelopes.filter((e) => !e.isCreditCardPayment)
   const overspentCount = nonCcEnvelopes.filter((e) => e.isOverspent).length
 
@@ -283,7 +132,7 @@ export default function HomeScreen() {
 
   if (hasError) {
     return (
-      <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: 32 }]}>
+      <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: space.xxl }]}>
         <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
           Couldn&apos;t load your budget. Check your connection and reopen the app.
         </Text>
@@ -292,282 +141,145 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 14, backgroundColor: tokens.headerBg, borderBottomColor: tokens.border },
-        ]}
-      >
-        <View style={styles.headerTop}>
-          <Text style={[styles.greeting, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            Hey {greetingName} 👋
-          </Text>
-        </View>
-        <View style={styles.headerSub}>
-          <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyMedium }}>
-            {monthLabel(month)} · {daysLeftInMonth()} days left
-          </Text>
-          <Text style={{ color: tokens.mint, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-            {formatCurrency(envelopeState.readyToAssign, hideAmounts)} to assign
-          </Text>
-        </View>
-      </View>
-
-      <AnimatedTabContent>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
+    <AnimatedTabContent>
+      <Screen
+        title={`Hey ${greetingName}`}
+        actions={
+          <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+        }
+        contentContainerStyle={{ gap: space.lg }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
         }
       >
+        {/* Ready to Assign is the one number the envelope method is about, so it
+            is the hero rather than one tile among four. */}
+        <View style={[styles.hero, { paddingVertical: space.xl }]}>
+          <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
+          <AmountText
+            value={envelopeState.readyToAssign}
+            size={type.hero}
+            color={envelopeState.isOverAssigned ? tokens.coral : tokens.text}
+            weight="displayBold"
+            animate
+          />
+          <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
+            {monthLabel(month)} · {daysLeftInMonth()} days left
+          </Text>
+        </View>
+
         {showRolloverBanner && (
-          <View style={[styles.card, styles.rolloverCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+          <Card style={styles.rolloverCard}>
+            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
               {formatCurrency(rolloverTotal, hideAmounts)} rolled over from last month across your envelopes.
             </Text>
-            <Pressable onPress={() => setRolloverDismissed(true)}>
-              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Got it</Text>
+            <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Got it</Text>
             </Pressable>
-          </View>
+          </Card>
         )}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statRow}>
-          <View style={[styles.statCard, styles.statHero, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
-            <Text style={[styles.statLabel, { color: tokens.text2 }]}>READY TO ASSIGN</Text>
-            <Text
-              style={[
-                styles.statHeroValue,
-                { color: envelopeState.isOverAssigned ? tokens.coral : tokens.mint, fontFamily: fontFamily.displaySemiBold },
-              ]}
-            >
-              {formatCurrency(envelopeState.readyToAssign, hideAmounts)}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Text style={[styles.statLabel, { color: tokens.text2 }]}>INCOME</Text>
-            <Text style={[styles.statValue, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
-              {formatCurrency(envelopeState.income, hideAmounts)}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Text style={[styles.statLabel, { color: tokens.text2 }]}>ASSIGNED</Text>
-            <Text style={[styles.statValue, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
-              {formatCurrency(envelopeState.totalAssigned, hideAmounts)}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Text style={[styles.statLabel, { color: tokens.text2 }]}>OVERSPENT</Text>
-            <Text
-              style={[
-                styles.statValue,
-                { color: overspentCount > 0 ? tokens.coral : tokens.text, fontFamily: fontFamily.bodyExtraBold },
-              ]}
-            >
-              {overspentCount}/{nonCcEnvelopes.length}
-            </Text>
-          </View>
-        </ScrollView>
-
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <View style={styles.cardHeadRow}>
-            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Spending trend
-            </Text>
-            <View style={[styles.toggleGroup, { backgroundColor: tokens.inputBg }]}>
-              <Pressable
-                onPress={() => setChartVariant('area')}
-                style={[styles.toggleBtn, chartVariant === 'area' && { backgroundColor: tokens.chipActiveBg }]}
-              >
-                <Text style={{ color: tokens.text, fontSize: 12 }}>〜</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setChartVariant('bar')}
-                style={[styles.toggleBtn, chartVariant === 'bar' && { backgroundColor: tokens.chipActiveBg }]}
-              >
-                <Text style={{ color: tokens.text, fontSize: 12 }}>▊▍</Text>
-              </Pressable>
-            </View>
-          </View>
-          <View style={[styles.periodToggle, { backgroundColor: tokens.inputBg }]}>
-            {(['daily', 'weekly', 'monthly'] as const).map((p) => (
-              <Pressable
-                key={p}
-                onPress={() => selectTrendPeriod(p)}
-                style={[styles.periodBtn, trendPeriod === p && { backgroundColor: tokens.chipActiveBg }]}
-              >
-                <Text
-                  style={[
-                    styles.periodBtnText,
-                    { color: tokens.text, fontFamily: trendPeriod === p ? fontFamily.bodyBold : fontFamily.bodyMedium },
-                  ]}
-                >
-                  {p[0].toUpperCase() + p.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {drillFilter && (
-            <Pressable
-              style={styles.drillBack}
-              onPress={() => {
-                setTrendPeriod(drillFilter.parentView)
-                setDrillFilter(null)
-              }}
-            >
-              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                ‹ {formatDrillRange(drillFilter.start, drillFilter.end)}
-              </Text>
-            </Pressable>
-          )}
-          <TrendChart
-            data={trendData}
-            variant={chartVariant}
-            hideAmounts={hideAmounts}
-            onSelectIndex={trendPeriod !== 'daily' ? handleTrendDrill : undefined}
+        <View style={[styles.statRow, { gap: space.md }]}>
+          <Stat label="INCOME" value={formatCurrency(envelopeState.income, hideAmounts)} />
+          <Stat label="ASSIGNED" value={formatCurrency(envelopeState.totalAssigned, hideAmounts)} />
+          <Stat
+            label="OVERSPENT"
+            value={`${overspentCount}/${nonCcEnvelopes.length}`}
+            color={overspentCount > 0 ? tokens.coral : undefined}
           />
         </View>
 
-        <Reanimated.View
-          layout={LinearTransition.springify().damping(64).stiffness(600)}
-          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-        >
-          <View style={styles.cardHeadRow}>
-            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Envelopes
-            </Text>
-            <View style={styles.headerLinks}>
-              <Pressable onPress={toggleCollapseAll}>
-                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                  {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => router.push('/(tabs)/envelopes')} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
-                <Icon icon={ChevronRight} size={14} color={tokens.gold} />
-              </Pressable>
+        <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(600)}>
+          <Card>
+            <View style={styles.cardHeadRow}>
+              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+                Envelopes
+              </Text>
+              <View style={[styles.headerLinks, { gap: space.md }]}>
+                <Pressable onPress={toggleCollapseAll} hitSlop={8}>
+                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => router.push('/(tabs)/envelopes')} style={styles.manageLink} hitSlop={8}>
+                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
+                  <Icon icon={ChevronRight} size={14} color={tokens.accentInk} />
+                </Pressable>
+              </View>
             </View>
-          </View>
-          <View style={{ marginTop: 4 }}>
-            {groupedEnvelopes.map(({ group, envelopes }) => (
-              <EnvelopeGroup
-                key={group}
-                group={group}
-                envelopes={envelopes}
-                hideAmounts={hideAmounts}
-                onMoveMoney={handleMoveMoney}
-                onEditAmount={handleEditAmount}
-                onViewTransactions={handleViewTransactions}
-                expanded={!collapsedGroups.has(group)}
-                onToggle={toggleGroup}
-              />
-            ))}
-            {creditCardEnvelope && (
-              <Reanimated.View
-                layout={LinearTransition.springify().damping(64).stiffness(600)}
-                style={[styles.ccWrap, { borderTopColor: tokens.border }]}
-              >
-                <View style={styles.ccBadgeRow}>
-                  <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.gold }}>PAYOFF</Text>
-                </View>
-                <EnvelopeRow
-                  envelope={creditCardEnvelope}
-                  emoji="💳"
-                  displayName="Credit Card Payment"
+            <View style={{ marginTop: space.xs }}>
+              {groupedEnvelopes.map(({ group, envelopes }) => (
+                <EnvelopeGroup
+                  key={group}
+                  group={group}
+                  envelopes={envelopes}
                   hideAmounts={hideAmounts}
                   onMoveMoney={handleMoveMoney}
                   onEditAmount={handleEditAmount}
                   onViewTransactions={handleViewTransactions}
+                  expanded={!collapsedGroups.has(group)}
+                  onToggle={toggleGroup}
                 />
-              </Reanimated.View>
-            )}
-          </View>
-        </Reanimated.View>
-
-        <Reanimated.View
-          layout={LinearTransition.springify().damping(64).stiffness(600)}
-          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-        >
-          <View style={styles.cardHeadRow}>
-            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Insights
-            </Text>
-            <View style={styles.monthNav}>
-              <Pressable onPress={() => setInsightMonth((m) => shiftMonth(m, -1))} hitSlop={8}>
-                <Text style={{ color: tokens.text2, fontSize: 16 }}>‹</Text>
-              </Pressable>
-              <Text style={{ color: tokens.text, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                {monthLabel(insightMonth)}
-              </Text>
-              <Pressable
-                onPress={() => insightMonth < month && setInsightMonth((m) => shiftMonth(m, 1))}
-                disabled={insightMonth >= month}
-                hitSlop={8}
-              >
-                <Text style={{ color: insightMonth < month ? tokens.text2 : tokens.text3, fontSize: 16 }}>›</Text>
-              </Pressable>
+              ))}
+              {creditCardEnvelope && (
+                <Reanimated.View
+                  layout={LinearTransition.springify().damping(64).stiffness(600)}
+                  style={[styles.ccWrap, { borderTopColor: tokens.border, paddingTop: space.sm, marginTop: space.sm }]}
+                >
+                  <View style={styles.ccBadgeRow}>
+                    <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.accentInk }}>PAYOFF</Text>
+                  </View>
+                  <EnvelopeRow
+                    envelope={creditCardEnvelope}
+                    emoji="💳"
+                    displayName="Credit Card Payment"
+                    hideAmounts={hideAmounts}
+                    onMoveMoney={handleMoveMoney}
+                    onEditAmount={handleEditAmount}
+                    onViewTransactions={handleViewTransactions}
+                  />
+                </Reanimated.View>
+              )}
             </View>
-          </View>
-          <View style={{ marginTop: 12 }}>
-            <Heatmap
-              cells={heatmapCells}
-              todayDate={todayIso}
-              onSelectDate={(date) => router.push({ pathname: '/(tabs)/activity', params: { date } })}
-            />
-          </View>
-          <Text style={{ color: tokens.mint, fontSize: 12, marginTop: 12, fontFamily: fontFamily.bodyMedium }}>
-            {insightText}
-          </Text>
+          </Card>
         </Reanimated.View>
 
-        <Reanimated.View
-          layout={LinearTransition.springify().damping(64).stiffness(600)}
-          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-        >
-          <View style={styles.cardHeadRow}>
-            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Subscriptions
-            </Text>
-            <Pressable onPress={() => router.push('/modals/subscription')} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Icon icon={Plus} size={14} color={tokens.gold} />
-              <Text style={{ color: tokens.gold, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
-            </Pressable>
-          </View>
-          <SubscriptionsPanel subscriptions={subscriptions} hideAmounts={hideAmounts} />
-        </Reanimated.View>
-      </ScrollView>
-      </AnimatedTabContent>
-    </View>
+        <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
+          <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+            Trends, daily spend and subscriptions
+          </Text>
+          <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+        </Pressable>
+      </Screen>
+    </AnimatedTabContent>
+  )
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  const { tokens, type } = useTheme()
+  return (
+    <Card style={styles.statCard}>
+      <Text style={[styles.statLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+      <Text style={{ color: color ?? tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.bodyExtraBold, marginTop: 4 }}>
+        {value}
+      </Text>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  greeting: { fontSize: 20 },
-  headerSub: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  scrollContent: { padding: 16, paddingBottom: 110, gap: 16 },
-  card: { padding: 18, borderRadius: 20, borderWidth: 1, gap: 4 },
+  hero: { alignItems: 'center', gap: 6 },
+  heroLabel: { fontSize: 10, letterSpacing: 0.6 },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerLinks: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  cardTitle: { fontSize: 16 },
-  statRow: { flexDirection: 'row', gap: 10, paddingBottom: 2 },
-  statCard: { minWidth: 120, padding: 16, borderRadius: 20, borderWidth: 1 },
-  statHero: { minWidth: 150 },
+  statRow: { flexDirection: 'row' },
+  statCard: { flex: 1 },
   statLabel: { fontSize: 10, letterSpacing: 0.6 },
-  statHeroValue: { fontSize: 24, marginTop: 4 },
-  statValue: { fontSize: 18, marginTop: 4 },
-  toggleGroup: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 100 },
-  toggleBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100 },
-  periodToggle: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 100, marginTop: 12 },
-  periodBtn: { flex: 1, paddingVertical: 8, borderRadius: 100, alignItems: 'center' },
-  periodBtnText: { fontSize: 12 },
-  drillBack: { marginTop: 10, alignSelf: 'flex-start' },
-  monthNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  ccWrap: { borderTopWidth: 1, paddingTop: 8, marginTop: 8 },
+  cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: {},
+  headerLinks: { flexDirection: 'row', alignItems: 'center' },
+  manageLink: { flexDirection: 'row', alignItems: 'center' },
+  insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
+  ccWrap: { borderTopWidth: 1 },
   ccBadgeRow: { flexDirection: 'row' },
 })

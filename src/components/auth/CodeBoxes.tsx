@@ -76,7 +76,7 @@ export function CodeBoxes({ code, length = 6, bad = false, ok = false }: { code:
       {Array.from({ length }, (_, i) => {
         const char = code[i] || ''
         const active = i === code.length && outcome === 'idle'
-        const borderColor = ok ? tokens.mint : bad ? tokens.coral : active ? tokens.gold : char ? tokens.borderStrong : tokens.border
+        const borderColor = ok ? tokens.mint : bad ? tokens.coral : active ? tokens.accent : char ? tokens.borderStrong : tokens.border
         const fillColor = ok ? tokens.mint : bad ? tokens.coral : tokens.text
         return (
           <OutcomeBox key={i} index={i} outcome={outcome}>

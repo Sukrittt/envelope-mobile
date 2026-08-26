@@ -23,11 +23,11 @@ const FIXED_TYPE_COLOR: Record<string, keyof ThemeTokens> = {
   Equity: 'blue',
   FD: 'mint',
   'Mutual Fund': 'violet',
-  Gold: 'gold',
+  Gold: 'accent',
   Crypto: 'coral',
   Bonds: 'warn',
 }
-const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'gold', 'coral', 'warn']
+const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'accent', 'coral', 'warn']
 
 function colorForType(type: string, index: number, tokens: ThemeTokens): string {
   const key = FIXED_TYPE_COLOR[type] ?? COLOR_CYCLE[index % COLOR_CYCLE.length]
@@ -48,7 +48,7 @@ function eventLabel(type: string): string {
 }
 
 function eventColor(type: string, tokens: ThemeTokens): string {
-  if (type === 'market_update') return tokens.gold
+  if (type === 'market_update') return tokens.accent
   if (type === 'contribution') return tokens.mint
   if (type === 'withdrawal') return tokens.coral
   return tokens.text2
@@ -123,8 +123,8 @@ export default function InvestmentsScreen() {
           Investments
         </Text>
         <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
-          <Icon icon={Plus} size={16} color={tokens.gold} />
-          <Text style={[styles.headerAction, { color: tokens.gold, fontFamily: fontFamily.bodySemiBold }]}>
+          <Icon icon={Plus} size={16} color={tokens.accentInk} />
+          <Text style={[styles.headerAction, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
             Add
           </Text>
         </Pressable>
@@ -138,7 +138,7 @@ export default function InvestmentsScreen() {
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.gold} colors={[tokens.gold]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
           }
         >
           {errorMessage && (
