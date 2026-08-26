@@ -1,6 +1,6 @@
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { FloatingNav, slotOffset, indexFromOffset, addSlotShift } from './FloatingNav'
+import { FloatingNav, slotOffset, indexFromOffset, addSlotShift, navStateFor } from './FloatingNav'
 
 // RNTL can't simulate a real drag/snap gesture, so drag-to-navigate is
 // covered by hand (see the plan's verification steps), not here.
@@ -37,6 +37,23 @@ describe('addSlotShift', () => {
   it('is a fixed multiple of the slot width, and shrinks with distance to the add slot', () => {
     expect(addSlotShift('index')).toBe(144)
     expect(addSlotShift('activity')).toBe(72)
+  })
+})
+
+describe('navStateFor', () => {
+  it('is visible with the matching route active on a tab path', () => {
+    expect(navStateFor('/')).toEqual({ active: 'index', addActive: false, visible: true })
+    expect(navStateFor('/activity')).toEqual({ active: 'activity', addActive: false, visible: true })
+  })
+
+  it('is visible with the add slot active on the log-expense path', () => {
+    expect(navStateFor('/modals/log-expense')).toEqual({ active: null, addActive: true, visible: true })
+  })
+
+  it('is not visible on a path outside the tabs and log-expense', () => {
+    expect(navStateFor('/insights')).toEqual({ active: null, addActive: false, visible: false })
+    expect(navStateFor('/modals/move-money')).toEqual({ active: null, addActive: false, visible: false })
+    expect(navStateFor('/(auth)/welcome')).toEqual({ active: null, addActive: false, visible: false })
   })
 })
 

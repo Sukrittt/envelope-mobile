@@ -15,44 +15,63 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useUser } from '@/src/hooks/useUser'
 import { useExpenses } from '@/src/hooks/useExpenses'
-import { FloatingNav, NAV_HREF, activeRouteFor, addSlotShift } from './FloatingNav'
+import { FloatingNav, NAV_HREF, LOG_EXPENSE_PATH, navStateFor, addSlotShift, type NavRoute } from './FloatingNav'
 
 /**
- * The tabs' instance of the floating nav. It reads the active route from the
- * pathname rather than from BottomTabBarProps, because it renders as an overlay
- * sibling of the navigator (see app/(tabs)/_layout.tsx) — which is also what
- * lets the log-expense screen, outside the tab navigator, render the same nav.
+ * The app's single nav instance, mounted once above the root Stack (see
+ * app/_layout.tsx) so it survives every push — including log-expense —
+ * instead of unmounting/remounting and cutting between states. Nav state
+ * (which slot is active, whether the nav shows at all) is derived purely
+ * from the pathname via navStateFor.
  */
 export function TabBar() {
   const router = useRouter()
+  const pathname = usePathname()
+  const { active, addActive, visible } = navStateFor(pathname)
+
+  const visibility = useSharedValue(visible ? 1 : 0)
+  useEffect(() => {
+    visibility.value = withTiming(visible ? 1 : 0, { duration: 160 })
+  }, [visible, visibility])
+  const visibilityStyle = useAnimatedStyle(() => ({ opacity: visibility.value }))
+
+  return (
+    <Reanimated.View style={[StyleSheet.absoluteFill, visibilityStyle]} pointerEvents={visible ? 'box-none' : 'none'}>
+      <FloatingNav
+        active={active}
+        addActive={addActive}
+        variant={addActive ? 'onAccent' : 'default'}
+        onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
+        onAdd={() => (addActive ? router.back() : router.push(LOG_EXPENSE_PATH))}
+      >
+        {visible ? <FirstExpenseHintGate active={active} /> : null}
+      </FloatingNav>
+    </Reanimated.View>
+  )
+}
+
+// Queries only fire while the nav is actually showing (inside the tabs or on
+// log-expense) — mounting them at the root would fetch /api/user and
+// /api/expenses even while signed out.
+function FirstExpenseHintGate({ active }: { active: NavRoute | null }) {
+  const router = useRouter()
+  const pathname = usePathname()
   const userQ = useUser()
   const expensesQ = useExpenses()
-  const pathname = usePathname()
-  const activeName = activeRouteFor(pathname)
 
   // Coach mark only after onboarding is confirmed done AND the expense list
   // has loaded empty. Either query loading or failing => hidden (no flash,
   // no false positive for signed-out/error states). Also hidden off the Home
   // tab and behind the log-expense screen so it doesn't linger elsewhere.
-  const showFirstExpenseHint =
+  const show =
     !!userQ.data?.onboardedAt &&
     expensesQ.isSuccess &&
     (expensesQ.data?.length ?? 0) === 0 &&
-    activeName === 'index' &&
-    pathname !== '/modals/log-expense'
+    active === 'index' &&
+    pathname !== LOG_EXPENSE_PATH
 
   return (
-    <FloatingNav
-      active={activeName}
-      onSelect={(name) => router.navigate(NAV_HREF[name])}
-      onAdd={() => router.push('/modals/log-expense')}
-    >
-      <FirstExpenseHint
-        show={showFirstExpenseHint}
-        onPress={() => router.push('/modals/log-expense')}
-        shiftX={addSlotShift(activeName)}
-      />
-    </FloatingNav>
+    <FirstExpenseHint show={show} onPress={() => router.push(LOG_EXPENSE_PATH)} shiftX={addSlotShift(active)} />
   )
 }
 

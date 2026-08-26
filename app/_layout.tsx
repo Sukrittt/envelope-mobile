@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { View, StyleSheet } from 'react-native'
 import { Stack, useRouter, useSegments, useGlobalSearchParams } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -12,6 +13,7 @@ import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { AppSplash } from '@/src/components/shared/AppSplash'
+import { TabBar } from '@/src/components/nav/TabBar'
 import {
   configureNotificationHandler,
   registerForPushNotificationsAsync,
@@ -136,31 +138,47 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * The nav is a sibling overlay above the whole root Stack, not scoped to
+ * (tabs) or rendered per-screen: it must survive every push (log-expense
+ * included) so its carousel can animate between active states instead of
+ * unmounting/remounting and cutting. An absolutely-positioned child of the
+ * navigator's tabBar slot (which has no height) is untouchable on Android,
+ * hence a plain sibling rather than that slot.
+ */
 function RootNavigator() {
   const { tokens } = useTheme()
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
-      <Stack.Screen name="(auth)/welcome" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-      <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-      {/* Not a sheet: logging is a full-bleed screen with its own keypad and nav. */}
-      <Stack.Screen name="modals/log-expense" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-    </Stack>
+    <View style={styles.root}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
+        <Stack.Screen name="(auth)/welcome" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+        {/* card (not fullScreenModal): a real native modal presentation covers
+            the whole window on iOS, hiding the persistent nav below it. */}
+        <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: 'fade' }} />
+        <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      </Stack>
+      <TabBar />
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+})
 
 export default function RootLayout() {
   const [fontsLoaded] = useAppFonts()
