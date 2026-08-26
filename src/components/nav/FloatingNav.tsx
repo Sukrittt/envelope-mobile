@@ -63,7 +63,7 @@ function indexOfRoute(name: NavRoute | null): number {
 
 const CIRCLE = 46
 const RING_GAP = 3
-const RING_WIDTH = 2
+const RING_WIDTH = 3
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
 /** Fixed carousel step: distance between two slot centres. */
 const SLOT = 72
@@ -170,7 +170,7 @@ export function FloatingNav({
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { paddingBottom: insets.bottom + space.sm }]}
+      style={[styles.wrap, { paddingBottom: insets.bottom + space.xs }]}
     >
       {children}
       <Reanimated.ScrollView
