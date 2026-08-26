@@ -15,7 +15,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useUser } from '@/src/hooks/useUser'
 import { useExpenses } from '@/src/hooks/useExpenses'
-import { FloatingNav, NAV_HREF, activeRouteFor } from './FloatingNav'
+import { FloatingNav, NAV_HREF, activeRouteFor, addSlotShift } from './FloatingNav'
 
 /**
  * The tabs' instance of the floating nav. It reads the active route from the
@@ -47,7 +47,11 @@ export function TabBar() {
       onSelect={(name) => router.navigate(NAV_HREF[name])}
       onAdd={() => router.push('/modals/log-expense')}
     >
-      <FirstExpenseHint show={showFirstExpenseHint} onPress={() => router.push('/modals/log-expense')} />
+      <FirstExpenseHint
+        show={showFirstExpenseHint}
+        onPress={() => router.push('/modals/log-expense')}
+        shiftX={addSlotShift(activeName)}
+      />
     </FloatingNav>
   )
 }
@@ -55,8 +59,9 @@ export function TabBar() {
 // "Log your first expense here" pill + bobbing arrow pointing at the + button.
 // Only shown once onboarding is complete and no expense has been logged yet
 // (server-derived, so it survives restarts and disappears the moment the first
-// expense exists).
-function FirstExpenseHint({ show, onPress }: { show: boolean; onPress: () => void }) {
+// expense exists). The pill stays centred on the active slot; only the arrow
+// shifts to keep pointing at the add slot as the carousel moves.
+function FirstExpenseHint({ show, onPress, shiftX }: { show: boolean; onPress: () => void; shiftX: number }) {
   const { tokens, radius, space } = useTheme()
   const [mounted, setMounted] = useState(show)
   // entrance: 0 -> 1 fade/scale/slide-up on show, reverse on hide (unmounts after finishing).
@@ -90,7 +95,7 @@ function FirstExpenseHint({ show, onPress }: { show: boolean; onPress: () => voi
   }))
 
   const arrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: bob.value * 9 }],
+    transform: [{ translateY: bob.value * 9 }, { translateX: shiftX }],
     opacity: 0.85 + bob.value * 0.15,
   }))
 
