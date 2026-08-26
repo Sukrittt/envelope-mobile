@@ -87,12 +87,11 @@ const SLOT = 72
 const ROW_TOP_BLEED = 10
 const ROW_BOTTOM_BLEED = 24
 const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
-// Opaque backdrop behind the ring track: content scrolls underneath the nav,
-// and the circles alone don't cover the gaps between slots, so a scrolled row
-// can show through at the same height. A small vertical pad beyond the ring
-// itself keeps the pill from clipping tight against the icons.
+// Opaque backdrop behind the whole nav strip, from just above the ring down
+// to the screen edge: content scrolls underneath, and the circles alone
+// don't cover the gaps between slots or the safe-area strip below them, so
+// without this a scrolled row (or the home-indicator area) shows through.
 const BACKDROP_PAD = 7
-const BACKDROP_HEIGHT = RING_SIZE + BACKDROP_PAD * 2
 
 /** Carousel x-offset that puts slot `i` at the centre of the screen. */
 export const slotOffset = (i: number): number => i * SLOT
@@ -199,7 +198,7 @@ export function FloatingNav({
         pointerEvents="none"
         style={[
           styles.backdrop,
-          { left: space.lg, right: space.lg, borderRadius: radius.full, backgroundColor: onAccent ? tokens.accent : tokens.bg },
+          { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: onAccent ? tokens.accent : tokens.bg },
         ]}
       />
       <Reanimated.ScrollView
@@ -417,8 +416,10 @@ const styles = StyleSheet.create({
   scroll: { height: ROW_HEIGHT },
   backdrop: {
     position: 'absolute',
+    left: 0,
+    right: 0,
     top: ROW_TOP_BLEED - BACKDROP_PAD,
-    height: BACKDROP_HEIGHT,
+    bottom: 0,
   },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
   ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
