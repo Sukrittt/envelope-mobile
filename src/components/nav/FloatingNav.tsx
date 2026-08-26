@@ -67,10 +67,14 @@ const RING_WIDTH = 3
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
 /** Fixed carousel step: distance between two slot centres. */
 const SLOT = 72
-// Extra headroom beyond the ring so the "floating" shadow (radius 16,
-// vertical offset 6) has room to render inside the ScrollView's own bounds
-// instead of getting clipped by it.
-const ROW_HEIGHT = RING_SIZE + 48
+// Room for the "floating" shadow (radius 16, vertical offset 6 => ~10px of
+// bleed above the ring, ~24px below) to render inside the ScrollView's own
+// bounds instead of getting clipped by it. Asymmetric and top-anchored
+// (see contentContainerStyle below) rather than centred, so padding the
+// bottom for the shadow doesn't also push the ring itself upward.
+const ROW_TOP_BLEED = 10
+const ROW_BOTTOM_BLEED = 24
+const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
 
 /** Carousel x-offset that puts slot `i` at the centre of the screen. */
 export const slotOffset = (i: number): number => i * SLOT
@@ -184,7 +188,11 @@ export function FloatingNav({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         onMomentumScrollEnd={onMomentumScrollEnd}
-        contentContainerStyle={{ paddingHorizontal: (width - SLOT) / 2, alignItems: 'center' }}
+        contentContainerStyle={{
+          paddingHorizontal: (width - SLOT) / 2,
+          paddingTop: ROW_TOP_BLEED,
+          alignItems: 'flex-start',
+        }}
         style={styles.scroll}
       >
         {NAV_SLOTS.map((slot, i) =>
