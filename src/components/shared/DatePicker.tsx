@@ -7,7 +7,7 @@ import { fontFamily } from '@/src/theme/fonts'
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const WEEKDAY_SHORT3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function parseISO(value: string): Date | null {
   if (!value) return null
@@ -26,6 +26,8 @@ const addDays = (d: Date, n: number) => {
 }
 const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 const fmt = (d: Date | null) => (d ? `${d.getDate()} ${SHORT[d.getMonth()]} ${d.getFullYear()}` : '—')
+const dayDiff = (a: Date, b: Date) =>
+  Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime() - new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime()) / 86400000)
 
 interface Cell {
   day: string
@@ -59,14 +61,188 @@ function buildCells(view: Date, today: Date, selected: Date | null, disableFutur
 
 const QUICK: [string, number][] = [['Today', 0], ['Yesterday', -1], ['A week ago', -7]]
 
-interface Props {
+export interface DateRange {
+  from: string
+  to: string
+}
+
+interface SingleProps {
   mode: 'single'
   value: string
   onChange: (value: string) => void
   disableFuture?: boolean
 }
 
-export function DatePicker({ value, onChange, disableFuture = true }: Props) {
+interface RangeProps {
+  mode: 'range'
+  value: DateRange
+  onChange: (value: DateRange) => void
+  disableFuture?: boolean
+}
+
+type Props = SingleProps | RangeProps
+
+const RANGE_PRESETS: [string, number, boolean][] = [
+  ['This month', 0, true],
+  ['Last 7 days', 7, false],
+  ['Last 30 days', 30, false],
+  ['Last 90 days', 90, false],
+]
+
+export function DatePicker(props: Props) {
+  if (props.mode === 'range') return <RangeDatePicker {...props} />
+  return <SingleDatePicker {...props} />
+}
+
+function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) {
+  const { tokens } = useTheme()
+  const [open, setOpen] = useState(false)
+  const today = new Date()
+  const from = parseISO(value.from)
+  const to = parseISO(value.to)
+  const [view, setView] = useState(() => monthStart(from ?? today))
+
+  const cells = buildCells(view, today, from, disableFuture)
+  const kFrom = from ? key(from) : null
+  const kTo = to ? key(to) : null
+
+  function pick(d: Date) {
+    const k = key(d)
+    if (!from || (from && to)) {
+      onChange({ from: toISO(d), to: '' })
+    } else if (k < kFrom!) {
+      onChange({ from: toISO(d), to: value.from })
+    } else {
+      onChange({ from: value.from, to: toISO(d) })
+    }
+  }
+
+  function applyPreset(days: number, useMonthStart: boolean) {
+    const end = today
+    const start = useMonthStart ? new Date(today.getFullYear(), today.getMonth(), 1) : addDays(today, -(days - 1))
+    onChange({ from: toISO(start), to: toISO(end) })
+    setView(monthStart(start))
+  }
+
+  const label = from && to ? `${fmt(from)} – ${fmt(to)}` : from ? 'Pick an end date' : 'Custom range'
+
+  return (
+    <View>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.accent : tokens.border }]}
+      >
+        <View style={styles.fieldLeft}>
+          <View style={[styles.iconWrap, { backgroundColor: tokens.accentSoft }]}>
+            <Calendar size={15} color={tokens.accentInk} />
+          </View>
+          <Text style={[styles.fieldText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+        </View>
+        <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+      </Pressable>
+
+      {open && (
+        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
+          <View style={styles.quick}>
+            {RANGE_PRESETS.map(([pLabel, days, useMonthStart]) => (
+              <Pressable
+                key={pLabel}
+                onPress={() => applyPreset(days, useMonthStart)}
+                style={[styles.chip, { borderColor: tokens.borderStrong, backgroundColor: 'transparent' }]}
+              >
+                <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{pLabel}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.nav}>
+            <Pressable
+              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))}
+              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+            >
+              <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
+            </Pressable>
+            <Text style={[styles.monthLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+              {MONTHS[view.getMonth()]} {view.getFullYear()}
+            </Text>
+            <Pressable
+              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))}
+              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+            >
+              <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.weekdays}>
+            {WEEKDAY_SHORT.map((w, i) => (
+              <Text key={i} style={[styles.weekday, { color: tokens.text3 }]}>
+                {w}
+              </Text>
+            ))}
+          </View>
+
+          <View style={styles.grid}>
+            {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
+              <View key={row} style={styles.gridRow}>
+                {Array.from({ length: 7 }, (_, i) => cells[row * 7 + i]).map((c, i) => {
+                  const k = c?.date ? key(c.date) : null
+                  const isStart = k !== null && k === kFrom
+                  const isEnd = k !== null && k === kTo
+                  const inRange = kFrom !== null && kTo !== null && k !== null && k > kFrom && k < kTo
+                  return (
+                    <View
+                      key={i}
+                      style={[styles.cellWrap, inRange && { backgroundColor: tokens.accentSoft }]}
+                    >
+                      {c?.date && (
+                        <Pressable
+                          disabled={c.disabled}
+                          onPress={() => pick(c.date!)}
+                          style={[
+                            styles.cell,
+                            { borderColor: c.isToday && !isStart && !isEnd ? tokens.accent : 'transparent' },
+                            (isStart || isEnd) && { backgroundColor: tokens.accent },
+                            c.disabled && { opacity: 0.4 },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.cellText,
+                              {
+                                color: c.disabled ? tokens.text3 : isStart || isEnd ? tokens.onAccent : tokens.text,
+                                fontFamily: fontFamily.bodySemiBold,
+                              },
+                            ]}
+                          >
+                            {c.day}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )
+                })}
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.rangeFooter}>
+            <Pressable onPress={() => onChange({ from: '', to: '' })} style={[styles.clear, { borderColor: tokens.borderStrong }]}>
+              <Text style={[styles.clearText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Clear</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setOpen(false)}
+              style={[styles.done, { backgroundColor: tokens.accentSoft, flex: 1, alignItems: 'center' }]}
+            >
+              <Text style={[styles.doneText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function SingleDatePicker({ value, onChange, disableFuture = true }: SingleProps) {
   const { tokens } = useTheme()
   const [open, setOpen] = useState(false)
   const today = new Date()
@@ -84,22 +260,58 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
   }
 
   const cells = buildCells(view, today, selected, disableFuture)
-  const label = selected ? `${WEEKDAY_FULL[selected.getDay()]}, ${fmt(selected)}` : 'Select a date'
+  const kToday = key(today)
+  const kYesterday = key(addDays(today, -1))
+  const kSel = selected ? key(selected) : null
+
+  const stripDays = Array.from({ length: 6 }, (_, i) => addDays(today, i - 5))
+  function stripLabel(d: Date) {
+    const k = key(d)
+    if (k === kToday) return 'Today'
+    if (k === kYesterday) return 'Yest'
+    return WEEKDAY_SHORT3[d.getDay()]
+  }
+
+  let daysAgoText = ''
+  if (selected) {
+    const diff = dayDiff(today, selected)
+    daysAgoText = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : diff > 1 ? `${diff} days ago` : 'In the future'
+  }
 
   return (
     <View>
-      <Pressable
-        onPress={toggle}
-        style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.accent : tokens.border }]}
-      >
-        <View style={styles.fieldLeft}>
-          <View style={[styles.iconWrap, { backgroundColor: tokens.accentSoft }]}>
-            <Calendar size={15} color={tokens.accentInk} />
-          </View>
-          <Text style={[styles.fieldText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-        </View>
-        <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
-      </Pressable>
+      <View style={styles.dateHeader}>
+        <Text style={[styles.dateHeaderLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>DATE</Text>
+        {!!daysAgoText && <Text style={[styles.daysAgo, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{daysAgoText}</Text>}
+      </View>
+
+      <View style={styles.strip}>
+        {stripDays.map((d) => {
+          const k = key(d)
+          const active = kSel === k
+          return (
+            <Pressable
+              key={k}
+              onPress={() => pick(d)}
+              style={[
+                styles.stripCell,
+                { backgroundColor: active ? tokens.accent : tokens.inputBg, borderColor: active ? tokens.accent : tokens.border },
+              ]}
+            >
+              <Text style={[styles.stripDay, { color: active ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                {stripLabel(d)}
+              </Text>
+              <Text style={[styles.stripNum, { color: active ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodyBold }]}>{d.getDate()}</Text>
+            </Pressable>
+          )
+        })}
+      </View>
+
+      {!open && (
+        <Pressable onPress={toggle}>
+          <Text style={[styles.link, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>Another date...</Text>
+        </Pressable>
+      )}
 
       {open && (
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
@@ -181,11 +393,13 @@ export function DatePicker({ value, onChange, disableFuture = true }: Props) {
               </View>
             ))}
           </View>
-
-          <Pressable onPress={() => setOpen(false)} style={[styles.done, { backgroundColor: tokens.accentSoft }]}>
-            <Text style={[styles.doneText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Done</Text>
-          </Pressable>
         </View>
+      )}
+
+      {open && (
+        <Pressable onPress={() => setOpen(false)}>
+          <Text style={[styles.link, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>Close calendar</Text>
+        </Pressable>
       )}
     </View>
   )
@@ -213,4 +427,15 @@ const styles = StyleSheet.create({
   cellText: { fontSize: 13 },
   done: { alignSelf: 'flex-end', paddingVertical: 9, paddingHorizontal: 18, borderRadius: 100 },
   doneText: { fontSize: 12.5 },
+  rangeFooter: { flexDirection: 'row', gap: 8 },
+  clear: { paddingVertical: 9, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
+  clearText: { fontSize: 12.5 },
+  dateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  dateHeaderLabel: { fontSize: 11, letterSpacing: 0.5 },
+  daysAgo: { fontSize: 11 },
+  strip: { flexDirection: 'row', gap: 6 },
+  stripCell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1, gap: 2 },
+  stripDay: { fontSize: 10 },
+  stripNum: { fontSize: 15 },
+  link: { fontSize: 13, marginTop: 10 },
 })
