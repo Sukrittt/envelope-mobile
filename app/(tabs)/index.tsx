@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ChevronRight, LineChart } from 'lucide-react-native'
+import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
@@ -173,21 +173,25 @@ export default function HomeScreen() {
           </Card>
         )}
 
-        <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(600)}>
+        <Reanimated.View layout={LinearTransition.springify().damping(20).stiffness(200)}>
           <Card elevated={false}>
             <View style={styles.cardHeadRow}>
-              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-                Envelopes
-              </Text>
-              <View style={[styles.headerLinks, { gap: space.md }]}>
-                <Pressable onPress={toggleCollapseAll} hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => router.push('/(tabs)/envelopes')} style={styles.manageLink} hitSlop={8}>
+              <View style={[styles.headerLinks, { gap: space.xs }]}>
+                <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+                  Envelopes
+                </Text>
+                <IconButton
+                  icon={ChevronsDownUp}
+                  accessibilityLabel={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  onPress={toggleCollapseAll}
+                  size={28}
+                  color={tokens.accentInk}
+                  background="transparent"
+                />
+              </View>
+              <View style={styles.headerLinks}>
+                <Pressable onPress={() => router.navigate('/(tabs)/envelopes')} hitSlop={8}>
                   <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
-                  <Icon icon={ChevronRight} size={14} color={tokens.accentInk} />
                 </Pressable>
               </View>
             </View>
@@ -228,26 +232,16 @@ export default function HomeScreen() {
           </Card>
         </Reanimated.View>
 
-        <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
-          <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-            Trends, daily spend and subscriptions
-          </Text>
-          <Icon icon={ChevronRight} size={16} color={tokens.text2} />
-        </Pressable>
+        <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
+          <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
+            <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+              Trends, daily spend and subscriptions
+            </Text>
+            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+          </Pressable>
+        </Reanimated.View>
       </Screen>
     </AnimatedTabContent>
-  )
-}
-
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
-  const { tokens, type } = useTheme()
-  return (
-    <Card style={styles.statCard} elevated={false}>
-      <Text style={[styles.statLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-      <Text style={{ color: color ?? tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.bodyExtraBold, marginTop: 4 }}>
-        {value}
-      </Text>
-    </Card>
   )
 }
 
@@ -256,13 +250,9 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 6 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  statRow: { flexDirection: 'row' },
-  statCard: { flex: 1 },
-  statLabel: { fontSize: 10, letterSpacing: 0.6 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
   headerLinks: { flexDirection: 'row', alignItems: 'center' },
-  manageLink: { flexDirection: 'row', alignItems: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
   ccWrap: { borderTopWidth: 1 },
   ccBadgeRow: { flexDirection: 'row' },
