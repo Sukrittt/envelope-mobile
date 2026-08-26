@@ -191,15 +191,13 @@ export function FloatingNav({
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { paddingBottom: insets.bottom + space.xs }]}
+      style={[styles.wrap, { paddingBottom: space.xs }]}
     >
       {children}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.backdrop,
-          { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: onAccent ? tokens.accent : tokens.bg },
-        ]}
+      <NavBackdrop
+        color={onAccent ? tokens.accent : tokens.bg}
+        borderTopLeftRadius={radius.xl}
+        borderTopRightRadius={radius.xl}
       />
       <Reanimated.ScrollView
         ref={scrollRef}
@@ -214,10 +212,9 @@ export function FloatingNav({
         onMomentumScrollEnd={onMomentumScrollEnd}
         contentContainerStyle={{
           paddingHorizontal: (width - SLOT) / 2,
-          paddingTop: ROW_TOP_BLEED,
-          alignItems: 'flex-start',
+          alignItems: 'center',
         }}
-        style={styles.scroll}
+        style={[styles.scroll, { height: ROW_HEIGHT + insets.bottom }]}
       >
         {NAV_SLOTS.map((slot, i) =>
           slot.kind === 'add' ? (
@@ -276,6 +273,27 @@ function useColorFade(color: string, duration = 200): SharedValue<string> {
   }, [color, duration, from, to, progress])
 
   return useDerivedValue(() => interpolateColor(progress.value, [0, 1], [from.value, to.value]))
+}
+
+/** Backdrop rectangle, cross-fading `color` (default <-> onAccent) instead of cutting. */
+function NavBackdrop({
+  color,
+  borderTopLeftRadius,
+  borderTopRightRadius,
+}: {
+  color: string
+  borderTopLeftRadius: number
+  borderTopRightRadius: number
+}) {
+  const bgFade = useColorFade(color)
+  const animatedStyle = useAnimatedStyle(() => ({ backgroundColor: bgFade.value }))
+
+  return (
+    <Reanimated.View
+      pointerEvents="none"
+      style={[styles.backdrop, { borderTopLeftRadius, borderTopRightRadius }, animatedStyle]}
+    />
+  )
 }
 
 /**
