@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addBudget, deleteBudget, getBudgets, updateBudget } from '@/src/api/budgets'
 import type { BudgetRow } from '@/src/types'
 
-const key = ['budgets'] as const
+export const budgetsKey = ['budgets'] as const
+const key = budgetsKey
 // Money Brain's brief is computed from budgets too, but keyed separately —
 // an edit here must bust it or it shows stale numbers for up to its 15min staleTime.
 const briefKey = ['ai-brief'] as const

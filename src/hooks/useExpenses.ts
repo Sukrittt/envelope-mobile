@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addExpense, deleteExpense, getExpenses, updateExpense } from '@/src/api/expenses'
+import { budgetsKey } from '@/src/hooks/useBudgets'
 
 const key = ['expenses'] as const
 // Money Brain's brief is computed from expenses too, but keyed separately —
@@ -17,6 +18,10 @@ export function useAddExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
+      // A credit-card expense add/edit/delete also rebalances the Credit
+      // Card envelope server-side — bust budgets too or Envelopes shows a
+      // stale balance for up to its 30s staleTime.
+      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
@@ -34,6 +39,8 @@ export function useUpdateExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
+      // See useAddExpense — this can also rebalance the CC envelope.
+      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
@@ -46,6 +53,8 @@ export function useDeleteExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
+      // See useAddExpense — this can also rebalance the CC envelope.
+      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
