@@ -411,7 +411,7 @@ export default function ActivityScreen() {
         />
         <ScrollView style={styles.categorySheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Pressable
-            style={[styles.categoryOption, selectedCategory === '' && { backgroundColor: tokens.chipActiveBg }]}
+            style={[styles.categoryOption, { borderBottomColor: tokens.border }, selectedCategory === '' && { backgroundColor: tokens.chipActiveBg }]}
             onPress={() => {
               setSelectedCategory('')
               setCategorySheetOpen(false)

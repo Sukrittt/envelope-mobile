@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Modal as RNModal, Pressable, KeyboardAvoidingView, Keyboard, Platform, StyleSheet } from 'react-native'
+import { Modal as RNModal, Pressable, KeyboardAvoidingView, Keyboard, Platform, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
@@ -29,11 +29,17 @@ export function BottomSheet({ visible, onClose, children }: Props) {
           <Pressable
             style={[
               styles.sheet,
-              { backgroundColor: tokens.modalStrong, borderColor: tokens.borderStrong, paddingBottom: insets.bottom + 16 },
+              { backgroundColor: tokens.modalStrong, borderColor: tokens.borderStrong, maxHeight: '85%' },
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            {children}
+            <ScrollView
+              contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -43,5 +49,5 @@ export function BottomSheet({ visible, onClose, children }: Props) {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, padding: 16 },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0 },
 })

@@ -30,7 +30,7 @@ export function Numpad({
   const { tokens, radius, space } = useTheme()
   const keys = [...BASE_KEYS.slice(0, 9), extraKey ?? '', ...BASE_KEYS.slice(9)]
 
-  const keyBg = onAccent ? 'rgba(255, 255, 255, 0.16)' : tokens.card
+  const keyBg = onAccent ? 'transparent' : tokens.card
   const keyBorder = onAccent ? 'transparent' : tokens.border
   const keyColor = onAccent ? tokens.onAccent : tokens.text
 
