@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ChevronDown, ChevronUp, X } from 'lucide-react-native'
+import { ChevronDown, X } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { NAV_HEIGHT } from '@/src/theme/scale'
@@ -17,9 +17,6 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Chip } from '@/src/components/ui/Chip'
 import { Numpad } from '@/src/components/ui/Numpad'
-import { FloatingNav, NAV_HREF } from '@/src/components/nav/FloatingNav'
-
-const RAIL_LIMIT = 4
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
@@ -110,17 +107,6 @@ export default function LogExpenseScreen() {
     return [...categories].sort((a, b) => (lastUsed.get(b.name) ?? '').localeCompare(lastUsed.get(a.name) ?? ''))
   }, [categories, expensesQ.data])
 
-  // The chosen category is always on the rail, even when it is not recent —
-  // otherwise the selection the LLM just made can be invisible.
-  const railCategories = useMemo(() => {
-    const head = orderedCategories.slice(0, RAIL_LIMIT)
-    if (category && !head.some((c) => c.name === category)) {
-      const chosen = orderedCategories.find((c) => c.name === category)
-      if (chosen) return [chosen, ...head.slice(0, RAIL_LIMIT - 1)]
-    }
-    return head
-  }, [orderedCategories, category])
-
   // Debounced auto-suggest while typing the description, only until the user
   // manually picks a category (so we never fight a deliberate choice).
   useEffect(() => {
@@ -144,6 +130,8 @@ export default function LogExpenseScreen() {
       clearTimeout(timer)
     }
   }, [item, categoryMapQ.data, categories, categoryTouched])
+
+  const selectedCategory = categories.find((c) => c.name === category)
 
   const parsedAmount = Number(amount)
   const canSubmit = item.trim() !== '' && category !== '' && !Number.isNaN(parsedAmount) && parsedAmount > 0
@@ -243,53 +231,54 @@ export default function LogExpenseScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.lg, gap: space.lg }]}
+        style={styles.scroll}
+        contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, gap: space.lg, flexGrow: 1 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.amountWrap}>
+        <View style={[styles.amountWrap, { gap: space.sm }]}>
           <AmountText
             value={parsedAmount || 0}
-            size={type.hero}
+            size={type.hero * 1.3}
             color={amount === '' ? onAccentDim : tokens.onAccent}
             weight="displayBold"
             animate
           />
+
+          <Pressable onPress={() => setShowMore(true)} style={[styles.moreToggle, { gap: space.xs }]} hitSlop={8}>
+            <Text style={[styles.moreLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}>More</Text>
+            <ChevronDown size={16} color={onAccentDim} />
+          </Pressable>
         </View>
+      </ScrollView>
 
-        <TextInput
-          value={item}
-          onChangeText={setItem}
-          placeholder="What was it for?"
-          placeholderTextColor={onAccentDim}
-          style={[
-            styles.itemInput,
-            { backgroundColor: fieldBg, borderRadius: radius.md, color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.bodyLg },
-          ]}
-        />
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }} keyboardShouldPersistTaps="handled">
-          {railCategories.map((c) => (
-            <Chip
-              key={c.name}
-              onAccent
-              selected={category === c.name}
-              label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
-              onPress={() => {
-                setCategory(c.name)
-                setCategoryTouched(true)
-              }}
-            />
-          ))}
-          {orderedCategories.length > railCategories.length || categories.length === 0 ? (
-            <Chip onAccent label="⋯ All" onPress={() => setPickerOpen(true)} />
-          ) : null}
-        </ScrollView>
-
-        <Numpad onAccent onDigit={pushDigit} onBackspace={() => setAmount((p) => p.slice(0, -1))} extraKey="00" />
-
+      <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.xxl, gap: space.md }]}>
         {error !== '' && (
           <Text style={[styles.error, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>{error}</Text>
         )}
+
+        <View style={styles.itemRow}>
+          <TextInput
+            value={item}
+            onChangeText={setItem}
+            placeholder="What was it for?"
+            placeholderTextColor={onAccentDim}
+            style={[
+              styles.itemInput,
+              styles.itemInputWithPill,
+              { backgroundColor: fieldBg, borderRadius: radius.md, color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.bodyLg },
+            ]}
+          />
+          <Pressable
+            onPress={() => setPickerOpen(true)}
+            style={[styles.categoryPill, { backgroundColor: 'rgba(255, 255, 255, 0.3)', borderRadius: radius.full }]}
+          >
+            <Text numberOfLines={1} style={[styles.categoryPillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
+              {selectedCategory ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}` : 'Category'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Numpad onAccent onDigit={pushDigit} onBackspace={() => setAmount((p) => p.slice(0, -1))} extraKey="00" />
 
         <Pressable
           onPress={handleSubmit}
@@ -308,70 +297,11 @@ export default function LogExpenseScreen() {
             <CheckIcon color={tokens.onAccent} />
           ) : (
             <Text style={[styles.confirmText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }]}>
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add transaction'}
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add'}
             </Text>
           )}
         </Pressable>
-
-        <Pressable onPress={() => setShowMore((v) => !v)} style={[styles.moreToggle, { gap: space.xs }]} hitSlop={8}>
-          <Text style={[styles.moreLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}>
-            {showMore ? 'Less' : 'More — date, payment, notes'}
-          </Text>
-          {showMore ? <ChevronUp size={16} color={onAccentDim} /> : <ChevronDown size={16} color={onAccentDim} />}
-        </Pressable>
-
-        {showMore && (
-          <View style={{ gap: space.lg }}>
-            <View style={{ gap: space.sm }}>
-              <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
-              <DatePicker mode="single" value={date} onChange={setDate} />
-            </View>
-
-            {!isEdit && (
-              <>
-                <View style={{ gap: space.sm }}>
-                  <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Payment method</Text>
-                  <View style={{ flexDirection: 'row', gap: space.sm }}>
-                    {(['bank', 'credit_card'] as const).map((m) => (
-                      <Chip
-                        key={m}
-                        onAccent
-                        selected={paymentMethod === m}
-                        label={m === 'bank' ? 'Bank/UPI' : 'Credit Card'}
-                        onPress={() => setPaymentMethod(m)}
-                      />
-                    ))}
-                  </View>
-                </View>
-
-                <View style={{ gap: space.sm }}>
-                  <Text style={[styles.fieldLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold }]}>Notes (optional)</Text>
-                  <TextInput
-                    value={notes}
-                    onChangeText={setNotes}
-                    placeholder="Notes"
-                    placeholderTextColor={onAccentDim}
-                    style={[
-                      styles.itemInput,
-                      { backgroundColor: fieldBg, borderRadius: radius.md, color: tokens.onAccent, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
-                    ]}
-                  />
-                </View>
-              </>
-            )}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* The nav stays on the flood screen, restyled for the accent ground: it is
-          what makes this read as a screen inside the app rather than a takeover. */}
-      <FloatingNav
-        variant="onAccent"
-        active={null}
-        addActive
-        onSelect={(name) => router.replace(NAV_HREF[name])}
-        onAdd={() => router.back()}
-      />
+      </View>
 
       <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
@@ -419,6 +349,44 @@ export default function LogExpenseScreen() {
           </View>
         )}
       </BottomSheet>
+
+      <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+          More details
+        </Text>
+
+        <View style={{ gap: space.lg }}>
+          <DatePicker mode="single" value={date} onChange={setDate} />
+
+          <View style={{ gap: space.sm }}>
+            <Text style={[styles.fieldLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Payment Method</Text>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              {(['bank', 'credit_card'] as const).map((m) => (
+                <Chip
+                  key={m}
+                  selected={paymentMethod === m}
+                  label={m === 'bank' ? 'Bank/UPI' : 'Credit Card'}
+                  onPress={() => setPaymentMethod(m)}
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Text style={[styles.fieldLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Notes (optional)</Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Notes"
+              placeholderTextColor={tokens.text3}
+              style={[
+                styles.itemInput,
+                { backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
+              ]}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </View>
   )
 }
@@ -427,10 +395,16 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
   headerTitle: {},
+  scroll: { flex: 1 },
   body: { paddingTop: 8 },
-  amountWrap: { alignItems: 'center', justifyContent: 'center', minHeight: 96 },
+  footer: {},
+  amountWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  itemRow: { justifyContent: 'center' },
   itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
-  fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  itemInputWithPill: { paddingRight: 110 },
+  categoryPill: { position: 'absolute', right: 6, maxWidth: 108, paddingHorizontal: 12, paddingVertical: 7 },
+  categoryPillText: { fontSize: 12 },
+  fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: 'center' },
   confirm: { alignItems: 'center' },
   confirmText: {},
