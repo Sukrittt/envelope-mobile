@@ -66,6 +66,7 @@ function layoutAnimation() {
 }
 
 const FadeIn = layoutAnimation()
+const FadeInDown = layoutAnimation()
 const FadeOut = layoutAnimation()
 const LinearTransition = layoutAnimation()
 
@@ -105,6 +106,7 @@ module.exports = {
   Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
   Easing,
   FadeIn,
+  FadeInDown,
   FadeOut,
   LinearTransition,
 }

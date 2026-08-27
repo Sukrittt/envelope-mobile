@@ -4,7 +4,7 @@ import { getExpenses, deleteExpense } from '@/src/api/expenses'
 import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
-import ExpenseAddedScreen from './expense-added'
+import ExpenseAddedScreen, { ENVELOPE_DELAY } from './expense-added'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -76,13 +76,32 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
+const SLOW = { timeout: ENVELOPE_DELAY + 1500 }
+
 it('reads back the amount, category and time of what was just logged', async () => {
   const { getByLabelText, getByText } = setup()
   // The amount animates, so the full string only exists on the odometer's label.
   expect(getByLabelText('₹450')).toBeTruthy()
-  expect(getByText('🛒 Groceries')).toBeTruthy()
+  expect(getByText('Milk · 🛒 Groceries')).toBeTruthy()
   expect(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`)).toBeTruthy()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
+})
+
+// An item named after its own category ("Groceries" in "🛒 Groceries") would
+// otherwise print the same word twice.
+it('collapses the detail line when the item is named after its category', async () => {
+  const { getByText, queryByText } = setup({ item: 'groceries' })
+  expect(getByText('🛒 Groceries')).toBeTruthy()
+  expect(queryByText('groceries · 🛒 Groceries')).toBeNull()
+  await waitFor(() => expect(getGroups).toHaveBeenCalled())
+})
+
+// The envelope is a second beat, not part of the receipt: it lands after the
+// column has had the screen to itself.
+it('holds the envelope back until the receipt has landed', async () => {
+  const { queryByText, getByText } = setup()
+  expect(queryByText('left in Groceries')).toBeNull()
+  await waitFor(() => expect(getByText('left in Groceries')).toBeTruthy(), SLOW)
 })
 
 // The expenses refetch the mutation triggered may not have landed yet. Both
@@ -91,7 +110,7 @@ it('reads back the amount, category and time of what was just logged', async () 
 it('charges the envelope by hand while the new expense is missing from the cache', async () => {
   const { getByText } = setup({}, [{ date: TODAY, amount_inr: '1200', category: '🛒 Groceries', timestamp: 'other' }])
   // 8000 assigned - 1200 already spent - 450 not yet in the list = 6350
-  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy())
+  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy(), SLOW)
 })
 
 it('does not double-charge once the new expense is in the cache', async () => {
@@ -99,7 +118,7 @@ it('does not double-charge once the new expense is in the cache', async () => {
     { date: TODAY, amount_inr: '1200', category: '🛒 Groceries', timestamp: 'other' },
     { date: TODAY, amount_inr: '450', category: '🛒 Groceries', timestamp: BASE_PARAMS.timestamp },
   ])
-  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy())
+  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy(), SLOW)
 })
 
 it('omits the envelope line for a category with no money assigned this month', async () => {

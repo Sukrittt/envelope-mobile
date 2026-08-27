@@ -52,7 +52,10 @@ Lessons from the Code Quality Checks pass (2026-08), worth not re-learning:
 App uses one shared success-tech animation (`src/components/shared/CheckIcon.tsx`: checkmark draw-on + haptic, swaps button label, background goes `tokens.mint`, auto-dismiss ~1100ms). Every synchronous success CTA (save/confirm button that resolves in-place) must reuse this pattern instead of a new toast/animation.
 
 One exception: logging a *new* expense routes to the full success screen at
-`app/modals/expense-added.tsx` (a 200px dotLottie tick badge, a chime, then a bare
-centered column — amount, item, category, timestamp, envelope balance — with no
-card or chip around it) — it is the app's primary verb and earns its own moment.
-Editing an expense, and every other CTA, keeps the inline pattern.
+`app/modals/expense-added.tsx` — the app's primary verb, so it earns its own
+moment. Two phases, no card or chip anywhere: the receipt lands first (200px
+dotLottie tick badge + chime, then amount, `item · category`, timestamp), and
+after `ENVELOPE_DELAY` the column glides up (`LinearTransition` on the group)
+while the envelope block rises in below it — balance left, plus a `ProgressBar`
+tweening from the pre-expense fill to the post-expense one. Editing an expense,
+and every other CTA, keeps the inline pattern.
