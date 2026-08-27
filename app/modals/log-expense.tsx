@@ -229,7 +229,23 @@ export default function LogExpenseScreen() {
                 paymentMethod,
               },
             }),
-          onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save'),
+          // A failed *add* gets its own screen, same as a successful one — the
+          // inline error line below is easy to miss on the flood screen, and it
+          // offers no next action. replace for the same reason as onSuccess:
+          // this form entry is spent, and Dismiss replaces a fresh one back in
+          // with these values prefilled.
+          onError: () =>
+            router.replace({
+              pathname: '/modals/expense-failed',
+              params: {
+                item: item.trim(),
+                amount: String(parsedAmount),
+                category,
+                date,
+                notes: notes.trim(),
+                paymentMethod,
+              },
+            }),
         },
       )
     }

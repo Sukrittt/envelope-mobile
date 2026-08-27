@@ -59,3 +59,13 @@ after `ENVELOPE_DELAY` the column glides up (`LinearTransition` on the group)
 while the envelope block rises in below it — balance left, plus a `ProgressBar`
 tweening from the pre-expense fill to the post-expense one. Editing an expense,
 and every other CTA, keeps the inline pattern.
+
+A failed *add* is the mirror image: it routes to `app/modals/expense-failed.tsx`
+(remote dotLottie from lottie.host with a static `AlertCircle` fallback for when
+the network that caused the failure also blocks the fetch, error haptic, and the
+attempted amount). No reason line — raw server text like "Failed to add expense:
+503" is not something a user can act on. Retry re-fires `useAddExpense` from that screen
+with the params it was handed and lands on `expense-added` on success; Dismiss
+replaces the log-expense form back with those values prefilled. The screen never
+auto-dismisses — a failure needs acknowledging. Failed *edits*, failed category
+creates, and every other CTA keep their inline error text.

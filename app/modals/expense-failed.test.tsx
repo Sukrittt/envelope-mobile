@@ -1,0 +1,105 @@
+import { fireEvent, waitFor } from '@testing-library/react-native'
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { addExpense } from '@/src/api/expenses'
+import ExpenseFailedScreen from './expense-failed'
+
+jest.mock('@/src/api/expenses', () => ({
+  getExpenses: jest.fn(),
+  addExpense: jest.fn(),
+  updateExpense: jest.fn(),
+  deleteExpense: jest.fn(),
+}))
+
+// `mock`-prefixed so Jest's out-of-scope guard allows the factory to close over them.
+const mockReplace = jest.fn()
+let mockParams: Record<string, string> = {}
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace, back: jest.fn(), push: jest.fn(), navigate: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
+}))
+
+const BASE_PARAMS = {
+  item: 'Milk',
+  amount: '450',
+  category: '🛒 Groceries',
+  date: '2026-08-15',
+  notes: '',
+  paymentMethod: 'bank',
+}
+
+const PAYLOAD = {
+  item: 'Milk',
+  amount_inr: '450',
+  category: '🛒 Groceries',
+  date: '2026-08-15',
+  notes: '',
+  payment_method: 'bank',
+}
+
+function setup(overrides: Partial<typeof BASE_PARAMS> = {}) {
+  mockParams = { ...BASE_PARAMS, ...overrides }
+  return renderWithProviders(<ExpenseFailedScreen />)
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
+
+it('reads back what could not be saved', () => {
+  const { getByText } = setup()
+  expect(getByText("Couldn't add")).toBeTruthy()
+  expect(getByText('₹450')).toBeTruthy()
+  expect(getByText('Milk · 🛒 Groceries')).toBeTruthy()
+})
+
+// Raw server text ("Failed to add expense: 503") tells the user nothing they can
+// act on — the screen deliberately carries no reason line.
+it('shows no raw error text', () => {
+  const { queryByText } = setup()
+  expect(queryByText(/Failed to add expense/)).toBeNull()
+  expect(queryByText(/50\d/)).toBeNull()
+})
+
+it('retries with the payload it was handed, so nothing is retyped', async () => {
+  ;(addExpense as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  const { getByText } = setup()
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(addExpense).toHaveBeenCalledWith(PAYLOAD))
+})
+
+it('lands on the success screen when the retry works', async () => {
+  ;(addExpense as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  const { getByText } = setup()
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  const arg = mockReplace.mock.calls[0][0]
+  expect(arg.pathname).toBe('/modals/expense-added')
+  // id and timestamp come from the POST — without them the success screen hides Undo.
+  expect(arg.params).toMatchObject({
+    id: 'abc123',
+    timestamp: '2026-08-15T01:24:00',
+    item: 'Milk',
+    amount: '450',
+    category: '🛒 Groceries',
+  })
+})
+
+it('stays put when the retry fails too', async () => {
+  ;(addExpense as jest.Mock).mockRejectedValue(new Error('Failed to add expense: 503'))
+  const { getByText } = setup()
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(addExpense).toHaveBeenCalled())
+  await waitFor(() => expect(getByText('Retry')).toBeTruthy())
+  expect(mockReplace).not.toHaveBeenCalled()
+})
+
+// Dismissing must not cost the user what they typed — no `timestamp` param, so
+// the form reopens in add mode rather than edit mode.
+it('reopens a prefilled entry screen on dismiss', () => {
+  const { getByText } = setup()
+  fireEvent.press(getByText('Dismiss'))
+  expect(mockReplace).toHaveBeenCalledWith({
+    pathname: '/modals/log-expense',
+    params: { item: 'Milk', amountInr: '450', category: '🛒 Groceries', date: '2026-08-15', notes: '', paymentMethod: 'bank' },
+  })
+})

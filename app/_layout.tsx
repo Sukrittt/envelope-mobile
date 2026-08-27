@@ -168,6 +168,7 @@ function RootNavigator() {
             the whole window on iOS, hiding the persistent nav below it. */}
         <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: 'fade' }} />
         <Stack.Screen name="modals/expense-added" options={{ presentation: 'card', animation: 'fade' }} />
+        <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />
         <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
         <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
         <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
