@@ -8,7 +8,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { clearAccess } from '@/src/api/accessMode'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { useUser, useUpdateUser } from '@/src/hooks/useUser'
+import { useUser } from '@/src/hooks/useUser'
 import type { UserProfile } from '@/src/api/account'
 import appJson from '@/app.json'
 
@@ -30,7 +30,6 @@ export default function MoreScreen() {
   const router = useRouter()
 
   const userQuery = useUser()
-  const updateUser = useUpdateUser()
   const user = userQuery.data
 
   const displayName = user?.name || user?.email || 'You'
@@ -142,25 +141,15 @@ export default function MoreScreen() {
                 />
               </View>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <View style={styles.row}>
-                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Notifications</Text>
-                <View style={[styles.segmented, { backgroundColor: tokens.inputBg }]}>
-                  {NOTIFY_OPTIONS.map((opt) => {
-                    const active = (user?.notifyCadence ?? 'off') === opt.value
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        onPress={() => updateUser.mutate({ notifyCadence: opt.value })}
-                        style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent' }]}
-                      >
-                        <Text style={[styles.segmentText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    )
-                  })}
+              <Pressable onPress={() => router.push('/account/notifications')} style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Notifications</Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>
+                    {NOTIFY_OPTIONS.find((o) => o.value === (user?.notifyCadence ?? 'off'))?.label}
+                  </Text>
                 </View>
-              </View>
+                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+              </Pressable>
             </View>
           </View>
 

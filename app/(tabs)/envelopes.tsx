@@ -233,6 +233,7 @@ export default function EnvelopesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
+  const [draftAlertPct, setDraftAlertPct] = useState<number | null>(null)
   const [sheetError, setSheetError] = useState('')
   const [sheetSuccess, setSheetSuccess] = useState(false)
 
@@ -281,13 +282,15 @@ export default function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
+    setDraftAlertPct(null)
     setSheetError('')
     setSheet({ kind: 'addCategory' })
   }
   function openRenameCategory(name: string) {
-    const group = categories.find((c) => c.name === name)?.group ?? ''
+    const cat = categories.find((c) => c.name === name)
     setDraftName(name)
-    setDraftGroup(group)
+    setDraftGroup(cat?.group ?? '')
+    setDraftAlertPct(cat?.alertPct ?? null)
     setSheetError('')
     setSheet({ kind: 'renameCategory', name })
   }
@@ -325,10 +328,13 @@ export default function EnvelopesScreen() {
       if (sheet.kind === 'addCategory') {
         await addCategory.mutateAsync({ name: composed, group: draftGroup })
       } else if (sheet.kind === 'renameCategory') {
-        const currentGroup = categories.find((c) => c.name === sheet.name)?.group ?? ''
-        const updates: { newName?: string; group?: string } = {}
+        const current = categories.find((c) => c.name === sheet.name)
+        const currentGroup = current?.group ?? ''
+        const currentAlertPct = current?.alertPct ?? null
+        const updates: { newName?: string; group?: string; alertPct?: number | null } = {}
         if (composed !== sheet.name) updates.newName = composed
         if (draftGroup !== currentGroup) updates.group = draftGroup
+        if (draftAlertPct !== currentAlertPct) updates.alertPct = draftAlertPct
         if (Object.keys(updates).length > 0) {
           await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
@@ -649,6 +655,37 @@ export default function EnvelopesScreen() {
                     }}
                   >
                     {splitEmoji(g).text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
+
+        {sheet?.kind === 'renameCategory' && (
+          <>
+            <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ALERT AT</Text>
+            <View style={styles.chipRow}>
+              {([null, 50, 70, 80, 90] as const).map((pct) => (
+                <Pressable
+                  key={pct ?? 'default'}
+                  onPress={() => setDraftAlertPct(pct)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: draftAlertPct === pct ? tokens.accent : tokens.inputBg,
+                      borderColor: draftAlertPct === pct ? tokens.accent : tokens.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: draftAlertPct === pct ? tokens.onAccent : tokens.text2,
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodyBold,
+                    }}
+                  >
+                    {pct === null ? 'Default' : `${pct}%`}
                   </Text>
                 </Pressable>
               ))}

@@ -19,6 +19,7 @@ import {
   registerForPushNotificationsAsync,
   addPushTokenListener,
   addNotificationResponseListener,
+  checkColdStartNotification,
 } from '@/src/lib/notifications'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
@@ -158,6 +159,7 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -191,6 +193,7 @@ export default function RootLayout() {
   useEffect(() => {
     const tokenSub = addPushTokenListener()
     const responseSub = addNotificationResponseListener()
+    checkColdStartNotification().catch((err) => console.warn('Cold-start notification check failed', err))
     return () => {
       tokenSub?.remove()
       responseSub?.remove()

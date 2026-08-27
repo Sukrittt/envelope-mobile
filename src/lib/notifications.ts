@@ -51,9 +51,6 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     }
     if (status !== 'granted') return
 
-    // TODO: run `eas init` (once logged into an EAS account) and fill in
-    // Mobile/app.json's extra.eas.projectId — until then push tokens can't
-    // be minted and this call throws, which the catch below swallows.
     const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
     await registerToken(token)
@@ -75,16 +72,37 @@ export function addPushTokenListener(): NotificationsType.Subscription | undefin
 }
 
 /**
- * Deep-link into the Activity tab for a given day when the user taps a
- * notification, reusing the existing `?date=` param the tab already reads.
+ * Deep-link into the Activity tab for a given day, reusing the existing
+ * `?date=` param the tab already reads. Shared by the warm-tap listener
+ * below and `checkColdStartNotification` — a tap that launches the app from
+ * killed goes through `getLastNotificationResponseAsync` instead of the
+ * listener, but should land in the same place.
  */
+function routeFromNotificationResponse(response: NotificationsType.NotificationResponse): void {
+  const date = response.notification.request.content.data?.date
+  if (typeof date === 'string' && date) {
+    router.push(`/(tabs)/activity?date=${date}`)
+  }
+}
+
+/** Deep-link when the user taps a notification while the app is running (foreground or backgrounded). */
 export function addNotificationResponseListener(): NotificationsType.Subscription | undefined {
   const Notifications = getNotifications()
   if (!Notifications) return undefined
-  return Notifications.addNotificationResponseReceivedListener((response) => {
-    const date = response.notification.request.content.data?.date
-    if (typeof date === 'string' && date) {
-      router.push(`/(tabs)/activity?date=${date}`)
-    }
-  })
+  return Notifications.addNotificationResponseReceivedListener(routeFromNotificationResponse)
+}
+
+/**
+ * Deep-link when a notification tap *launched* the app from killed —
+ * `addNotificationResponseListener` only fires for a tap while the app is
+ * already running, so a cold start otherwise drops the tap silently. Call
+ * once on startup, after the router is mounted.
+ */
+export async function checkColdStartNotification(): Promise<void> {
+  const Notifications = getNotifications()
+  if (!Notifications) return
+  const response = await Notifications.getLastNotificationResponseAsync()
+  if (!response) return
+  routeFromNotificationResponse(response)
+  await Notifications.clearLastNotificationResponseAsync()
 }
