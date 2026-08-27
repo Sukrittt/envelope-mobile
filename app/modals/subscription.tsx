@@ -14,6 +14,7 @@ import {
 } from '@/src/hooks/useSubscriptions'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
+import { BottomSheet } from '@/src/components/shared/Modal'
 
 const CYCLES = ['monthly', 'yearly', 'quarterly', 'weekly', 'one-time']
 
@@ -45,6 +46,7 @@ export default function SubscriptionModal() {
   const [nextDueDate, setNextDueDate] = useState(existing?.next_due_date ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [saved, setSaved] = useState(false)
+  const [confirmSheet, setConfirmSheet] = useState<'cancel' | 'delete' | null>(null)
 
   // existing loads async on first mount (query cache may be cold) — backfill once it arrives.
   useEffect(() => {
@@ -104,21 +106,6 @@ export default function SubscriptionModal() {
     }
   }
 
-  function handleCancel() {
-    Alert.alert('Cancel subscription', `Cancel ${origService}? You can reactivate it later.`, [
-      { text: 'Back', style: 'cancel' },
-      {
-        text: 'Cancel subscription',
-        style: 'destructive',
-        onPress: () =>
-          cancelSub.mutate(origService, {
-            onSuccess: () => setSaved(true),
-            onError: (e) => Alert.alert('Failed to cancel subscription', e instanceof Error ? e.message : String(e)),
-          }),
-      },
-    ])
-  }
-
   function handleReactivate() {
     reactivateSub.mutate(origService, {
       onSuccess: () => setSaved(true),
@@ -126,19 +113,30 @@ export default function SubscriptionModal() {
     })
   }
 
-  function handleDelete() {
-    Alert.alert('Delete subscription', `Remove "${origService}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () =>
-          deleteSub.mutate(origService, {
-            onSuccess: () => setSaved(true),
-            onError: (e) => Alert.alert('Failed to delete subscription', e instanceof Error ? e.message : String(e)),
-          }),
+  function confirmCancel() {
+    cancelSub.mutate(origService, {
+      onSuccess: () => {
+        setConfirmSheet(null)
+        setSaved(true)
       },
-    ])
+      onError: (e) => {
+        setConfirmSheet(null)
+        Alert.alert('Failed to cancel subscription', e instanceof Error ? e.message : String(e))
+      },
+    })
+  }
+
+  function confirmDelete() {
+    deleteSub.mutate(origService, {
+      onSuccess: () => {
+        setConfirmSheet(null)
+        setSaved(true)
+      },
+      onError: (e) => {
+        setConfirmSheet(null)
+        Alert.alert('Failed to delete subscription', e instanceof Error ? e.message : String(e))
+      },
+    })
   }
 
   return (
@@ -239,12 +237,12 @@ export default function SubscriptionModal() {
         {isEdit && existing && !saved ? (
           <View style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
             <Pressable
-              onPress={isActive ? handleCancel : handleReactivate}
+              onPress={isActive ? () => setConfirmSheet('cancel') : handleReactivate}
               disabled={saving || mutatingAction}
               style={{ opacity: saving || mutatingAction ? 0.5 : 1 }}
             >
               <Text style={{ color: isActive ? tokens.coral : tokens.mint, fontSize: 14, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
-                {mutatingAction && (cancelSub.isPending || reactivateSub.isPending)
+                {mutatingAction && reactivateSub.isPending
                   ? 'Working…'
                   : isActive
                     ? 'Cancel subscription'
@@ -252,17 +250,46 @@ export default function SubscriptionModal() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={handleDelete}
+              onPress={() => setConfirmSheet('delete')}
               disabled={saving || mutatingAction}
               style={{ marginTop: 16, opacity: saving || mutatingAction ? 0.5 : 1 }}
             >
               <Text style={{ color: tokens.text3, fontSize: 13, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
-                {deleteSub.isPending ? 'Deleting…' : 'Delete subscription'}
+                Delete subscription
               </Text>
             </Pressable>
           </View>
         ) : null}
       </ScrollView>
+
+      <BottomSheet visible={confirmSheet !== null} onClose={() => !mutatingAction && setConfirmSheet(null)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          {confirmSheet === 'delete' ? 'Delete subscription' : 'Cancel subscription'}
+        </Text>
+        <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          {confirmSheet === 'delete'
+            ? `Remove "${origService}"? This cannot be undone.`
+            : `Cancel ${origService}? You can reactivate it later.`}
+        </Text>
+        <View style={styles.sheetButtonRow}>
+          <Pressable
+            onPress={() => setConfirmSheet(null)}
+            disabled={mutatingAction}
+            style={[styles.sheetCancelButton, { backgroundColor: tokens.pillBg, opacity: mutatingAction ? 0.5 : 1 }]}
+          >
+            <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Back</Text>
+          </Pressable>
+          <Pressable
+            onPress={confirmSheet === 'delete' ? confirmDelete : confirmCancel}
+            disabled={mutatingAction}
+            style={[styles.sheetSaveButton, { backgroundColor: tokens.coral, opacity: mutatingAction ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+              {mutatingAction ? 'Working…' : confirmSheet === 'delete' ? 'Delete' : 'Cancel subscription'}
+            </Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </KeyboardAvoidingView>
   )
 }
@@ -288,8 +315,15 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, fontSize: 18, paddingVertical: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  chipText: { fontSize: 13 },
+  chipText: { fontSize: 13, textTransform: 'capitalize' },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
   dangerZone: { marginTop: 24, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth },
+  sheetTitle: { fontSize: 18, marginBottom: 12 },
+  sheetBody: { fontSize: 13, lineHeight: 18 },
+  sheetButtonRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  sheetCancelButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  sheetCancelText: { fontSize: 14 },
+  sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  sheetSaveText: { fontSize: 14 },
 })

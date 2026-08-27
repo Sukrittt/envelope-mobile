@@ -83,6 +83,10 @@ function daysUntil(dateStr: string): string {
   return `renews in ${diff}d`
 }
 
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
 function chargeLabel(days: number): string {
   if (days === 0) return 'today'
   if (days === 1) return 'tomorrow'
@@ -119,9 +123,11 @@ function SubscriptionRowItem({
   const press = usePressSpring(0.98)
 
   const cycle = cleanCycle(sub.billing_cycle)
-  const meta = isActive
-    ? [cycle, daysUntil(effectiveDueDate(sub))].filter(Boolean).join(' · ')
-    : sub.renewal_or_end_month || 'n/a'
+  const meta = capitalize(
+    isActive
+      ? [cycle, daysUntil(effectiveDueDate(sub))].filter(Boolean).join(' · ')
+      : sub.renewal_or_end_month || 'n/a',
+  )
   const showMonthlyEquiv = isActive && cycle !== 'monthly' && cycle !== 'one-time'
 
   return (
