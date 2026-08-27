@@ -7,7 +7,7 @@ const clamp = (n: number) => Math.max(0, Math.min(100, n))
 
 /** The fill waits out the block's own entrance before it moves, then takes long
  *  enough to be watched — at motion.slow it was over before the eye found it. */
-const FILL_DELAY = 1500
+const FILL_DELAY = 500
 const FILL_DURATION = 900
 
 /** Where the colour changes hands. The animated fill crosses these as it grows,
