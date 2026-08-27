@@ -218,6 +218,9 @@ export default function LogExpenseScreen() {
               params: {
                 id: res.id ?? '',
                 timestamp: res.timestamp ?? '',
+                // Display fallback for servers that return no timestamp — the
+                // success screen's stamp line would otherwise be blank.
+                loggedAt: new Date().toISOString(),
                 item: item.trim(),
                 amount: String(parsedAmount),
                 category,

@@ -48,6 +48,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const MONTH = new Date().toISOString().slice(0, 7)
 const TODAY = `${MONTH}-15`
 const MONTH_LABEL = MONTHS[Number(MONTH.slice(5)) - 1]
+const YEAR2 = MONTH.slice(2, 4)
 
 const BASE_PARAMS = {
   id: 'abc123',
@@ -80,7 +81,7 @@ it('reads back the amount, category and time of what was just logged', async () 
   // The amount animates, so the full string only exists on the odometer's label.
   expect(getByLabelText('₹450')).toBeTruthy()
   expect(getByText('🛒 Groceries')).toBeTruthy()
-  expect(getByText(`15 ${MONTH_LABEL}, 1:24 AM`)).toBeTruthy()
+  expect(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`)).toBeTruthy()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
@@ -101,11 +102,19 @@ it('does not double-charge once the new expense is in the cache', async () => {
   await waitFor(() => expect(getByText('₹6,350')).toBeTruthy())
 })
 
-it('omits the envelope card for a category with no money assigned this month', async () => {
+it('omits the envelope line for a category with no money assigned this month', async () => {
   ;(getBudgets as jest.Mock).mockResolvedValue([])
   const { queryByText } = setup()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
-  expect(queryByText('Left in Groceries')).toBeNull()
+  expect(queryByText('left in Groceries')).toBeNull()
+})
+
+// The POST is the only source of a timestamp on newer servers; older ones return
+// none, and the stamp line went blank rather than falling back.
+it('falls back to the navigation time when the server returned no timestamp', async () => {
+  const { getByText } = setup({ timestamp: '', loggedAt: `${TODAY}T09:05:00` } as never)
+  expect(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 9:05 am`)).toBeTruthy()
+  await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
 it('deletes by id and reopens a prefilled entry screen on undo', async () => {
