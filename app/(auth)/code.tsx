@@ -134,11 +134,13 @@ export default function CodeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code])
 
-  // Same 1100ms flourish beat as welcome.tsx's Google success.
+  // A plain sign-in needs no navigation: persisting the session flips the root
+  // layout's guards and the signed-in screens replace this one. Only the
+  // change-email flow, which starts and ends signed in, has somewhere to go.
   useEffect(() => {
-    if (!done) return
-    if (isChangeEmail) void qc.invalidateQueries({ queryKey: userKey })
-    const timer = setTimeout(() => router.replace(isChangeEmail ? '/account/security' : '/(tabs)'), 1100)
+    if (!done || !isChangeEmail) return
+    void qc.invalidateQueries({ queryKey: userKey })
+    const timer = setTimeout(() => router.replace('/account/security'), 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])

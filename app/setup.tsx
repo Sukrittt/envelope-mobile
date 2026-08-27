@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus } from 'lucide-react-native'
@@ -116,7 +115,6 @@ function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg:
 export default function SetupScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
-  const router = useRouter()
   const qc = useQueryClient()
 
   const [step, setStep] = useState(1)
@@ -285,8 +283,8 @@ export default function SetupScreen() {
       await updateUser({ onboardedAt: new Date().toISOString() })
       await qc.invalidateQueries()
       // signalOnboarded() is deferred to the celebration screen's CTA — firing
-      // it here would make AuthGate's redirect effect bounce the user off
-      // step 5 before they've seen it.
+      // it here would flip the root layout's guard and swap this screen out
+      // before the user has seen step 5.
 
       setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount, assigned: assignedTotal() })
       setStep(5)
@@ -319,10 +317,7 @@ export default function SetupScreen() {
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
           assigned={result.assigned}
-          onFinish={() => {
-            signalOnboarded()
-            router.replace('/(tabs)')
-          }}
+          onFinish={signalOnboarded}
         />
       </View>
     )

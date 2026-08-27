@@ -12,8 +12,9 @@ import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
-// gone from the UI. AuthGate owns where a completed sign-in lands next
-// (tabs vs onboarding), so this screen just shows the flourish and waits.
+// gone from the UI. The root layout's Stack.Protected guards own where a
+// completed sign-in lands next (tabs vs onboarding) — persisting the session
+// swaps the screens out, so this screen just shows the flourish and waits.
 export default function WelcomeScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -32,16 +33,6 @@ export default function WelcomeScreen() {
     if (error) triggerShake()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error])
-
-  // Same 1100ms flourish beat as the email-code success — let the unlock icon
-  // finish before handing off to /(tabs). AuthGate re-routes to /setup on top
-  // of that if the user hasn't finished the setup wizard yet.
-  useEffect(() => {
-    if (!done) return
-    const timer = setTimeout(() => router.replace('/(tabs)'), 1100)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done])
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>

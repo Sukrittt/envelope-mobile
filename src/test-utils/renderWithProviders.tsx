@@ -7,7 +7,7 @@ import { PrivacyProvider } from '@/src/context/PrivacyContext'
 /**
  * Wraps a component in the context layers it actually reads from
  * (QueryClient/Theme/Privacy) — skips app-shell providers from
- * app/_layout.tsx (GestureHandlerRootView, SafeAreaProvider, AuthGate,
+ * app/_layout.tsx (GestureHandlerRootView, SafeAreaProvider,
  * RootNavigator), which are not a unit test's concern.
  */
 export function renderWithProviders(ui: ReactElement, options?: RenderOptions) {
