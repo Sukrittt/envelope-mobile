@@ -13,6 +13,7 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
+import { EMPTY } from '@/src/lib/constants'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 
@@ -41,10 +42,10 @@ export default function MoveMoneyModal() {
   const updateBudget = useUpdateBudget()
   const addBudget = useAddBudget()
 
-  const budgets = budgetsQ.data ?? []
-  const expenses = expensesQ.data ?? []
-  const categories = categoriesQ.data ?? []
-  const groups = groupsQ.data ?? []
+  const budgets = budgetsQ.data ?? EMPTY
+  const expenses = expensesQ.data ?? EMPTY
+  const categories = categoriesQ.data ?? EMPTY
+  const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
 
   const envelopeState = useMemo(

@@ -15,6 +15,7 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
+import { EMPTY } from '@/src/lib/constants'
 
 // Fixed colors for common asset types (mirrors Web's ASSET_COLORS intent);
 // unrecognized types cycle through the remaining palette so every segment
@@ -68,8 +69,8 @@ export default function InvestmentsScreen() {
 
   const [sheetHolding, setSheetHolding] = useState<HoldingRow | null>(null)
 
-  const holdings = holdingsQuery.data ?? []
-  const events = eventsQuery.data ?? []
+  const holdings = holdingsQuery.data ?? EMPTY
+  const events = eventsQuery.data ?? EMPTY
 
   const netWorth = useMemo(
     () => holdings.reduce((sum, h) => sum + (Number(h.value) || 0), 0),

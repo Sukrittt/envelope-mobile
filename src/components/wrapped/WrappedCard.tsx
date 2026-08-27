@@ -38,7 +38,7 @@ function Blob({ spec }: { spec: BlobSpec }) {
       -1,
       false,
     )
-  }, [])
+  }, [progress, spec.durationMs])
 
   const style = useAnimatedStyle(() => {
     if (spec.motion === 'spin') {
@@ -131,7 +131,7 @@ export function WrappedGlow({ color, size = 340 }: { color: string; size?: numbe
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withRepeat(withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }), -1, true)
-  }, [])
+  }, [p])
   const style = useAnimatedStyle(() => ({ opacity: 0.25 + p.value * 0.45 }))
   return (
     <Animated.View
@@ -157,7 +157,7 @@ export function WFade({ delay = 0, duration = 500, style, children }: AnimProps)
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withDelay(delay, withTiming(1, { duration, easing: Easing.out(Easing.ease) }))
-  }, [])
+  }, [p, delay, duration])
   const aStyle = useAnimatedStyle(() => ({ opacity: p.value }))
   return <Animated.View style={[style, aStyle]}>{children}</Animated.View>
 }
@@ -167,7 +167,7 @@ export function WRise({ delay = 0, duration = 600, style, children }: AnimProps)
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withDelay(delay, withTiming(1, { duration, easing: RISE_EASE }))
-  }, [])
+  }, [p, delay, duration])
   const aStyle = useAnimatedStyle(() => ({
     opacity: p.value,
     transform: [{ translateY: (1 - p.value) * 26 }],
@@ -180,7 +180,7 @@ export function WPop({ delay = 0, duration = 550, style, children }: AnimProps) 
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withDelay(delay, withTiming(1, { duration, easing: RISE_EASE }))
-  }, [])
+  }, [p, delay, duration])
   const aStyle = useAnimatedStyle(() => ({
     opacity: p.value,
     transform: [{ scale: 0.72 + p.value * 0.28 }],
@@ -193,7 +193,7 @@ export function WGrowX({ delay = 0, duration = 800, style, children }: AnimProps
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withDelay(delay, withTiming(1, { duration, easing: RISE_EASE }))
-  }, [])
+  }, [p, delay, duration])
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: p.value }] }))
   return <Animated.View style={[style, { transformOrigin: 'left' }, aStyle]}>{children}</Animated.View>
 }
@@ -203,7 +203,7 @@ export function WNudge({ durationMs = 2600, amplitude = 7, style, children }: { 
   const p = useSharedValue(0)
   useEffect(() => {
     p.value = withRepeat(withTiming(1, { duration: durationMs / 2, easing: Easing.inOut(Easing.ease) }), -1, true)
-  }, [])
+  }, [p, durationMs])
   const aStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -p.value * amplitude }] }))
   return <Animated.View style={[style, aStyle]}>{children}</Animated.View>
 }

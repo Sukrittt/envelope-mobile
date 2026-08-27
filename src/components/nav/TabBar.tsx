@@ -90,6 +90,7 @@ function FirstExpenseHint({ show, onPress, shiftX }: { show: boolean; onPress: (
 
   useEffect(() => {
     if (show) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mixed effect: the hide branch below waits on withTiming's finish callback, an external animation system
       setMounted(true)
       entrance.value = withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) })
     } else {

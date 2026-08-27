@@ -26,7 +26,7 @@ export function CheckIcon({ color, size = 20 }: { color: string; size?: number }
       easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start()
-  }, [])
+  }, [opacity, checkDashoffset])
 
   return (
     <Animated.View style={{ width: size, height: size, opacity }}>

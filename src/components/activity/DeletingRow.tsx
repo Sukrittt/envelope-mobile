@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, type LayoutChangeEvent } from 'react-native'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -17,6 +17,12 @@ export function DeletingRow({
   const pillProgress = useSharedValue(0)
   const height = useSharedValue(0)
   const opacity = useSharedValue(1)
+  // `onDone` is a new function every render of the parent list; reading it via
+  // a ref inside the animation's finish callback means this effect never has
+  // to list it as a dep (which would restart the delete animation on any
+  // unrelated parent re-render mid-delete).
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
     if (!active || measuredHeight === null) return
@@ -25,10 +31,10 @@ export function DeletingRow({
       if (!finished) return
       height.value = withTiming(0, { duration: 220 })
       opacity.value = withTiming(0, { duration: 220 }, (done) => {
-        if (done) runOnJS(onDone)()
+        if (done) runOnJS(() => onDoneRef.current())()
       })
     })
-  }, [active, measuredHeight])
+  }, [active, measuredHeight, height, opacity, pillProgress])
 
   const containerStyle = useAnimatedStyle(() => ({
     height: active && measuredHeight !== null ? height.value : undefined,

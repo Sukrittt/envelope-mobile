@@ -4,12 +4,12 @@ export interface WrappedData {
   range: { startDate: string; endDate: string; daysTracked: number }
   totalSpent: number
   totalTransactions: number
-  topCategories: Array<{ category: string; total: number; pct: number }>
+  topCategories: { category: string; total: number; pct: number }[]
   biggestPurchase: { item: string; amountInr: number; category: string; date: string } | null
   topWeekday: { day: string; total: number; count: number } | null
   longestStreak: { days: number; startDate: string; endDate: string } | null
   longestGap: { days: number; startDate: string; endDate: string } | null
-  monthlyTotals: Array<{ month: string; label: string; total: number }>
+  monthlyTotals: { month: string; label: string; total: number }[]
 }
 
 export async function getWrapped(): Promise<WrappedData> {

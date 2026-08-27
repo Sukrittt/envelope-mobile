@@ -24,6 +24,7 @@ import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { toISTDateString } from '@/src/lib/date'
+import { EMPTY } from '@/src/lib/constants'
 
 type PeriodKey = 'week' | 'month' | 'custom'
 
@@ -63,7 +64,7 @@ function formatShortDate(iso: string): string {
 // Category avatars cycle through the existing soft-hue tokens (hash of the name) so
 // the flat list reads with the same varied-but-controlled color as Slice's own rows,
 // without inventing a new palette.
-const AVATAR_HUES: Array<(t: ThemeTokens) => string> = [
+const AVATAR_HUES: ((t: ThemeTokens) => string)[] = [
   (t) => t.mintSoft,
   (t) => t.violetSoft,
   (t) => t.blueSoft,
@@ -93,9 +94,9 @@ export default function ActivityScreen() {
   const groupsQ = useGroups()
   const deleteExpense = useDeleteExpense()
 
-  const expenses = expensesQ.data ?? []
-  const categories = categoriesQ.data ?? []
-  const groups = groupsQ.data ?? []
+  const expenses = expensesQ.data ?? EMPTY
+  const categories = categoriesQ.data ?? EMPTY
+  const groups = groupsQ.data ?? EMPTY
 
   // Grouped so the filter sheet can be scanned by group instead of one long
   // flat scroll of every category (mirrors envelopes.tsx's groupedCategories).
@@ -118,6 +119,7 @@ export default function ActivityScreen() {
   // Date drill-in from the Insights heatmap: show only that day's transactions.
   const [selectedDate, setSelectedDate] = useState(paramDate)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
     if (paramDate) setSelectedDate(paramDate)
   }, [paramDate])
 
@@ -126,6 +128,7 @@ export default function ActivityScreen() {
   // Category drill-in from an envelope's "View transactions" action.
   const [selectedCategory, setSelectedCategory] = useState(paramCategory)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
     if (paramCategory) setSelectedCategory(paramCategory)
   }, [paramCategory])
   const [search, setSearch] = useState('')

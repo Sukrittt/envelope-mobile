@@ -51,6 +51,7 @@ export default function SubscriptionModal() {
   // existing loads async on first mount (query cache may be cold) — backfill once it arrives.
   useEffect(() => {
     if (!existing) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- backfilling an editable form once an async query result arrives, not derivable from render
     setService(existing.service)
     setAmount(existing.amount_inr)
     setCycle(existing.billing_cycle || 'monthly')

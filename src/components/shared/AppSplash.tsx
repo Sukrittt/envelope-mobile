@@ -31,7 +31,7 @@ function useLoopingPulse(from: number, to: number, duration: number, delay = 0) 
       clearTimeout(timer)
       loop.stop()
     }
-  }, [])
+  }, [value, from, to, duration, delay])
   return value
 }
 
@@ -87,7 +87,7 @@ export function AppSplash() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
-  }, [])
+  }, [iconRotate, iconScale, wordmarkAnim])
 
   const iconRotateDeg = iconRotate.interpolate({ inputRange: [-6, 0], outputRange: ['-6deg', '0deg'] })
   const wordmarkOpacity = wordmarkAnim

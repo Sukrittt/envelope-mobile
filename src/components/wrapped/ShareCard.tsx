@@ -48,7 +48,7 @@ export function ShareCard({
     }
   }
 
-  const rows: Array<[string, string]> = [
+  const rows: [string, string][] = [
     ['Total spent', formatCurrency(data.totalSpent)],
     ['Transactions', `${data.totalTransactions}`],
   ]

@@ -39,6 +39,7 @@ export function useLinkGoogle(): LinkGoogleState {
     if (!response) return
 
     if (response.type === 'error') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the OAuth browser flow's async result, an external system
       setPending(false)
       setError(response.params?.error_description ?? 'Could not link Google.')
       return

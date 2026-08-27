@@ -13,6 +13,7 @@ import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { computeEnvelopeState, currentMonthKey, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { todayIST } from '@/src/lib/date'
+import { EMPTY } from '@/src/lib/constants'
 import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
 import { IconButton } from '@/src/components/ui/Button'
@@ -64,10 +65,10 @@ export default function InsightsScreen() {
   const { hideAmounts } = usePrivacy()
   const router = useRouter()
 
-  const budgets = useBudgets().data ?? []
-  const expenses = useExpenses().data ?? []
-  const categories = useCategories().data ?? []
-  const groups = useGroups().data ?? []
+  const budgets = useBudgets().data ?? EMPTY
+  const expenses = useExpenses().data ?? EMPTY
+  const categories = useCategories().data ?? EMPTY
+  const groups = useGroups().data ?? EMPTY
   const subscriptions = useSubscriptions().data ?? []
 
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')

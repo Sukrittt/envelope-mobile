@@ -1,9 +1,9 @@
+import { apiFetch } from './client'
+import { getUser, updateUser, changeEmail } from './account'
+
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
 }))
-
-import { apiFetch } from './client'
-import { getUser, updateUser, changeEmail } from './account'
 
 const mockedApiFetch = apiFetch as jest.Mock
 

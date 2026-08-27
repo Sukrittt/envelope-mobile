@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, View, Text, Pressable, StyleSheet } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { BlurView } from 'expo-blur'
@@ -158,19 +158,19 @@ export function WrappedScreen() {
     return saved > 0 ? saved : undefined
   }, [data, budgets])
 
-  function begin(startMuted: boolean) {
+  const begin = useCallback((startMuted: boolean) => {
     setMuted(startMuted)
     setStarted(true)
     progress.setValue(0)
     setIndex(1)
-  }
+  }, [progress])
 
-  function restart() {
+  const restart = useCallback(() => {
     setStarted(false)
     pendingRef.current = null
     progress.setValue(0)
     setIndex(0)
-  }
+  }, [progress])
 
   function setDragY(y: number) {
     translateY.setValue(Math.max(0, y))
@@ -184,7 +184,8 @@ export function WrappedScreen() {
     router.back()
   }
 
-  const slides = useMemo(() => (data ? buildSlides(data, moneySaved, begin, restart) : []), [data, moneySaved])
+  // safe: begin/restart are useCallback'd above with stable deps (progress ref + setters)
+  const slides = useMemo(() => (data ? buildSlides(data, moneySaved, begin, restart) : []), [data, moneySaved, begin, restart])
   const contentSlides = slides.slice(1)
 
   // Vertical-only + a real offset before activating, so this never steals
@@ -256,6 +257,14 @@ export function WrappedScreen() {
     goTo((pendingRef.current ?? index) + dir)
   }
 
+  // Keeps the auto-advance effect below from re-running goTo on every render
+  // (goTo closes over index/started/slides.length, so it's a new function each
+  // time) — the effect always calls the latest goTo via this ref instead of
+  // listing goTo itself as a dep, which would restart the progress-fill timer
+  // on unrelated re-renders (e.g. hint/muted changing).
+  const goToRef = useRef(goTo)
+  goToRef.current = goTo
+
   function tapCenter() {
     const next = !paused
     setPaused(next)
@@ -264,7 +273,7 @@ export function WrappedScreen() {
 
   useEffect(() => {
     Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }).start()
-  }, [index])
+  }, [index, opacity])
 
   // Story-style top bar: the active segment fills over CARD_DURATION_MS, then auto-advances.
   // Resuming from pause continues from wherever the segment was left, rather than restarting
@@ -280,11 +289,11 @@ export function WrappedScreen() {
         useNativeDriver: false,
       })
       anim.start(({ finished }) => {
-        if (finished) goTo(index + 1)
+        if (finished) goToRef.current(index + 1)
       })
     })
     return () => anim?.stop()
-  }, [index, started, paused, contentSlides.length])
+  }, [index, started, paused, contentSlides.length, progress])
 
   if (isLoading) {
     return (

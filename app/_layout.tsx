@@ -96,6 +96,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // an onboarding loop.
   useEffect(() => {
     if (!hasSession) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets stale onboarding state across an account switch, ahead of the async refetch below
       setOnboarded(null)
       return
     }

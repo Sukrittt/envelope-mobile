@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import Animated, { FadeIn } from 'react-native-reanimated'
-import {
+import Animated, {
+  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   interpolate,

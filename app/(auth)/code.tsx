@@ -37,7 +37,7 @@ function VerifiedRow({ tokens }: { tokens: { mint: string; onAccent: string } })
       Animated.timing(badgeScale, { toValue: 1, duration: 180, easing: Easing.bezier(0.34, 1.56, 0.64, 1), useNativeDriver: true }),
     ]).start()
     Animated.timing(checkDashoffset, { toValue: 0, duration: 320, delay: 100, easing: Easing.out(Easing.ease), useNativeDriver: false }).start()
-  }, [])
+  }, [badgeOpacity, badgeScale, checkDashoffset, rowOpacity, rowTranslateY])
 
   return (
     <Animated.View style={[styles.verifiedRow, { opacity: rowOpacity, transform: [{ translateY: rowTranslateY }] }]}>
@@ -67,7 +67,7 @@ function GreenVeil({ color }: { color: string }) {
       Animated.timing(opacity, { toValue: 1, duration: 270, easing: Easing.ease, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 0, duration: 630, easing: Easing.ease, useNativeDriver: true }),
     ]).start()
-  }, [])
+  }, [opacity])
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: color, opacity }]} />
 }
 
@@ -110,14 +110,20 @@ export default function CodeScreen() {
     ).start()
   }
 
-  useEffect(() => {
-    if (code.length !== 6 || pending || done) return
-    let cancelled = false
+  // Cleared only on unmount, so a verify that's still in flight when the
+  // screen is left (back button, or the change-email success redirect) can't
+  // set state on a gone component.
+  const cancelledRef = useRef(false)
+  useEffect(() => () => {
+    cancelledRef.current = true
+  }, [])
+
+  function runVerify(codeToVerify: string) {
     setPending(true)
     setError('')
-    const verify = isChangeEmail ? verifyEmailChange(code) : verifyMagicAuthCode(email, code)
+    const verify = isChangeEmail ? verifyEmailChange(codeToVerify) : verifyMagicAuthCode(email, codeToVerify)
     verify.then((ok) => {
-      if (cancelled) return
+      if (cancelledRef.current) return
       setPending(false)
       if (ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
@@ -128,11 +134,7 @@ export default function CodeScreen() {
         triggerShake()
       }
     })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code])
+  }
 
   // A plain sign-in needs no navigation: persisting the session flips the root
   // layout's guards and the signed-in screens replace this one. Only the
@@ -184,7 +186,12 @@ export default function CodeScreen() {
       {!done && (
         <Numpad
           disabled={pending}
-          onDigit={(d) => setCode((c) => (c.length >= 6 ? c : c + d))}
+          onDigit={(d) => {
+            if (code.length >= 6) return
+            const next = code + d
+            setCode(next)
+            if (next.length === 6) runVerify(next)
+          }}
           onBackspace={() => setCode((c) => c.slice(0, -1))}
         />
       )}

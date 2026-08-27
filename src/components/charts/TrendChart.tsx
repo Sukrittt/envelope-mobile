@@ -49,6 +49,7 @@ function smoothPath(points: { x: number; y: number }[]): string {
 export function TrendChart({ data, variant, height = 200, hideAmounts = false, onSelectIndex }: Props) {
   const { tokens } = useTheme()
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resets a stale tooltip when the chart's data changes underneath it
   useEffect(() => setTooltipIndex(null), [data])
 
   const chart = useMemo(() => {

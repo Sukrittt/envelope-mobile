@@ -26,6 +26,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib/alerts'
 import type { CategoryRow } from '@/src/types'
+import { EMPTY } from '@/src/lib/constants'
 
 function sortedPcts(pcts: number[]): number[] {
   return [...pcts].sort((a, b) => a - b)
@@ -83,6 +84,7 @@ function DraggableCategoryList({
   // it synchronously on drop so both updates land in the same render.
   const [order, setOrder] = useState(() => items.map((c) => c.name))
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see comment above: local order must be able to lead the items prop
     setOrder(items.map((c) => c.name))
   }, [items])
   const byName = useMemo(() => new Map(items.map((c) => [c.name, c])), [items])
@@ -90,6 +92,7 @@ function DraggableCategoryList({
   const rowHeight = useRef(ROW_HEIGHT)
   const dragY = useRef(new Animated.Value(0)).current
   const [drag, setDrag] = useState<{ name: string; start: number; target: number } | null>(null)
+  // safe: ref kept fresh for the responders' stable closures, not render output
   const dragRef = useRef(drag)
   dragRef.current = drag
 
@@ -259,8 +262,8 @@ export default function EnvelopesScreen() {
     toastTimer.current = setTimeout(() => setToastMsg(null), 1700)
   }
 
-  const categories = categoriesQ.data ?? []
-  const groups = groupsQ.data ?? []
+  const categories = categoriesQ.data ?? EMPTY
+  const groups = groupsQ.data ?? EMPTY
 
   const groupedCategories = useMemo(() => {
     const byGroup = new Map<string, CategoryRow[]>()
@@ -281,7 +284,8 @@ export default function EnvelopesScreen() {
   function toggleGroup(key: string) {
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }

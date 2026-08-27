@@ -26,7 +26,7 @@ export function UnlockIcon({ color, size = 20 }: { color: string; size?: number 
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start()
-  }, [])
+  }, [opacity, shackleRotate])
 
   return (
     <Animated.View style={{ width: size, height: size, opacity }}>

@@ -8,15 +8,32 @@ module.exports = defineConfig([
     ignores: ["dist/*", ".claude/**"],
   },
   {
-    // The React Compiler-derived hook rules (refs/immutability/set-state-in-effect)
-    // fire heavily on react-native-reanimated's shared-value/worklet patterns, which
-    // intentionally don't follow plain-React rules. Downgraded to warn until those
-    // are triaged file-by-file; exhaustive-deps and everything else stays as errors
-    // via eslint-config-expo's defaults.
+    // react-hooks/refs and react-hooks/immutability are React Compiler-derived
+    // rules; this app doesn't run the compiler. File-by-file triage (2026-08)
+    // found every hit was a false positive on established RN/Reanimated idioms
+    // (Animated.Value read in render, SharedValue mutation inside a worklet/
+    // event handler, a ref kept fresh during render for a stable imperative
+    // callback) — no genuine bugs. Turned off rather than left at warn.
+    //
+    // react-hooks/set-state-in-effect reverted to eslint-config-expo's default
+    // (error): the same triage found its warnings mostly legitimate (syncing to
+    // an async result / route param / external animation), each silenced
+    // individually with an eslint-disable-next-line + reason, so a genuinely
+    // new violation is caught at error level instead of blending into a warn.
     rules: {
-      "react-hooks/refs": "warn",
-      "react-hooks/immutability": "warn",
-      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+      "@typescript-eslint/no-require-imports": [
+        "warn",
+        {
+          // Same asset extensions eslint-config-expo already allows, plus
+          // `lottie` — metro.config.js registers it as an asset extension too,
+          // this just closes the same gap for the linter.
+          allow: [
+            "\\.(aac|aiff|avif|bmp|caf|db|gif|heic|html|jpeg|jpg|json|lottie|m4a|m4v|mov|mp3|mp4|mpeg|mpg|otf|pdf|png|psd|svg|ttf|wav|webm|webp|xml|yaml|yml|zip)$",
+          ],
+        },
+      ],
     },
   },
 ]);

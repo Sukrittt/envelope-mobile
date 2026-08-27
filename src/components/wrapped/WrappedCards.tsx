@@ -14,7 +14,6 @@ import {
   WPop,
   WGrowX,
   WNudge,
-  type BlobSpec,
 } from './WrappedCard'
 
 interface CardProps {

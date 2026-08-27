@@ -12,9 +12,9 @@ import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudget
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
-import { useUser } from '@/src/hooks/useUser'
 import { computeEnvelopeState, currentMonthKey, monthLabel, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
+import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
@@ -51,10 +51,10 @@ export default function HomeScreen() {
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
-  const budgets = budgetsQ.data ?? []
-  const expenses = expensesQ.data ?? []
-  const categories = categoriesQ.data ?? []
-  const groups = groupsQ.data ?? []
+  const budgets = budgetsQ.data ?? EMPTY
+  const expenses = expensesQ.data ?? EMPTY
+  const categories = categoriesQ.data ?? EMPTY
+  const groups = groupsQ.data ?? EMPTY
 
   const month = currentMonthKey()
 
@@ -84,7 +84,8 @@ export default function HomeScreen() {
   function toggleGroup(group: string) {
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
-      next.has(group) ? next.delete(group) : next.add(group)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
       return next
     })
   }

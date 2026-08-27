@@ -20,7 +20,7 @@ export function AnimatedTabContent({ children }: { children: React.ReactNode }) 
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start()
-  }, [isFocused])
+  }, [isFocused, progress])
 
   return (
     <Animated.View

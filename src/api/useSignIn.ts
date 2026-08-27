@@ -44,6 +44,7 @@ export function useSignIn(): SignInState {
     if (!response) return
 
     if (response.type === 'error') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the OAuth browser flow's async result, an external system
       setPending(false)
       setError(response.params?.error_description ?? 'Sign-in failed. Try again.')
       return

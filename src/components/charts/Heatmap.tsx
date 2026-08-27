@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Reanimated, {
   ZoomIn,
@@ -96,9 +96,11 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
   // True only for this instance's very first render; flips after mount so
   // month-change re-renders (same instance, cells prop just swaps) never
   // replay the mount stagger on top of the existing ZoomIn/ZoomOut transition.
-  const [isMounting, setIsMounting] = useState(true)
+  // A ref, not state: nothing needs to re-render off this flip — the next
+  // read happens naturally on the month-change re-render that cells triggers.
+  const isMountingRef = useRef(true)
   useEffect(() => {
-    setIsMounting(false)
+    isMountingRef.current = false
   }, [])
 
   // Percentile rank among non-zero days, not value/max — a single outlier day
@@ -156,7 +158,7 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
                 borderColor={borderColor}
                 disabled={isFuture || !onSelectDate}
                 onPress={() => onSelectDate?.(c.date)}
-                playMountStagger={isMounting}
+                playMountStagger={isMountingRef.current}
               />
             )
           })}

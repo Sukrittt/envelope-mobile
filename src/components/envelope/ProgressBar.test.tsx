@@ -44,7 +44,6 @@ describe('ProgressBar', () => {
     const { getByTestId } = renderWithProviders(<ProgressBar pct={80} from={50} />)
     fireEvent(getByTestId('progress-bar-track'), 'layout', { nativeEvent: { layout: { width: 200 } } })
     const width = StyleSheet.flatten(getByTestId('progress-bar-fill').props.style).width
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((width as any)._value ?? width).toBe(100)
   })
 

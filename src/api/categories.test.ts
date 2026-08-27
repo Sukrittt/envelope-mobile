@@ -1,10 +1,10 @@
+import { apiFetch } from './client'
+import { getCategories, addCategory, updateCategory, deleteCategory, moveCategory } from './categories'
+
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
   apiErrorMessage: jest.requireActual('./client').apiErrorMessage,
 }))
-
-import { apiFetch } from './client'
-import { getCategories, addCategory, updateCategory, deleteCategory, moveCategory } from './categories'
 
 const mockedApiFetch = apiFetch as jest.Mock
 
