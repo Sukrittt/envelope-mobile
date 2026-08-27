@@ -5,6 +5,7 @@ import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen, { ENVELOPE_DELAY } from './expense-added'
+import { FILL_DELAY, FILL_DURATION } from '@/src/components/envelope/ProgressBar'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -77,6 +78,7 @@ beforeEach(() => {
 })
 
 const SLOW = { timeout: ENVELOPE_DELAY + 1500 }
+const PCT_SLOW = { timeout: ENVELOPE_DELAY + FILL_DELAY + FILL_DURATION + 1500 }
 
 it('reads back the amount, category and time of what was just logged', async () => {
   const { getByLabelText, getByText } = setup()
@@ -100,8 +102,18 @@ it('collapses the detail line when the item is named after its category', async 
 // column has had the screen to itself.
 it('holds the envelope back until the receipt has landed', async () => {
   const { queryByText, getByText } = setup()
-  expect(queryByText('left in Groceries')).toBeNull()
-  await waitFor(() => expect(getByText('left in Groceries')).toBeTruthy(), SLOW)
+  expect(queryByText('left in Groceries (0% used)')).toBeNull()
+  await waitFor(() => expect(getByText('left in Groceries (0% used)')).toBeTruthy(), SLOW)
+})
+
+// The "% used" figure lands with the envelope block at the pre-expense
+// percentage, then counts up to the post-expense one once the bar starts
+// tweening — it must not jump straight to the final value.
+it('counts the used percentage up from its pre-expense value once the bar starts moving', async () => {
+  const { queryByText, getByText } = setup()
+  await waitFor(() => expect(getByText('left in Groceries (0% used)')).toBeTruthy(), SLOW)
+  expect(queryByText('left in Groceries (6% used)')).toBeNull()
+  await waitFor(() => expect(getByText('left in Groceries (6% used)')).toBeTruthy(), PCT_SLOW)
 })
 
 // The expenses refetch the mutation triggered may not have landed yet. Both

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated'
@@ -17,7 +17,7 @@ import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { formatDateTimeLong } from '@/src/lib/format'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Button } from '@/src/components/ui/Button'
-import { ProgressBar } from '@/src/components/envelope/ProgressBar'
+import { ProgressBar, FILL_DELAY, FILL_DURATION } from '@/src/components/envelope/ProgressBar'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
 
 /** The animation is a full badge — gradient disc, tick, glow — so it stands in
@@ -134,6 +134,28 @@ export default function ExpenseAddedScreen() {
     return () => clearTimeout(t)
   }, [showEnvelope])
 
+  // The "% used" figure counts up in lockstep with the bar fill: shown
+  // instantly at the pre-expense percentage, then tweened to the post-expense
+  // one on the same delay/duration/easing as ProgressBar's own fill animation.
+  const [pctDisplay, setPctDisplay] = useState(Math.round(prevPct))
+  useEffect(() => {
+    if (!revealEnvelope) return
+    const anim = new Animated.Value(prevPct)
+    const listenerId = anim.addListener(({ value }) => setPctDisplay(Math.round(value)))
+    Animated.timing(anim, {
+      toValue: spentPct,
+      duration: FILL_DURATION,
+      delay: FILL_DELAY,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start()
+    return () => {
+      anim.stopAnimation()
+      anim.removeListener(listenerId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealEnvelope])
+
   function handleUndo() {
     if (deleteExpense.isPending) return
     setUndoError('')
@@ -218,7 +240,7 @@ export default function ExpenseAddedScreen() {
             entering={FadeInDown.duration(motion.slow)}
             style={[styles.envelope, { marginTop: space.xl, gap: space.sm }]}
           >
-            <View style={[styles.leftRow, { gap: space.xs }]}>
+            <View style={[styles.leftRow, { gap: space.xs, marginTop: space.xs }]}>
               <AmountText
                 value={left}
                 size={type.body}
@@ -228,7 +250,7 @@ export default function ExpenseAddedScreen() {
               <Text
                 style={[styles.line, { color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.body }]}
               >
-                {`left in ${categoryName}`}
+                {`left in ${categoryName} (${pctDisplay}% used)`}
               </Text>
             </View>
             <ProgressBar pct={spentPct} from={prevPct} />
