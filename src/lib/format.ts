@@ -2,13 +2,14 @@
 // written by hand instead of `toLocaleString('en-IN')` since Hermes's ICU/Intl
 // support varies by build and this is money math we need right everywhere.
 export function formatINR(value: number): string {
-  const rounded = Math.round(Math.abs(value))
+  const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
-  const s = String(rounded)
-  const last3 = s.slice(-3)
-  const rest = s.slice(0, -3)
+  const [intStr, decStr] = abs.toFixed(2).split('.')
+  const last3 = intStr.slice(-3)
+  const rest = intStr.slice(0, -3)
   const grouped = rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${last3}` : last3
-  return `${sign}₹${grouped}`
+  const decimals = decStr === '00' ? '' : `.${decStr}`
+  return `${sign}₹${grouped}${decimals}`
 }
 
 /** Pass hide=true (the "hide amounts" toggle) to mask the value instead of formatting it. */

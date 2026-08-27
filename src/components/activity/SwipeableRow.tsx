@@ -44,7 +44,7 @@ export function SwipeableRow({
   children: React.ReactNode
   onDelete: () => void
   onEdit: () => void
-  onOpen?: (key: string, close: () => void) => void
+  onOpen?: (key: string, close: () => void, reset: () => void) => void
   rowKey?: string
 }) {
   const { tokens } = useTheme()
@@ -56,7 +56,13 @@ export function SwipeableRow({
       friction={2}
       leftThreshold={ACTION_WIDTH / 2}
       rightThreshold={ACTION_WIDTH / 2}
-      onSwipeableWillOpen={() => onOpen?.(rowKey ?? '', () => ref.current?.close())}
+      onSwipeableWillOpen={() =>
+        onOpen?.(
+          rowKey ?? '',
+          () => ref.current?.close(),
+          () => ref.current?.reset(),
+        )
+      }
       renderLeftActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
           icon="✏️"

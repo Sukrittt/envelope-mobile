@@ -17,10 +17,7 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Chip } from '@/src/components/ui/Chip'
 import { Numpad } from '@/src/components/ui/Numpad'
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayIST } from '@/src/lib/date'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === 'string' ? v : ''
@@ -85,7 +82,7 @@ export default function LogExpenseScreen() {
   const [item, setItem] = useState(origItem)
   const [category, setCategory] = useState(str(params.category))
   const [categoryTouched, setCategoryTouched] = useState(str(params.category) !== '')
-  const [date, setDate] = useState(str(params.date).slice(0, 10) || todayISO())
+  const [date, setDate] = useState(str(params.date).slice(0, 10) || todayIST())
   const [notes, setNotes] = useState(str(params.notes))
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'credit_card'>(
     str(params.paymentMethod) === 'credit_card' ? 'credit_card' : 'bank',

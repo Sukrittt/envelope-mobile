@@ -438,7 +438,7 @@ export default function SetupScreen() {
           })}
           {selectedCatCount > 0 && (
             <Text style={[styles.microHint, { color: tokens.text3 }]}>
-              🔔 alerts at {DEFAULT_ALERT_PCTS.join(' · ')}% by default — change any category&apos;s later in Envelopes
+              🔔 Alerts at {DEFAULT_ALERT_PCTS.join(' · ')}% by default. Tap any category in Envelopes later to change its alerts.
             </Text>
           )}
         </ScrollView>

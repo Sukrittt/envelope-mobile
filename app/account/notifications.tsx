@@ -26,6 +26,7 @@ export default function NotificationsScreen() {
   const user = userQuery.data
 
   const cadence = user?.notifyCadence ?? 'off'
+  const thresholds = user?.notifyThresholds ?? true
   const bills = user?.notifyBills ?? true
   const billLeadDays = user?.notifyBillLeadDays ?? 3
   const coach = user?.notifyCoach ?? true
@@ -68,9 +69,30 @@ export default function NotificationsScreen() {
           </View>
           {cadence === 'off' && (
             <Text style={[styles.footnote, { color: tokens.text3 }]}>
-              Off turns off every notification below too — budget alerts, bill reminders, and the coaching nudge.
+              Off also turns off bill reminders and the coaching nudge below. Category limit alerts have their own switch.
             </Text>
           )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>CATEGORY ALERTS</Text>
+          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Category limit alerts</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Alerts the instant a threshold is crossed</Text>
+              </View>
+              <Switch
+                value={thresholds}
+                onValueChange={(v) => updateUser.mutate({ notifyThresholds: v })}
+                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
+                thumbColor={tokens.onAccent}
+              />
+            </View>
+          </View>
+          <Text style={[styles.footnote, { color: tokens.text3 }]}>
+            Set thresholds per category in Envelopes.
+          </Text>
         </View>
 
         <View style={styles.section}>

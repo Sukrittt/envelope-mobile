@@ -447,7 +447,7 @@ export default function EnvelopesScreen() {
     sheet?.kind === 'addCategory'
       ? 'Add category'
       : sheet?.kind === 'renameCategory'
-        ? 'Rename category'
+        ? 'Edit category'
         : sheet?.kind === 'addGroup'
           ? 'Add group'
           : 'Rename group'
@@ -746,7 +746,7 @@ export default function EnvelopesScreen() {
                 ]}
                 value={customAlertInput}
                 onChangeText={setCustomAlertInput}
-                placeholder="Custom %"
+                placeholder="Custom"
                 placeholderTextColor={tokens.text3}
                 keyboardType="number-pad"
                 maxLength={3}
@@ -771,6 +771,7 @@ export default function EnvelopesScreen() {
             </View>
             <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6 }}>
               {draftAlertPcts.length}/{MAX_ALERT_PCTS} selected
+              {draftAlertPcts.length >= MAX_ALERT_PCTS ? ` · You can only select up to ${MAX_ALERT_PCTS} options.` : ''}
             </Text>
           </>
         )}
@@ -807,7 +808,7 @@ export default function EnvelopesScreen() {
           {menuTarget ? splitEmoji(menuTarget.name).text : ''}
         </Text>
         <SheetOption
-          label="Rename"
+          label={menuTarget?.kind === 'category' ? 'Edit' : 'Rename'}
           color={tokens.text}
           onPress={() => {
             if (!menuTarget) return

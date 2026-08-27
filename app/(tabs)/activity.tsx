@@ -23,6 +23,7 @@ import { SwipeableRow } from '@/src/components/activity/SwipeableRow'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
+import { toISTDateString } from '@/src/lib/date'
 
 type PeriodKey = 'week' | 'month' | 'custom'
 
@@ -31,7 +32,7 @@ type PeriodKey = 'week' | 'month' | 'custom'
 const INCOME_CATEGORIES = new Set(['Salary', 'Income', 'Refund', 'Cashback', 'Bonus', 'Interest', 'Gift', 'Transfer'])
 
 function toDateInput(d: Date): string {
-  return d.toISOString().slice(0, 10)
+  return toISTDateString(d)
 }
 
 function formatDateHeader(iso: string): string {
@@ -139,13 +140,16 @@ export default function ActivityScreen() {
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null)
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
-  // Currently swiped-open row's close fn + key — snapped shut on blur so the
-  // edit/delete panel is never left revealed when the user returns to this tab.
-  const openRowRef = useRef<{ key: string; close: () => void } | null>(null)
+  // Currently swiped-open row's close/reset fns + key — snapped shut on blur so the
+  // edit/delete panel is never left revealed when the user returns to this tab. Blur uses
+  // `reset` (instant, no spring) rather than `close` (animated) — an animated close still
+  // settling when the tab's fade transition starts would sweep the still-visible action
+  // panel into that fade, flashing its background during the switch.
+  const openRowRef = useRef<{ key: string; close: () => void; reset: () => void } | null>(null)
   useFocusEffect(
     useCallback(() => {
       return () => {
-        openRowRef.current?.close()
+        openRowRef.current?.reset()
         openRowRef.current = null
       }
     }, []),
@@ -177,20 +181,19 @@ export default function ActivityScreen() {
       if (customRange.from) rows = rows.filter((e) => e.date >= customRange.from)
       if (customRange.to) rows = rows.filter((e) => e.date <= customRange.to)
     } else {
-      const end = new Date(latestDate)
-      let start: Date
+      // Compare as IST calendar-date strings (like the customRange branch above) rather than
+      // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight IST.
+      const endStr = toISTDateString(latestDate)
+      let startStr: string
       if (period === 'week') {
-        start = new Date(end)
+        const start = new Date(latestDate)
         const diffToMonday = (start.getDay() + 6) % 7
-        start.setDate(end.getDate() - diffToMonday)
-        start.setHours(0, 0, 0, 0)
+        start.setDate(start.getDate() - diffToMonday)
+        startStr = toISTDateString(start)
       } else {
-        start = new Date(end.getFullYear(), end.getMonth(), 1)
+        startStr = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}-01`
       }
-      rows = rows.filter((e) => {
-        const d = new Date(e.date)
-        return d >= start && d <= end
-      })
+      rows = rows.filter((e) => e.date >= startStr && e.date <= endStr)
     }
     if (selectedCategory) rows = rows.filter((e) => e.category === selectedCategory)
     if (search.trim()) {
@@ -310,11 +313,11 @@ export default function ActivityScreen() {
                     rowKey={keyOf(txn)}
                     onDelete={() => confirmDelete(txn)}
                     onEdit={() => openEdit(txn)}
-                    onOpen={(key, close) => {
+                    onOpen={(key, close, reset) => {
                       if (openRowRef.current && openRowRef.current.key !== key) {
                         openRowRef.current.close()
                       }
-                      openRowRef.current = { key, close }
+                      openRowRef.current = { key, close, reset }
                     }}
                   >
                     <Pressable onPress={() => setSheetTxn(txn)} style={[styles.row, { backgroundColor: tokens.bg }]}>

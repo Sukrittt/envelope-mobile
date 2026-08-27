@@ -12,6 +12,7 @@ import { useGroups } from '@/src/hooks/useGroups'
 import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { computeEnvelopeState, currentMonthKey, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
+import { todayIST } from '@/src/lib/date'
 import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
 import { IconButton } from '@/src/components/ui/Button'
@@ -160,7 +161,7 @@ export default function InsightsScreen() {
     return cells
   }, [expenses, insightMonth])
 
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = todayIST()
 
   const insightText = useMemo(() => {
     const overspent = envelopeState.envelopes

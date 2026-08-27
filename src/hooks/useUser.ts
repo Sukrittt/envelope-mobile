@@ -13,8 +13,22 @@ export function useUpdateUser() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (patch: Partial<UserProfile>) => updateUser(patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: userKey }),
-    onError: (err) => console.warn('[useUpdateUser] update failed:', err),
+    onMutate: async (patch) => {
+      // Don't await cancelQueries — the optimistic write must land in the same tick as the
+      // tap, or a segmented control flashes back to the old value for a frame first.
+      qc.cancelQueries({ queryKey: userKey })
+      const previous = qc.getQueryData<UserProfile>(userKey)
+      if (previous) qc.setQueryData<UserProfile>(userKey, { ...previous, ...patch })
+      return { previous }
+    },
+    // The PATCH response is already the fresh server doc — write it straight into
+    // the cache instead of invalidating, which would trigger a redundant refetch
+    // that flashes the same value back a moment later.
+    onSuccess: (data) => qc.setQueryData<UserProfile>(userKey, data),
+    onError: (err, _patch, context) => {
+      console.warn('[useUpdateUser] update failed:', err)
+      if (context?.previous) qc.setQueryData(userKey, context.previous)
+    },
   })
 }
 

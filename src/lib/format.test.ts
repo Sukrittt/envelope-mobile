@@ -9,8 +9,13 @@ describe('formatINR', () => {
     expect(formatINR(999)).toBe('₹999')
   })
 
-  it('rounds fractional values', () => {
-    expect(formatINR(1234.6)).toBe('₹1,235')
+  it('keeps exact decimal values instead of rounding', () => {
+    expect(formatINR(78.84)).toBe('₹78.84')
+    expect(formatINR(1234.6)).toBe('₹1,234.60')
+  })
+
+  it('omits decimals for whole-rupee values', () => {
+    expect(formatINR(79)).toBe('₹79')
   })
 
   it('prefixes negative values with a minus sign before the rupee symbol', () => {

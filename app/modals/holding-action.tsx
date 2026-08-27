@@ -6,6 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
+import { currentMonthKey } from '@/src/lib/envelope'
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
@@ -43,7 +44,7 @@ export default function HoldingActionModal() {
 
   const [amount, setAmount] = useState(action === 'market_update' && holding ? String(currentValue) : '')
   const [confirmSuccess, setConfirmSuccess] = useState(false)
-  const month = useMemo(() => new Date().toISOString().slice(0, 7), [])
+  const month = useMemo(() => currentMonthKey(), [])
 
   const parsed = Number(amount)
   const canSubmit = amount.trim() !== '' && !Number.isNaN(parsed) && parsed >= 0
