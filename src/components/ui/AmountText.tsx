@@ -117,8 +117,14 @@ function Digit({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
+    // Depend on both chars, not just newChar: right-aligned diffing means a
+    // slot's newChar can repeat a value it held back when it wasn't
+    // "changed" (e.g. index 1 is '1' in both "₹100" and "₹10"). With only
+    // [newChar], React sees no dependency change and never starts the roll,
+    // so the view stays frozen on oldChar forever — the "shows 00 not 10"
+    // bug. oldChar must be in the deps so a fresh "changed" pair always fires.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newChar])
+  }, [oldChar, newChar])
 
   const charStyle = [textStyle, { height: rowHeight, lineHeight: rowHeight }]
 

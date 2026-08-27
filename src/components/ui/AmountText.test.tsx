@@ -1,9 +1,20 @@
 import type { ReactElement } from 'react'
+import { Animated } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AmountText } from './AmountText'
+
+function wrapWithProviders(ui: ReactElement, queryClient: QueryClient) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <PrivacyProvider>{ui}</PrivacyProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  )
+}
 
 describe('AmountText', () => {
   it('formats with Indian digit grouping', () => {
@@ -30,16 +41,24 @@ describe('AmountText', () => {
     // statically (no stacked old-char frame), or the odometer freezes on
     // ",000" until the roll finishes.
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const wrap = (ui: ReactElement) => (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <PrivacyProvider>{ui}</PrivacyProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    )
     const { rerender, queryByText } = renderWithProviders(<AmountText value={1000} size={40} animate />)
-    rerender(wrap(<AmountText value={100} size={40} animate />))
+    rerender(wrapWithProviders(<AmountText value={100} size={40} animate />, queryClient))
     expect(queryByText(',')).toBeNull()
+  })
+
+  it('rolls a digit slot even when its new value repeats an earlier resting value', () => {
+    // Right-aligned diffing means a slot's newChar can be the same character
+    // across two different renders even though the slot only just became
+    // "changed" (e.g. index 1 is '1' in both "₹1,000" and "₹100"). A roll
+    // effect keyed only on [newChar] never fires here, freezing the slot on
+    // its old character forever — the "shows 00 instead of 10" bug.
+    const timingSpy = jest.spyOn(Animated, 'timing')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = renderWithProviders(<AmountText value={100} size={40} animate />)
+    timingSpy.mockClear()
+    rerender(wrapWithProviders(<AmountText value={10} size={40} animate />, queryClient))
+    expect(timingSpy).toHaveBeenCalled()
+    timingSpy.mockRestore()
   })
 
   it('uses tabular figures so digits do not shift width', () => {
