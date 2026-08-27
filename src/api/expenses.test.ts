@@ -27,7 +27,7 @@ describe('getExpenses', () => {
 
 describe('addExpense', () => {
   it('POSTs the row as JSON', async () => {
-    mockedApiFetch.mockResolvedValue({ ok: true })
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) })
     await addExpense({ item: 'Coffee', amount_inr: '150', category: 'Food' })
     expect(mockedApiFetch).toHaveBeenCalledWith('/api/expenses', {
       method: 'POST',

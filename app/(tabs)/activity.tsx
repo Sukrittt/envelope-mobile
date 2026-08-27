@@ -484,6 +484,8 @@ const styles = StyleSheet.create({
   categoryOption: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
   categoryOptionText: { fontSize: 14 },
   categoryGroupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
+  categoryGroupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },
+  customRangeWrap: { marginBottom: 10 },
   chipText: { fontSize: 12 },
   search: { flex: 1, borderRadius: 100, paddingHorizontal: 18, paddingVertical: 13, fontSize: 14 },
   emptyState: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' },

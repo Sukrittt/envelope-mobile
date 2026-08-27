@@ -8,6 +8,12 @@ export async function getExpenses(): Promise<ExpenseRow[]> {
   return data.rows
 }
 
+/**
+ * Resolves with the created row's identity. Both fields are optional because the
+ * server only started returning them alongside this change — against an older
+ * deployment they come back undefined, and callers must degrade (hide Undo)
+ * rather than address the wrong row.
+ */
 export async function addExpense(row: {
   item: string
   amount_inr: string
@@ -15,13 +21,15 @@ export async function addExpense(row: {
   date?: string
   notes?: string
   payment_method?: string
-}): Promise<void> {
+}): Promise<{ id?: string; timestamp?: string }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(row),
   })
   if (!resp.ok) throw new Error(`Failed to add expense: ${resp.status}`)
+  const data: { id?: string; timestamp?: string } = await resp.json().catch(() => ({}))
+  return { id: data.id, timestamp: data.timestamp }
 }
 
 /**
@@ -40,6 +48,7 @@ export async function updateExpense(
     new_item?: string
     new_amount_inr?: string
     new_date?: string
+    new_payment_method?: string
     category?: string
   },
 ): Promise<void> {

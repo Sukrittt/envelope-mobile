@@ -1,9 +1,20 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import Reanimated, { ZoomIn, ZoomOut } from 'react-native-reanimated'
+import Reanimated, {
+  ZoomIn,
+  ZoomOut,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+} from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
+
+const MOUNT_START_DELAY_MS = 150
+const COLUMN_STAGGER_MS = 70
+const ROW_STAGGER_MS = 15
 
 export interface HeatmapCell {
   date: string
@@ -17,9 +28,78 @@ interface Props {
   onSelectDate?: (date: string) => void
 }
 
+interface DayCellProps {
+  row: number
+  col: number
+  day: number
+  isToday: boolean
+  isFuture: boolean
+  bg: string
+  textColor: string
+  borderColor: string
+  disabled: boolean
+  onPress?: () => void
+  playMountStagger: boolean
+}
+
+/**
+ * Reanimated's `entering` layout-animation prop doesn't reliably fire for
+ * elements that mount as part of the screen's own first paint this deep
+ * inside a ScrollView (confirmed: cells rendered static, no pop, on a true
+ * cold mount) — it only works for genuine later remounts, like the
+ * month-change boundary cells swapping in/out. So the mount stagger is
+ * driven explicitly via a shared value instead of relying on `entering`.
+ */
+function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor, disabled, onPress, playMountStagger }: DayCellProps) {
+  const scale = useSharedValue(playMountStagger ? 0 : 1)
+
+  useEffect(() => {
+    if (!playMountStagger) return
+    scale.value = withDelay(
+      MOUNT_START_DELAY_MS + col * COLUMN_STAGGER_MS + row * ROW_STAGGER_MS,
+      withSpring(1, { mass: 0.7, damping: 12, stiffness: 160 }),
+    )
+    // Intentionally runs once for this cell's own mount — playMountStagger is read only for its
+    // initial value, not tracked reactively.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const mountStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+
+  return (
+    <AnimatedPressable
+      entering={playMountStagger ? undefined : ZoomIn.springify().mass(0.5).damping(16).stiffness(500)}
+      exiting={ZoomOut.springify().mass(0.5).damping(16).stiffness(500)}
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.cell,
+        styles.filledCell,
+        {
+          backgroundColor: bg,
+          borderColor,
+          borderWidth: isToday ? 1.5 : isFuture ? 1 : 0,
+          borderStyle: isFuture && !isToday ? 'dashed' : 'solid',
+        },
+        mountStyle,
+      ]}
+    >
+      <Text style={{ color: textColor, fontSize: 11 }}>{day}</Text>
+    </AnimatedPressable>
+  )
+}
+
 /** Calendar heatmap of daily spend — 7-column grid, 5 shading levels, matching dc.html's Insights panel. */
 export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
   const { tokens } = useTheme()
+
+  // True only for this instance's very first render; flips after mount so
+  // month-change re-renders (same instance, cells prop just swaps) never
+  // replay the mount stagger on top of the existing ZoomIn/ZoomOut transition.
+  const [isMounting, setIsMounting] = useState(true)
+  useEffect(() => {
+    setIsMounting(false)
+  }, [])
 
   // Percentile rank among non-zero days, not value/max — a single outlier day
   // would otherwise squash every other day into the "no color" bucket.
@@ -64,25 +144,20 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
             const textColor = isFuture ? tokens.text3 : level <= 1 ? tokens.text2 : tokens.onAccent
             const borderColor = isToday ? tokens.mint : isFuture ? tokens.borderStrong : 'transparent'
             return (
-              <AnimatedPressable
+              <DayCell
                 key={pos}
-                entering={ZoomIn.springify().mass(0.5).damping(16).stiffness(500)}
-                exiting={ZoomOut.springify().mass(0.5).damping(16).stiffness(500)}
+                row={i}
+                col={j}
+                day={c.day}
+                isToday={isToday}
+                isFuture={isFuture}
+                bg={bg}
+                textColor={textColor}
+                borderColor={borderColor}
                 disabled={isFuture || !onSelectDate}
                 onPress={() => onSelectDate?.(c.date)}
-                style={[
-                  styles.cell,
-                  styles.filledCell,
-                  {
-                    backgroundColor: bg,
-                    borderColor,
-                    borderWidth: isToday ? 1.5 : isFuture ? 1 : 0,
-                    borderStyle: isFuture && !isToday ? 'dashed' : 'solid',
-                  },
-                ]}
-              >
-                <Text style={{ color: textColor, fontSize: 11 }}>{c.day}</Text>
-              </AnimatedPressable>
+                playMountStagger={isMounting}
+              />
             )
           })}
         </View>

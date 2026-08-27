@@ -187,7 +187,7 @@ export default function InsightsScreen() {
       actions={<IconButton icon={ArrowLeft} accessibilityLabel="Back" onPress={() => router.back()} />}
       contentContainerStyle={{ gap: space.lg }}
     >
-      <Card>
+      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <View style={styles.headRow}>
           <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
             Spending trend
@@ -252,7 +252,7 @@ export default function InsightsScreen() {
         />
       </Card>
 
-      <Card>
+      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <View style={styles.headRow}>
           <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
             Daily spend
@@ -286,7 +286,7 @@ export default function InsightsScreen() {
         </Text>
       </Card>
 
-      <Card>
+      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <View style={styles.headRow}>
           <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
             Subscriptions

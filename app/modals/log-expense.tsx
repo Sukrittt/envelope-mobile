@@ -81,7 +81,7 @@ export default function LogExpenseScreen() {
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
 
   const [newCategoryName, setNewCategoryName] = useState('')
-  const [amount, setAmount] = useState(isEdit && origAmountInr ? String(origAmountInr) : '')
+  const [amount, setAmount] = useState(origAmountInr ? String(origAmountInr) : '')
   const [item, setItem] = useState(origItem)
   const [category, setCategory] = useState(str(params.category))
   const [categoryTouched, setCategoryTouched] = useState(str(params.category) !== '')
@@ -137,8 +137,9 @@ export default function LogExpenseScreen() {
   const canSubmit = item.trim() !== '' && category !== '' && !Number.isNaN(parsedAmount) && parsedAmount > 0
   const saving = addExpense.isPending || updateExpense.isPending
 
-  // Let the inline checkmark finish drawing before navigating back — same
-  // 1100ms beat used by CheckIcon elsewhere in the app.
+  // Edit only — a successful add routes to modals/expense-added instead. Let the
+  // inline checkmark finish drawing before navigating back — same 1100ms beat
+  // used by CheckIcon elsewhere in the app.
   useEffect(() => {
     if (!logSuccess) return
     const timer = setTimeout(() => router.back(), 1100)
@@ -208,7 +209,23 @@ export default function LogExpenseScreen() {
           payment_method: paymentMethod,
         },
         {
-          onSuccess: () => setLogSuccess(true),
+          // replace, not push: this screen is spent, and Done on the success
+          // screen should land on home with nothing stale behind it. `id` and
+          // `timestamp` come back from the POST so Undo can address the row.
+          onSuccess: (res) =>
+            router.replace({
+              pathname: '/modals/expense-added',
+              params: {
+                id: res.id ?? '',
+                timestamp: res.timestamp ?? '',
+                item: item.trim(),
+                amount: String(parsedAmount),
+                category,
+                date,
+                notes: notes.trim(),
+                paymentMethod,
+              },
+            }),
           onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save'),
         },
       )

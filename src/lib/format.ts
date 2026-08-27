@@ -44,3 +44,17 @@ export function formatDateShort(dateStr: string): string {
   if (Number.isNaN(d.getTime())) return dateStr
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`
 }
+
+/** e.g. "27 Aug '26, 1:24 am" — the full stamp shown on the post-log confirmation,
+ *  where the year matters because the date can be back-dated by the entry screen. */
+export function formatDateTimeLong(ts: string): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ts
+  const hours24 = d.getHours()
+  const hours12 = hours24 % 12 || 12
+  const ampm = hours24 < 12 ? 'am' : 'pm'
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const year = String(d.getFullYear()).slice(-2)
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} '${year}, ${hours12}:${minutes} ${ampm}`
+}

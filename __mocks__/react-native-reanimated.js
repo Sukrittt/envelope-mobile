@@ -53,6 +53,22 @@ function createAnimatedComponent(Component) {
   return Component
 }
 
+// Layout animations are passed as `entering`/`exiting` props, so they only need
+// to be chainable objects that RN will ignore on a plain View. Nothing renders
+// them, but a component that builds `FadeIn.delay(80).duration(350)` at module
+// or render time would otherwise throw on `undefined`.
+function layoutAnimation() {
+  const builder = {}
+  for (const method of ['delay', 'duration', 'easing', 'springify', 'damping', 'stiffness', 'withInitialValues', 'build']) {
+    builder[method] = () => builder
+  }
+  return builder
+}
+
+const FadeIn = layoutAnimation()
+const FadeOut = layoutAnimation()
+const LinearTransition = layoutAnimation()
+
 const Animated = {
   View: RN.View,
   ScrollView: RN.ScrollView,
@@ -88,4 +104,7 @@ module.exports = {
   interpolateColor: (_value, _input, outputRange) => outputRange[0],
   Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
 }
