@@ -4,6 +4,11 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n))
 
+/** The fill waits out the block's own entrance before it moves, then takes long
+ *  enough to be watched — at motion.slow it was over before the eye found it. */
+const FILL_DELAY = 1000
+const FILL_DURATION = 900
+
 /** Spend-vs-assigned bar.
  * pct===100 -> muted, >90 -> coral, >75 -> warn, else mint.
  *
@@ -29,21 +34,18 @@ export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
 /** RN core Animated rather than Reanimated: a plain width tween with no worklet,
  *  and it keeps the primitive renderable under Jest (same call as AmountText). */
 function AnimatedFill({ from, to, color }: { from: number; to: number; color: string }) {
-  const { motion } = useTheme()
   const progress = useRef(new Animated.Value(from)).current
 
   useEffect(() => {
     Animated.timing(progress, {
       toValue: to,
-      duration: motion.slow,
-      // Lands after the block it sits in has faded in, so the fill is watched
-      // rather than missed underneath the entrance.
-      delay: motion.base,
-      easing: Easing.out(Easing.cubic),
+      duration: FILL_DURATION,
+      delay: FILL_DELAY,
+      easing: Easing.in(Easing.cubic),
       // Width percentages can't be driven natively.
       useNativeDriver: false,
     }).start()
-  }, [progress, to, motion.slow, motion.base])
+  }, [progress, to])
 
   const width = progress.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] })
 
