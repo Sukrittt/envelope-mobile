@@ -22,6 +22,7 @@ export function AmountText({
   weight = 'displaySemiBold',
   animate = false,
   style,
+  rawText,
 }: {
   value: number
   size: number
@@ -29,10 +30,15 @@ export function AmountText({
   weight?: keyof typeof fontFamily
   animate?: boolean
   style?: StyleProp<TextStyle>
+  /** Pre-formatted text to show instead of `formatCurrency(value)` — e.g. a
+   * numpad's in-progress string, where rounding through `value` would drop a
+   * trailing "." or trailing zero the user just typed. Ignored when amounts
+   * are hidden. */
+  rawText?: string
 }) {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
-  const text = formatCurrency(value, hideAmounts)
+  const text = !hideAmounts && rawText !== undefined ? rawText : formatCurrency(value, hideAmounts)
 
   const textStyle: StyleProp<TextStyle> = [
     styles.base,

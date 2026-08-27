@@ -1,20 +1,33 @@
-// INR currency formatting — Indian digit grouping (last 3 digits, then pairs),
-// written by hand instead of `toLocaleString('en-IN')` since Hermes's ICU/Intl
-// support varies by build and this is money math we need right everywhere.
+// Indian digit grouping (last 3 digits, then pairs), written by hand instead
+// of `toLocaleString('en-IN')` since Hermes's ICU/Intl support varies by build
+// and this is money math we need right everywhere.
+function groupIndian(intStr: string): string {
+  const last3 = intStr.slice(-3)
+  const rest = intStr.slice(0, -3)
+  return rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${last3}` : last3
+}
+
 export function formatINR(value: number): string {
   const abs = Math.abs(value)
   const sign = value < 0 ? '-' : ''
   const [intStr, decStr] = abs.toFixed(2).split('.')
-  const last3 = intStr.slice(-3)
-  const rest = intStr.slice(0, -3)
-  const grouped = rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${last3}` : last3
   const decimals = decStr === '00' ? '' : `.${decStr}`
-  return `${sign}₹${grouped}${decimals}`
+  return `${sign}₹${groupIndian(intStr)}${decimals}`
 }
 
 /** Pass hide=true (the "hide amounts" toggle) to mask the value instead of formatting it. */
 export function formatCurrency(value: number, hide = false): string {
   return hide ? '₹••••' : formatINR(value)
+}
+
+// Mirrors what the numpad's raw string looks like mid-entry (a trailing "."
+// or trailing zeros formatINR would normally round away) so the amount on
+// screen never drops a digit the user just typed.
+export function formatAmountInput(raw: string): string {
+  if (raw === '') return '₹0'
+  const [intPart, decPart] = raw.split('.')
+  const grouped = groupIndian(intPart || '0')
+  return decPart === undefined ? `₹${grouped}` : `₹${grouped}.${decPart}`
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

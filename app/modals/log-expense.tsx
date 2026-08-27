@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Animated, Easing } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { ChevronDown, X } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -11,6 +12,7 @@ import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { useAddExpense, useExpenses, useUpdateExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { formatAmountInput } from '@/src/lib/format'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -144,13 +146,33 @@ export default function LogExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess])
 
-  // Cap at a paise-free integer of sane length; the pad is the only input, so
-  // there is no other place to reject a bad value.
+  // Cap at a sane length and at most 2 decimal places; the pad is the only
+  // input, so there is no other place to reject a bad value.
   function pushDigit(digit: string) {
     setAmount((prev) => {
+      if (digit === '.') return prev.includes('.') ? prev : prev === '' ? '0.' : prev + '.'
+      const dot = prev.indexOf('.')
+      if (dot !== -1 && prev.length - dot - 1 >= 2) return prev
       const next = (prev + digit).replace(/^0+(?=\d)/, '')
       return next.length > 9 ? prev : next
     })
+  }
+
+  // Shake + haptic instead of a no-op backspace when there's nothing left to
+  // delete — tells the user the key registered without moving the amount.
+  const shake = useRef(new Animated.Value(0)).current
+  function handleBackspace() {
+    if (parsedAmount === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+      shake.setValue(0)
+      Animated.sequence([
+        Animated.timing(shake, { toValue: 1, duration: 45, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -1, duration: 90, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0, duration: 45, easing: Easing.linear, useNativeDriver: true }),
+      ]).start()
+      return
+    }
+    setAmount((p) => p.slice(0, -1))
   }
 
   function handleCreateCategory() {
@@ -269,13 +291,18 @@ export default function LogExpenseScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.amountWrap, { gap: space.sm }]}>
-          <AmountText
-            value={parsedAmount || 0}
-            size={type.hero * 1.3}
-            color={amount === '' ? onAccentDim : tokens.onAccent}
-            weight="displayBold"
-            animate
-          />
+          <Animated.View
+            style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}
+          >
+            <AmountText
+              value={parsedAmount || 0}
+              rawText={formatAmountInput(amount)}
+              size={type.hero * 1.3}
+              color={amount === '' ? onAccentDim : tokens.onAccent}
+              weight="displayBold"
+              animate
+            />
+          </Animated.View>
 
           <Pressable onPress={() => setShowMore(true)} style={[styles.moreToggle, { gap: space.xs }]} hitSlop={8}>
             <Text style={[styles.moreLabel, { color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}>More</Text>
@@ -311,7 +338,7 @@ export default function LogExpenseScreen() {
           </Pressable>
         </View>
 
-        <Numpad onAccent onDigit={pushDigit} onBackspace={() => setAmount((p) => p.slice(0, -1))} extraKey="00" />
+        <Numpad onAccent onDigit={pushDigit} onBackspace={handleBackspace} extraKey="." />
 
         <Pressable
           onPress={handleSubmit}

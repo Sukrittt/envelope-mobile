@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import * as Haptics from 'expo-haptics'
+import { ChevronLeft } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -59,14 +60,11 @@ export function Numpad({
               },
             ]}
           >
-            <Text
-              style={[
-                k === 'del' ? styles.delLabel : styles.label,
-                { color: keyColor, fontFamily: fontFamily.displaySemiBold },
-              ]}
-            >
-              {k === 'del' ? '⌫' : k}
-            </Text>
+            {k === 'del' ? (
+              <ChevronLeft size={22} color={keyColor} />
+            ) : (
+              <Text style={[styles.label, { color: keyColor, fontFamily: fontFamily.displaySemiBold }]}>{k}</Text>
+            )}
           </Pressable>
         )
       })}
@@ -78,5 +76,4 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   key: { width: '31.3%', minHeight: 56, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 22 },
-  delLabel: { fontSize: 18 },
 })
