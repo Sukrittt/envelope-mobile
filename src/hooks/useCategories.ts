@@ -53,7 +53,7 @@ export function useAddCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPct?: number | null } }) =>
+    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
   })

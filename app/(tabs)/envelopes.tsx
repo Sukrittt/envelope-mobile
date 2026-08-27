@@ -24,7 +24,16 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
 import { useRefresh } from '@/src/hooks/useRefresh'
+import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib/alerts'
 import type { CategoryRow } from '@/src/types'
+
+function sortedPcts(pcts: number[]): number[] {
+  return [...pcts].sort((a, b) => a - b)
+}
+
+function pctArraysEqual(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i])
+}
 
 const OTHER_LABEL = 'Other'
 const ARCHIVED_GROUP = 'Archived'
@@ -233,7 +242,8 @@ export default function EnvelopesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
-  const [draftAlertPct, setDraftAlertPct] = useState<number | null>(null)
+  const [draftAlertPcts, setDraftAlertPcts] = useState<number[]>(DEFAULT_ALERT_PCTS)
+  const [customAlertInput, setCustomAlertInput] = useState('')
   const [sheetError, setSheetError] = useState('')
   const [sheetSuccess, setSheetSuccess] = useState(false)
 
@@ -282,7 +292,8 @@ export default function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
-    setDraftAlertPct(null)
+    setDraftAlertPcts(DEFAULT_ALERT_PCTS)
+    setCustomAlertInput('')
     setSheetError('')
     setSheet({ kind: 'addCategory' })
   }
@@ -290,9 +301,26 @@ export default function EnvelopesScreen() {
     const cat = categories.find((c) => c.name === name)
     setDraftName(name)
     setDraftGroup(cat?.group ?? '')
-    setDraftAlertPct(cat?.alertPct ?? null)
+    setDraftAlertPcts(cat?.alertPcts ? sortedPcts(cat.alertPcts) : DEFAULT_ALERT_PCTS)
+    setCustomAlertInput('')
     setSheetError('')
     setSheet({ kind: 'renameCategory', name })
+  }
+  function togglePresetPct(pct: number) {
+    setDraftAlertPcts((prev) => {
+      if (prev.includes(pct)) return prev.filter((p) => p !== pct)
+      if (prev.length >= MAX_ALERT_PCTS) return prev
+      return sortedPcts([...prev, pct])
+    })
+  }
+  function addCustomAlertPct() {
+    const n = Math.round(Number(customAlertInput))
+    if (!customAlertInput.trim() || Number.isNaN(n) || n < 0 || n > 100) return
+    setCustomAlertInput('')
+    setDraftAlertPcts((prev) => {
+      if (prev.includes(n) || prev.length >= MAX_ALERT_PCTS) return prev
+      return sortedPcts([...prev, n])
+    })
   }
   function openAddGroup() {
     setDraftName('')
@@ -330,11 +358,14 @@ export default function EnvelopesScreen() {
       } else if (sheet.kind === 'renameCategory') {
         const current = categories.find((c) => c.name === sheet.name)
         const currentGroup = current?.group ?? ''
-        const currentAlertPct = current?.alertPct ?? null
-        const updates: { newName?: string; group?: string; alertPct?: number | null } = {}
+        const currentAlertPcts = current?.alertPcts ? sortedPcts(current.alertPcts) : DEFAULT_ALERT_PCTS
+        const sortedDraft = sortedPcts(draftAlertPcts)
+        const updates: { newName?: string; group?: string; alertPcts?: number[] | null } = {}
         if (composed !== sheet.name) updates.newName = composed
         if (draftGroup !== currentGroup) updates.group = draftGroup
-        if (draftAlertPct !== currentAlertPct) updates.alertPct = draftAlertPct
+        if (!pctArraysEqual(sortedDraft, currentAlertPcts)) {
+          updates.alertPcts = pctArraysEqual(sortedDraft, DEFAULT_ALERT_PCTS) ? null : sortedDraft
+        }
         if (Object.keys(updates).length > 0) {
           await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
@@ -666,30 +697,81 @@ export default function EnvelopesScreen() {
           <>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ALERT AT</Text>
             <View style={styles.chipRow}>
-              {([null, 50, 70, 80, 90] as const).map((pct) => (
-                <Pressable
-                  key={pct ?? 'default'}
-                  onPress={() => setDraftAlertPct(pct)}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: draftAlertPct === pct ? tokens.accent : tokens.inputBg,
-                      borderColor: draftAlertPct === pct ? tokens.accent : tokens.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: draftAlertPct === pct ? tokens.onAccent : tokens.text2,
-                      fontSize: 12,
-                      fontFamily: fontFamily.bodyBold,
-                    }}
+              {ALERT_PRESET_PCTS.map((pct) => {
+                const selected = draftAlertPcts.includes(pct)
+                const disabled = !selected && draftAlertPcts.length >= MAX_ALERT_PCTS
+                return (
+                  <Pressable
+                    key={pct}
+                    disabled={disabled}
+                    onPress={() => togglePresetPct(pct)}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: selected ? tokens.accent : tokens.inputBg,
+                        borderColor: selected ? tokens.accent : tokens.border,
+                        opacity: disabled ? 0.4 : 1,
+                      },
+                    ]}
                   >
-                    {pct === null ? 'Default' : `${pct}%`}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={{
+                        color: selected ? tokens.onAccent : tokens.text2,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodyBold,
+                      }}
+                    >
+                      {pct}%
+                    </Text>
+                  </Pressable>
+                )
+              })}
+              {draftAlertPcts
+                .filter((pct) => !ALERT_PRESET_PCTS.includes(pct))
+                .map((pct) => (
+                  <Pressable
+                    key={pct}
+                    onPress={() => togglePresetPct(pct)}
+                    style={[styles.chip, { backgroundColor: tokens.accent, borderColor: tokens.accent }]}
+                  >
+                    <Text style={{ color: tokens.onAccent, fontSize: 12, fontFamily: fontFamily.bodyBold }}>{pct}%</Text>
+                  </Pressable>
+                ))}
             </View>
+            <View style={styles.customAlertRow}>
+              <TextInput
+                style={[
+                  styles.customAlertInput,
+                  { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text },
+                ]}
+                value={customAlertInput}
+                onChangeText={setCustomAlertInput}
+                placeholder="Custom %"
+                placeholderTextColor={tokens.text3}
+                keyboardType="number-pad"
+                maxLength={3}
+                editable={draftAlertPcts.length < MAX_ALERT_PCTS}
+                returnKeyType="done"
+                onSubmitEditing={addCustomAlertPct}
+              />
+              <Pressable
+                onPress={addCustomAlertPct}
+                disabled={draftAlertPcts.length >= MAX_ALERT_PCTS || !customAlertInput.trim()}
+                style={[
+                  styles.customAlertAddBtn,
+                  {
+                    backgroundColor: tokens.inputBg,
+                    borderColor: tokens.borderStrong,
+                    opacity: draftAlertPcts.length >= MAX_ALERT_PCTS || !customAlertInput.trim() ? 0.4 : 1,
+                  },
+                ]}
+              >
+                <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>Add</Text>
+              </Pressable>
+            </View>
+            <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6 }}>
+              {draftAlertPcts.length}/{MAX_ALERT_PCTS} selected
+            </Text>
           </>
         )}
 
@@ -837,6 +919,9 @@ const styles = StyleSheet.create({
   input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
+  customAlertRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  customAlertInput: { flex: 1, borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8, fontSize: 12 },
+  customAlertAddBtn: { paddingHorizontal: 16, borderRadius: 100, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   menuTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   confirmTitle: { fontSize: 17, textAlign: 'center', marginBottom: 6 },
   confirmBody: { fontSize: 13, textAlign: 'center', marginBottom: 8 },

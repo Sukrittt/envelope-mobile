@@ -10,7 +10,6 @@ export interface UserProfile {
   avatarUrl?: string | null
   onboardedAt?: string | null
   notifyCadence?: 'off' | 'weekly' | 'daily'
-  notifyThresholdPct?: number
   notifyBills?: boolean
   notifyBillLeadDays?: number
   notifyCoach?: boolean

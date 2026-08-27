@@ -14,7 +14,6 @@ const CADENCE_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label
   { value: 'daily', label: 'Daily' },
 ]
 
-const THRESHOLD_OPTIONS = [50, 70, 80, 90] as const
 const LEAD_DAY_OPTIONS = [1, 3, 7] as const
 
 export default function NotificationsScreen() {
@@ -27,7 +26,6 @@ export default function NotificationsScreen() {
   const user = userQuery.data
 
   const cadence = user?.notifyCadence ?? 'off'
-  const thresholdPct = user?.notifyThresholdPct ?? 80
   const bills = user?.notifyBills ?? true
   const billLeadDays = user?.notifyBillLeadDays ?? 3
   const coach = user?.notifyCoach ?? true
@@ -73,34 +71,6 @@ export default function NotificationsScreen() {
               Off turns off every notification below too — budget alerts, bill reminders, and the coaching nudge.
             </Text>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>BUDGET ALERTS</Text>
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Default alert at</Text>
-                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Override per category in Envelopes</Text>
-              </View>
-              <View style={[styles.segmented, { backgroundColor: tokens.inputBg }]}>
-                {THRESHOLD_OPTIONS.map((pct) => {
-                  const active = thresholdPct === pct
-                  return (
-                    <Pressable
-                      key={pct}
-                      onPress={() => updateUser.mutate({ notifyThresholdPct: pct })}
-                      style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent' }]}
-                    >
-                      <Text style={[styles.segmentText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                        {pct}%
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
-            </View>
-          </View>
         </View>
 
         <View style={styles.section}>

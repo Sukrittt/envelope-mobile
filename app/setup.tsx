@@ -21,6 +21,7 @@ import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
 import { updateUser } from '@/src/api/account'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
+import { DEFAULT_ALERT_PCTS } from '@/src/lib/alerts'
 
 // SetupWizard.dc.html — income → groups → categories → assign → done. Writes
 // land on finish (step 4's CTA), not per-step: groups/categories aren't
@@ -440,6 +441,11 @@ export default function SetupScreen() {
               </View>
             )
           })}
+          {selectedCatCount > 0 && (
+            <Text style={[styles.microHint, { color: tokens.text3 }]}>
+              🔔 alerts at {DEFAULT_ALERT_PCTS.join(' · ')}% by default — change any category&apos;s later in Envelopes
+            </Text>
+          )}
         </ScrollView>
       )}
 

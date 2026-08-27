@@ -30,7 +30,7 @@ export interface ExpenseRow {
 export interface CategoryRow {
   name: string
   group: string
-  alertPct?: number
+  alertPcts?: number[]
 }
 
 export interface CategoryMap {
