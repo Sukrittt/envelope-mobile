@@ -48,11 +48,15 @@ describe('ProgressBar', () => {
     expect((width as any)._value ?? width).toBe(100)
   })
 
-  // The animated fill tweens from `from` to `pct`; the colour is the state it
-  // ends in, not the one it left.
-  it('colours the animated fill by the destination, not the start', () => {
+  // A bar that crosses 75% mid-tween has to redden *while* it grows. Reading the
+  // colour off the destination alone painted the end state from the first frame.
+  it('hands the colour over as the animated fill crosses a threshold', () => {
     const { getByTestId } = renderWithProviders(<ProgressBar pct={80} from={50} />)
-    // Animated.View flattens its own style, so this branch is a plain object.
-    expect(StyleSheet.flatten(getByTestId('progress-bar-fill').props.style).backgroundColor).toBe(lightTokens.warn)
+    fireEvent(getByTestId('progress-bar-track'), 'layout', { nativeEvent: { layout: { width: 200 } } })
+    // Still at the 50% mark, so still mint — warn only arrives with the width.
+    // An interpolated colour resolves to rgba(), so compare against that form.
+    expect(StyleSheet.flatten(getByTestId('progress-bar-fill').props.style).backgroundColor).toBe(
+      'rgba(0, 132, 53, 1)',
+    )
   })
 })

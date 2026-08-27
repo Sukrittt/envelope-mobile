@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Animated, Easing, StyleSheet, type LayoutChangeEvent } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import type { ThemeTokens } from '@/src/theme/tokens'
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n))
 
@@ -8,6 +9,14 @@ const clamp = (n: number) => Math.max(0, Math.min(100, n))
  *  enough to be watched — at motion.slow it was over before the eye found it. */
 const FILL_DELAY = 1000
 const FILL_DURATION = 900
+
+/** Where the colour changes hands. The animated fill crosses these as it grows,
+ *  so the bar reddens on the way rather than starting out at its end state. */
+const THRESHOLDS = [75, 90, 100]
+
+function fillColor(pct: number, tokens: ThemeTokens): string {
+  return pct === 100 ? tokens.text3 : pct > 90 ? tokens.coral : pct > 75 ? tokens.warn : tokens.mint
+}
 
 /** Spend-vs-assigned bar.
  * pct===100 -> muted, >90 -> coral, >75 -> warn, else mint.
@@ -19,17 +28,23 @@ export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
   const { tokens } = useTheme()
   const [trackWidth, setTrackWidth] = useState(0)
   const clamped = clamp(pct)
-  const color = pct === 100 ? tokens.text3 : pct > 90 ? tokens.coral : pct > 75 ? tokens.warn : tokens.mint
 
   const animated = from != null
   const onLayout = animated ? (e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width) : undefined
 
   return (
-    <View testID="progress-bar-track" style={[styles.track, { backgroundColor: tokens.borderStrong }]} onLayout={onLayout}>
+    <View
+      testID="progress-bar-track"
+      style={[styles.track, { backgroundColor: tokens.borderStrong }]}
+      onLayout={onLayout}
+    >
       {animated ? (
-        <AnimatedFill from={clamp(from)} to={clamped} color={color} trackWidth={trackWidth} />
+        <AnimatedFill from={clamp(from)} to={clamped} trackWidth={trackWidth} />
       ) : (
-        <View testID="progress-bar-fill" style={[styles.fill, { width: `${clamped}%`, backgroundColor: color }]} />
+        <View
+          testID="progress-bar-fill"
+          style={[styles.fill, { width: `${clamped}%`, backgroundColor: fillColor(clamped, tokens) }]}
+        />
       )}
     </View>
   )
@@ -43,17 +58,8 @@ export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
  * interpolation — under Fabric the interpolated `'x%'` width painted as an empty
  * bar until the animation ran, so the starting position was never seen.
  */
-function AnimatedFill({
-  from,
-  to,
-  color,
-  trackWidth,
-}: {
-  from: number
-  to: number
-  color: string
-  trackWidth: number
-}) {
+function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trackWidth: number }) {
+  const { tokens } = useTheme()
   const width = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
@@ -69,6 +75,19 @@ function AnimatedFill({
       useNativeDriver: false,
     }).start()
   }, [width, from, to, trackWidth])
+
+  // Driven off the same value as the width, so the colour hands over exactly as
+  // the fill passes each threshold instead of being fixed at the end state.
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  const stops = [lo, ...THRESHOLDS.filter((t) => t > lo && t < hi), hi]
+  const color =
+    hi > lo && trackWidth > 0
+      ? width.interpolate({
+          inputRange: stops.map((s) => (s / 100) * trackWidth),
+          outputRange: stops.map((s) => fillColor(s, tokens)),
+        })
+      : fillColor(to, tokens)
 
   return <Animated.View testID="progress-bar-fill" style={[styles.fill, { width, backgroundColor: color }]} />
 }
