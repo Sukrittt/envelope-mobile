@@ -97,7 +97,13 @@ function Digit({
   textStyle: StyleProp<TextStyle>
 }) {
   const { motion } = useTheme()
-  const changed = oldChar !== '' && oldChar !== newChar
+  // Only roll between two digits. Pairing a structural char (₹, `,`, `-`)
+  // with a digit or the other structural char — which right-aligned diffing
+  // does whenever the string crosses a grouping boundary, e.g. "₹1,000" ->
+  // "₹100" — stacks the wrong glyph until the roll finishes, flashing "," or
+  // a stray digit where the symbol/leading digit should be.
+  const isDigit = (c: string) => c >= '0' && c <= '9'
+  const changed = oldChar !== '' && oldChar !== newChar && isDigit(oldChar) && isDigit(newChar)
   // RN core Animated rather than Reanimated: this is a plain translateY tween
   // with no gesture or worklet, and it keeps the primitive renderable under Jest.
   const translateY = useRef(new Animated.Value(0)).current
