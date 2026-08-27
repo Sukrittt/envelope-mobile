@@ -1,17 +1,35 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ChevronRight, ChevronDown } from 'lucide-react-native'
+import { ChevronRight } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
+import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
-import { useCancelSubscription, useReactivateSubscription } from '@/src/hooks/useSubscriptions'
+import { AmountText } from '@/src/components/ui/AmountText'
+import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
+import { usePressSpring, Button } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
+import type { ThemeTokens } from '@/src/theme/tokens'
 import type { SubscriptionRow } from '@/src/types'
 
 interface Props {
   subscriptions: SubscriptionRow[]
-  hideAmounts: boolean
+}
+
+// Matches investments.tsx's colorForType cycle — a subscription's row tile and
+// its AllocationBar segment always share a color, so the bar's legend maps
+// straight onto the rows below it.
+const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'accent', 'coral', 'warn']
+const CHEVRON_SPRING = { damping: 64, stiffness: 600 }
+
+function toneColor(i: number, tokens: ThemeTokens): string {
+  return tokens[COLOR_CYCLE[i % COLOR_CYCLE.length]]
+}
+
+function toneSoft(i: number, tokens: ThemeTokens): string {
+  const key = `${COLOR_CYCLE[i % COLOR_CYCLE.length]}Soft` as keyof ThemeTokens
+  return tokens[key]
 }
 
 function monthlyEq(sub: SubscriptionRow): number {
@@ -65,13 +83,95 @@ function daysUntil(dateStr: string): string {
   return `renews in ${diff}d`
 }
 
-export function SubscriptionsPanel({ subscriptions, hideAmounts }: Props) {
-  const { tokens } = useTheme()
+function chargeLabel(days: number): string {
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days}d`
+}
+
+/** Soonest upcoming charge across the active list, for the hero caption. */
+function nextCharge(active: SubscriptionRow[]): { service: string; days: number } | null {
+  let best: { service: string; days: number } | null = null
+  for (const sub of active) {
+    const due = effectiveDueDate(sub)
+    if (!due) continue
+    const days = Math.round((new Date(due).getTime() - Date.now()) / 86400000)
+    if (days < 0) continue
+    if (!best || days < best.days) best = { service: sub.service, days }
+  }
+  return best
+}
+
+function SubscriptionRowItem({
+  sub,
+  toneSolid,
+  toneSoftColor,
+  isActive,
+  onPress,
+}: {
+  sub: SubscriptionRow
+  toneSolid: string
+  toneSoftColor: string
+  isActive: boolean
+  onPress: () => void
+}) {
+  const { tokens, space, radius, type: t } = useTheme()
+  const press = usePressSpring(0.98)
+
+  const cycle = cleanCycle(sub.billing_cycle)
+  const meta = isActive
+    ? [cycle, daysUntil(effectiveDueDate(sub))].filter(Boolean).join(' · ')
+    : sub.renewal_or_end_month || 'n/a'
+  const showMonthlyEquiv = isActive && cycle !== 'monthly' && cycle !== 'one-time'
+
+  return (
+    <Reanimated.View style={press.style}>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          onPress()
+        }}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        style={[styles.row, { borderTopColor: tokens.border, paddingVertical: space.md, gap: space.md }]}
+      >
+        <View style={[styles.tile, { backgroundColor: toneSoftColor, borderRadius: radius.md }]}>
+          <Text style={{ color: toneSolid, fontSize: t.body, fontFamily: fontFamily.bodyBold }}>
+            {sub.service.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ color: tokens.text, fontSize: t.body, fontFamily: fontFamily.bodySemiBold }}>
+            {sub.service}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{ color: tokens.text3, fontSize: t.caption, fontFamily: fontFamily.bodyMedium, marginTop: 2 }}
+          >
+            {meta}
+          </Text>
+        </View>
+
+        <View style={{ alignItems: 'flex-end' }}>
+          <AmountText value={Number(sub.amount_inr) || 0} size={t.body} weight="bodySemiBold" />
+          {showMonthlyEquiv ? (
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2, marginTop: 2 }}>
+              <Text style={{ color: tokens.text3, fontSize: t.micro, fontFamily: fontFamily.bodyMedium }}>≈</Text>
+              <AmountText value={monthlyEq(sub)} size={t.micro} weight="bodyMedium" color={tokens.text3} />
+              <Text style={{ color: tokens.text3, fontSize: t.micro, fontFamily: fontFamily.bodyMedium }}>/mo</Text>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+    </Reanimated.View>
+  )
+}
+
+export function SubscriptionsPanel({ subscriptions }: Props) {
+  const { tokens, space, type: t } = useTheme()
   const router = useRouter()
-  const cancelSub = useCancelSubscription()
-  const reactivateSub = useReactivateSubscription()
-  const [mutatingService, setMutatingService] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState({ active: true, cancelled: false })
+  const [cancelledExpanded, setCancelledExpanded] = useState(false)
 
   const active = useMemo(
     () => subscriptions.filter((s) => /^active/i.test(s.status)).sort((a, b) => monthlyEq(b) - monthlyEq(a)),
@@ -81,172 +181,107 @@ export function SubscriptionsPanel({ subscriptions, hideAmounts }: Props) {
 
   const totalMonthly = Math.round(active.reduce((s, sub) => s + monthlyEq(sub), 0))
   const totalYearly = Math.round(totalMonthly * 12)
+  const next = useMemo(() => nextCharge(active), [active])
 
-  function handleCancel(service: string) {
-    setMutatingService(service)
-    cancelSub.mutate(service, { onSettled: () => setMutatingService(null) })
+  const segments: AllocationSegment[] = useMemo(
+    () => active.map((sub, i) => ({ label: sub.service, value: monthlyEq(sub), color: toneColor(i, tokens) })),
+    [active, tokens],
+  )
+
+  function openModal(service?: string) {
+    router.push(service ? { pathname: '/modals/subscription', params: { service } } : '/modals/subscription')
   }
 
-  function handleReactivate(service: string) {
-    setMutatingService(service)
-    reactivateSub.mutate(service, { onSettled: () => setMutatingService(null) })
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: withSpring(cancelledExpanded ? '90deg' : '0deg', CHEVRON_SPRING) }],
+  }))
+
+  if (subscriptions.length === 0) {
+    return (
+      <View style={{ marginTop: space.md, gap: space.md, alignItems: 'flex-start' }}>
+        <Text style={{ color: tokens.text3, fontSize: t.caption, fontFamily: fontFamily.bodyMedium }}>
+          No subscriptions tracked yet.
+        </Text>
+        <Button label="Add subscription" variant="secondary" onPress={() => openModal()} />
+      </View>
+    )
   }
 
   return (
     <View>
-      <View style={styles.totalsRow}>
-        <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodyMedium }}>
-          <Text style={{ fontFamily: fontFamily.bodyBold }}>
-            {hideAmounts ? '₹••••' : `~${formatCurrency(totalMonthly)}`}
-          </Text>{' '}
-          /mo
-        </Text>
-        <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodyMedium }}>
-          <Text style={{ fontFamily: fontFamily.bodyBold }}>{active.length}</Text> active
-        </Text>
-        <Text style={{ color: tokens.text, fontSize: 13, fontFamily: fontFamily.bodyMedium }}>
-          <Text style={{ fontFamily: fontFamily.bodyBold }}>
-            {hideAmounts ? '₹••••' : `~${formatCurrency(totalYearly)}`}
-          </Text>{' '}
-          /yr
+      <Text style={[styles.eyebrow, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+        RECURRING / MONTH
+      </Text>
+      <AmountText value={totalMonthly} size={t.title} weight="displayBold" style={{ marginTop: 2 }} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', marginTop: space.xs, gap: 2 }}>
+        <Text style={{ color: tokens.text2, fontSize: t.caption, fontFamily: fontFamily.bodyMedium }}>≈</Text>
+        <AmountText value={totalYearly} size={t.caption} weight="bodyMedium" color={tokens.text2} />
+        <Text style={{ color: tokens.text2, fontSize: t.caption, fontFamily: fontFamily.bodyMedium }}>
+          /yr · {active.length} active{next ? ` · next: ${next.service} ${chargeLabel(next.days)}` : ''}
         </Text>
       </View>
 
-      {active.length > 0 && (
-        <View style={{ marginTop: 14 }}>
-          <Text style={[styles.breakdownLabel, { color: tokens.text3 }]}>% of monthly spend</Text>
-          {active.map((sub) => {
-            const meq = monthlyEq(sub)
-            const pct = totalMonthly > 0 ? (meq / totalMonthly) * 100 : 0
-            return (
-              <View key={sub.service} style={styles.barRow}>
-                <Text numberOfLines={1} style={[styles.barLabel, { color: tokens.text2 }]}>
-                  {sub.service}
-                </Text>
-                <View style={[styles.barTrack, { backgroundColor: tokens.inputBg }]}>
-                  <View style={[styles.barFill, { width: `${Math.max(3, pct)}%`, backgroundColor: tokens.accent }]} />
-                </View>
-                <Text style={[styles.barValue, { color: tokens.text2 }]}>
-                  {Math.round(pct)}% · {formatCurrency(Math.round(meq), hideAmounts)}/mo
-                </Text>
-              </View>
-            )
-          })}
+      {segments.length > 0 && (
+        <View style={{ marginTop: space.lg }}>
+          <AllocationBar segments={segments} />
         </View>
       )}
 
-      <View style={{ marginTop: 14 }}>
-        <Pressable
-          style={styles.sectionHead}
-          onPress={() => setExpanded((e) => ({ ...e, active: !e.active }))}
-        >
-          <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>ACTIVE ({active.length})</Text>
-          <Icon icon={expanded.active ? ChevronDown : ChevronRight} size={14} color={tokens.text3} />
-        </Pressable>
-        {expanded.active &&
-          active.map((sub) => {
-            const renew = daysUntil(effectiveDueDate(sub))
-            const isYearly = /yearly|annual/i.test(sub.billing_cycle)
-            const meta = [cleanCycle(sub.billing_cycle), renew, formatCurrency(Number(sub.amount_inr) || 0, hideAmounts)]
-              .filter(Boolean)
-              .join(' · ')
-            return (
-              <View key={sub.service} style={[styles.row, { borderTopColor: tokens.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodySemiBold }}>
-                    {sub.service}
-                  </Text>
-                  <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 2 }}>
-                    {meta}
-                    {isYearly ? ` (${formatCurrency(Math.round(monthlyEq(sub)), hideAmounts)}/mo)` : ''}
-                  </Text>
-                </View>
-                <View style={styles.rowActions}>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => router.push({ pathname: '/modals/subscription', params: { service: sub.service } })}
-                  >
-                    <Text style={{ fontSize: 15 }}>✏️</Text>
-                  </Pressable>
-                  {mutatingService === sub.service ? (
-                    <Text style={{ color: tokens.text3, fontSize: 12 }}>…</Text>
-                  ) : (
-                    <Pressable
-                      style={[styles.actionBtn, { borderColor: tokens.border }]}
-                      onPress={() => handleCancel(sub.service)}
-                    >
-                      <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                        Cancel
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            )
-          })}
+      <View style={{ marginTop: space.lg }}>
+        {active.length === 0 ? (
+          <Text style={{ color: tokens.text3, fontSize: t.caption, fontFamily: fontFamily.bodyMedium }}>
+            No active subscriptions.
+          </Text>
+        ) : (
+          active.map((sub, i) => (
+            <SubscriptionRowItem
+              key={sub.service}
+              sub={sub}
+              toneSolid={toneColor(i, tokens)}
+              toneSoftColor={toneSoft(i, tokens)}
+              isActive
+              onPress={() => openModal(sub.service)}
+            />
+          ))
+        )}
       </View>
 
-      <View style={{ marginTop: 10 }}>
-        <Pressable
-          style={styles.sectionHead}
-          onPress={() => setExpanded((e) => ({ ...e, cancelled: !e.cancelled }))}
-        >
+      <Reanimated.View layout={LinearTransition} style={{ marginTop: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border, paddingTop: space.sm }}>
+        <Pressable style={styles.sectionHead} onPress={() => setCancelledExpanded((e) => !e)}>
+          <Reanimated.View style={chevronStyle}>
+            <Icon icon={ChevronRight} size={14} color={tokens.text3} />
+          </Reanimated.View>
           <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>CANCELLED ({cancelled.length})</Text>
-          <Icon icon={expanded.cancelled ? ChevronDown : ChevronRight} size={14} color={tokens.text3} />
         </Pressable>
-        {expanded.cancelled &&
-          (cancelled.length > 0 ? (
-            cancelled.map((sub) => (
-              <View key={sub.service} style={[styles.row, { borderTopColor: tokens.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodySemiBold }}>
-                    {sub.service}
-                  </Text>
-                  <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 2 }}>
-                    {sub.renewal_or_end_month || 'n/a'}
-                  </Text>
-                </View>
-                <View style={styles.rowActions}>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => router.push({ pathname: '/modals/subscription', params: { service: sub.service } })}
-                  >
-                    <Text style={{ fontSize: 15 }}>✏️</Text>
-                  </Pressable>
-                  {mutatingService === sub.service ? (
-                    <Text style={{ color: tokens.text3, fontSize: 12 }}>…</Text>
-                  ) : (
-                    <Pressable
-                      style={[styles.actionBtn, { borderColor: tokens.border }]}
-                      onPress={() => handleReactivate(sub.service)}
-                    >
-                      <Text style={{ color: tokens.mint, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
-                        Reactivate
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 8 }}>No cancelled subscriptions.</Text>
-          ))}
-      </View>
+        {cancelledExpanded && (
+          <Reanimated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)}>
+            {cancelled.length > 0 ? (
+              cancelled.map((sub) => (
+                <SubscriptionRowItem
+                  key={sub.service}
+                  sub={sub}
+                  toneSolid={tokens.text3}
+                  toneSoftColor={tokens.inputBg}
+                  isActive={false}
+                  onPress={() => openModal(sub.service)}
+                />
+              ))
+            ) : (
+              <Text style={{ color: tokens.text3, fontSize: t.caption, fontFamily: fontFamily.bodyMedium, marginTop: space.sm }}>
+                No cancelled subscriptions.
+              </Text>
+            )}
+          </Reanimated.View>
+        )}
+      </Reanimated.View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  totalsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  breakdownLabel: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  barLabel: { width: 76, fontSize: 11 },
-  barTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3 },
-  barValue: { fontSize: 11, width: 90, textAlign: 'right' },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  eyebrow: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  tile: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 11, letterSpacing: 0.5 },
-  row: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 10, gap: 10 },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  actionBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
 })

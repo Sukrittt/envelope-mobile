@@ -4,7 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { useAddSubscription, useSubscriptions, useUpdateSubscription } from '@/src/hooks/useSubscriptions'
+import {
+  useAddSubscription,
+  useCancelSubscription,
+  useDeleteSubscription,
+  useReactivateSubscription,
+  useSubscriptions,
+  useUpdateSubscription,
+} from '@/src/hooks/useSubscriptions'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 
@@ -26,7 +33,11 @@ export default function SubscriptionModal() {
   const subsQ = useSubscriptions()
   const addSub = useAddSubscription()
   const updateSub = useUpdateSubscription()
+  const cancelSub = useCancelSubscription()
+  const reactivateSub = useReactivateSubscription()
+  const deleteSub = useDeleteSubscription()
   const existing = subsQ.data?.find((s) => s.service === origService)
+  const isActive = existing ? /^active/i.test(existing.status) : true
 
   const [service, setService] = useState(existing?.service ?? '')
   const [amount, setAmount] = useState(existing?.amount_inr ?? '')
@@ -48,6 +59,7 @@ export default function SubscriptionModal() {
   const parsedAmount = Number(amount)
   const canSubmit = service.trim() !== '' && amount.trim() !== '' && !Number.isNaN(parsedAmount) && parsedAmount >= 0
   const saving = addSub.isPending || updateSub.isPending
+  const mutatingAction = cancelSub.isPending || reactivateSub.isPending || deleteSub.isPending
 
   useEffect(() => {
     if (!saved) return
@@ -90,6 +102,43 @@ export default function SubscriptionModal() {
         },
       )
     }
+  }
+
+  function handleCancel() {
+    Alert.alert('Cancel subscription', `Cancel ${origService}? You can reactivate it later.`, [
+      { text: 'Back', style: 'cancel' },
+      {
+        text: 'Cancel subscription',
+        style: 'destructive',
+        onPress: () =>
+          cancelSub.mutate(origService, {
+            onSuccess: () => setSaved(true),
+            onError: (e) => Alert.alert('Failed to cancel subscription', e instanceof Error ? e.message : String(e)),
+          }),
+      },
+    ])
+  }
+
+  function handleReactivate() {
+    reactivateSub.mutate(origService, {
+      onSuccess: () => setSaved(true),
+      onError: (e) => Alert.alert('Failed to reactivate subscription', e instanceof Error ? e.message : String(e)),
+    })
+  }
+
+  function handleDelete() {
+    Alert.alert('Delete subscription', `Remove "${origService}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          deleteSub.mutate(origService, {
+            onSuccess: () => setSaved(true),
+            onError: (e) => Alert.alert('Failed to delete subscription', e instanceof Error ? e.message : String(e)),
+          }),
+      },
+    ])
   }
 
   return (
@@ -175,8 +224,8 @@ export default function SubscriptionModal() {
 
         <Pressable
           onPress={handleSubmit}
-          disabled={!canSubmit || saving || saved}
-          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving ? 0.5 : 1 }]}
+          disabled={!canSubmit || saving || mutatingAction || saved}
+          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
         >
           {saved ? (
             <CheckIcon color={tokens.onAccent} />
@@ -186,6 +235,33 @@ export default function SubscriptionModal() {
             </Text>
           )}
         </Pressable>
+
+        {isEdit && existing && !saved ? (
+          <View style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
+            <Pressable
+              onPress={isActive ? handleCancel : handleReactivate}
+              disabled={saving || mutatingAction}
+              style={{ opacity: saving || mutatingAction ? 0.5 : 1 }}
+            >
+              <Text style={{ color: isActive ? tokens.coral : tokens.mint, fontSize: 14, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
+                {mutatingAction && (cancelSub.isPending || reactivateSub.isPending)
+                  ? 'Working…'
+                  : isActive
+                    ? 'Cancel subscription'
+                    : 'Reactivate subscription'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleDelete}
+              disabled={saving || mutatingAction}
+              style={{ marginTop: 16, opacity: saving || mutatingAction ? 0.5 : 1 }}
+            >
+              <Text style={{ color: tokens.text3, fontSize: 13, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
+                {deleteSub.isPending ? 'Deleting…' : 'Delete subscription'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -215,4 +291,5 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13 },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
+  dangerZone: { marginTop: 24, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth },
 })

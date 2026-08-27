@@ -300,7 +300,7 @@ export default function InsightsScreen() {
             <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
           </Pressable>
         </View>
-        <SubscriptionsPanel subscriptions={subscriptions} hideAmounts={hideAmounts} />
+        <SubscriptionsPanel subscriptions={subscriptions} />
       </Card>
     </Screen>
   )
