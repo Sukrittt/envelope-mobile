@@ -12,7 +12,7 @@ describe('LoadingCaption', () => {
     expect(shown).toBeTruthy()
 
     act(() => {
-      jest.advanceTimersByTime(1400)
+      jest.advanceTimersByTime(1800)
     })
     const next = phrases.find((p) => queryByText(p))
     expect(next).toBeTruthy()
