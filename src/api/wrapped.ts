@@ -18,6 +18,9 @@ export interface WrappedStatus {
   transactionCount: number
   available: boolean
   minTransactions: number
+  /** In-progress calendar month tracked toward the next unlock. */
+  currentMonth: string
+  currentMonthCount: number
 }
 
 export async function getWrapped(month?: string): Promise<WrappedData> {

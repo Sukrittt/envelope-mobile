@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, Switch, Linking, StyleSheet, Alert } from 'react-native'
+import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
 import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -10,10 +11,11 @@ import { Icon } from '@/src/components/shared/Icon'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { monthLabel } from '@/src/lib/envelope'
+import { monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import type { UserProfile } from '@/src/api/account'
+import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 
 const THEME_OPTIONS = [
@@ -41,6 +43,7 @@ export default function MoreScreen() {
 
   const displayName = user?.name || user?.email || 'You'
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
+  const wrappedCard = wrappedCardProps(wrappedStatus, tokens)
 
   return (
     <AnimatedTabContent>
@@ -78,19 +81,13 @@ export default function MoreScreen() {
             </View>
             <View style={styles.featureGrid}>
               <FeatureCard
-                icon={Gift}
+                icon={wrappedCard.icon}
                 label="Expense Wrapped"
-                blurb={
-                  wrappedStatus?.available
-                    ? `Your ${monthLabel(wrappedStatus.month)}, wrapped`
-                    : wrappedStatus
-                      ? `${monthLabel(wrappedStatus.month).split(' ')[0]} had ${wrappedStatus.transactionCount} of the ${wrappedStatus.minTransactions} needed`
-                      : 'Checking last month…'
-                }
-                iconBg={tokens.coralSoft}
-                iconColor={tokens.coral}
-                onPress={wrappedStatus?.available ? () => router.push('/wrapped') : undefined}
-                disabled={!wrappedStatus?.available}
+                blurb={wrappedCard.blurb}
+                iconBg={wrappedCard.iconBg}
+                iconColor={wrappedCard.iconColor}
+                onPress={wrappedCard.available ? () => router.push('/wrapped') : undefined}
+                disabled={!wrappedCard.available}
               />
               <FeatureCard
                 icon={Brain}
@@ -246,7 +243,7 @@ function FeatureCard({
 }: {
   icon: LucideIcon
   label: string
-  blurb: string
+  blurb: ReactNode
   iconBg: string
   iconColor: string
   onPress?: () => void
@@ -263,9 +260,84 @@ function FeatureCard({
         <Icon icon={icon} size={18} color={iconColor} />
       </View>
       <Text style={[styles.featureLabel, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
-      <Text style={[styles.featureBlurb, { color: tokens.text2 }]}>{blurb}</Text>
+      {typeof blurb === 'string' ? <Text style={[styles.featureBlurb, { color: tokens.text2 }]}>{blurb}</Text> : blurb}
     </Pressable>
   )
+}
+
+/** 10-dot progress tracker toward next month's Wrapped unlock, filled-capped at `goal`. */
+function dotTracker(count: number, goal: number): string {
+  const filled = Math.min(count, goal)
+  return '●'.repeat(filled) + '○'.repeat(goal - filled)
+}
+
+const LOADING_PHRASES = ['Checking last month…', 'Counting transactions…', 'Tallying it up…', 'Almost there…']
+
+/** Cycles through LOADING_PHRASES, each one sliding up and out as the next slides up from below. */
+function LoadingPhrase({ color }: { color: string }) {
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setIndex((i) => (i + 1) % LOADING_PHRASES.length), 1800)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <View style={styles.loadingPhraseWrap}>
+      <Animated.Text
+        key={index}
+        entering={SlideInDown.duration(450)}
+        exiting={SlideOutUp.duration(450)}
+        style={[styles.featureBlurb, styles.loadingPhraseText, { color }]}
+      >
+        {LOADING_PHRASES[index]}
+      </Animated.Text>
+    </View>
+  )
+}
+
+function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<typeof useTheme>['tokens']) {
+  if (!status) {
+    return {
+      icon: Gift,
+      iconBg: tokens.coralSoft,
+      iconColor: tokens.coral,
+      blurb: <LoadingPhrase color={tokens.text2} />,
+      available: false,
+    }
+  }
+  if (status.available) {
+    return {
+      icon: Gift,
+      iconBg: tokens.coralSoft,
+      iconColor: tokens.coral,
+      blurb: `Your ${monthLabel(status.month)}, wrapped`,
+      available: true,
+    }
+  }
+
+  const { currentMonth, currentMonthCount, minTransactions } = status
+  const goalReached = currentMonthCount >= minTransactions
+  const nextMonthName = monthLabel(shiftMonthKey(currentMonth, 1)).split(' ')[0]
+  const dots = dotTracker(currentMonthCount, minTransactions)
+  const label = goalReached
+    ? `Goal reached. Your wrap unlocks ${nextMonthName} 1st`
+    : `${currentMonthCount}/${minTransactions} — unlocks ${nextMonthName}'s wrap`
+  const a11yLabel = goalReached
+    ? `${minTransactions} of ${minTransactions} transactions logged. Wrap unlocks ${nextMonthName} 1st.`
+    : `${currentMonthCount} of ${minTransactions} transactions logged. Unlocks ${nextMonthName}'s wrap.`
+  const dotsColor = goalReached ? tokens.mint : tokens.text3
+
+  return {
+    icon: Gift,
+    iconBg: tokens.coralSoft,
+    iconColor: tokens.coral,
+    available: false,
+    blurb: (
+      <View accessible accessibilityLabel={a11yLabel}>
+        <Text style={[styles.dots, { color: dotsColor }]}>{dots}</Text>
+        <Text style={[styles.featureBlurb, { color: tokens.text2 }]}>{label}</Text>
+      </View>
+    ),
+  }
 }
 
 function AccountRow({
@@ -307,6 +379,9 @@ const styles = StyleSheet.create({
   featureIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureLabel: { fontSize: 14 },
   featureBlurb: { fontSize: 11, lineHeight: 15 },
+  dots: { fontSize: 12, letterSpacing: 2, marginBottom: 3 },
+  loadingPhraseWrap: { height: 15, overflow: 'hidden' },
+  loadingPhraseText: { position: 'absolute', top: 0, left: 0, right: 0 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },

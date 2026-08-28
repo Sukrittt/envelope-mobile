@@ -69,6 +69,8 @@ const FadeIn = layoutAnimation()
 const FadeInDown = layoutAnimation()
 const FadeOut = layoutAnimation()
 const LinearTransition = layoutAnimation()
+const SlideInUp = layoutAnimation()
+const SlideOutUp = layoutAnimation()
 
 const Animated = {
   View: RN.View,
@@ -109,4 +111,6 @@ module.exports = {
   FadeInDown,
   FadeOut,
   LinearTransition,
+  SlideInUp,
+  SlideOutUp,
 }

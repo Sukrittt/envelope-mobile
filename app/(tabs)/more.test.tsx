@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
@@ -28,25 +28,80 @@ beforeEach(() => {
   ;(clearAccess as jest.Mock).mockResolvedValue(undefined)
   mockUseUser.mockReturnValue({ data: { email: 'a@b.com', emailVerified: true } })
   mockUseWrappedStatus.mockReturnValue({
-    data: { month: '2026-08', transactionCount: 14, available: true, minTransactions: 10 },
+    data: {
+      month: '2026-07',
+      transactionCount: 14,
+      available: true,
+      minTransactions: 10,
+      currentMonth: '2026-08',
+      currentMonthCount: 3,
+    },
   })
 })
 
 describe('More tab — Expense Wrapped row', () => {
-  it('is dimmed and inert below the transaction threshold, naming the evaluated month', () => {
-    mockUseWrappedStatus.mockReturnValue({
-      data: { month: '2026-08', transactionCount: 3, available: false, minTransactions: 10 },
+  it('cycles the loading phrase while status is unresolved', () => {
+    jest.useFakeTimers()
+    mockUseWrappedStatus.mockReturnValue({ data: undefined })
+    const { getByText, queryByText } = renderWithProviders(<MoreScreen />)
+    expect(getByText('Checking last month…')).toBeTruthy()
+
+    act(() => {
+      jest.advanceTimersByTime(1800)
     })
-    const { getByText } = renderWithProviders(<MoreScreen />)
-    expect(getByText('August had 3 of the 10 needed')).toBeTruthy()
+    expect(getByText('Counting transactions…')).toBeTruthy()
+    expect(queryByText('Checking last month…')).toBeNull()
+
+    jest.useRealTimers()
   })
 
-  it('is live with the month label once the threshold is met', () => {
+  it('shows a dot tracker and unlock copy below the transaction threshold', () => {
     mockUseWrappedStatus.mockReturnValue({
-      data: { month: '2026-08', transactionCount: 14, available: true, minTransactions: 10 },
+      data: {
+        month: '2026-06',
+        transactionCount: 4,
+        available: false,
+        minTransactions: 10,
+        currentMonth: '2026-07',
+        currentMonthCount: 3,
+      },
+    })
+    const { getByText, getByLabelText } = renderWithProviders(<MoreScreen />)
+    expect(getByText('●●●○○○○○○○')).toBeTruthy()
+    expect(getByText("3/10 — unlocks August's wrap")).toBeTruthy()
+    expect(getByLabelText("3 of 10 transactions logged. Unlocks August's wrap.")).toBeTruthy()
+  })
+
+  it('freezes the dots and switches to a waiting state once the goal is reached mid-month', () => {
+    mockUseWrappedStatus.mockReturnValue({
+      data: {
+        month: '2026-06',
+        transactionCount: 4,
+        available: false,
+        minTransactions: 10,
+        currentMonth: '2026-07',
+        currentMonthCount: 12,
+      },
+    })
+    const { getByText, getByLabelText } = renderWithProviders(<MoreScreen />)
+    expect(getByText('●●●●●●●●●●')).toBeTruthy()
+    expect(getByText('Goal reached. Your wrap unlocks August 1st')).toBeTruthy()
+    expect(getByLabelText('10 of 10 transactions logged. Wrap unlocks August 1st.')).toBeTruthy()
+  })
+
+  it('is live with the month label once a completed edition is available', () => {
+    mockUseWrappedStatus.mockReturnValue({
+      data: {
+        month: '2026-07',
+        transactionCount: 14,
+        available: true,
+        minTransactions: 10,
+        currentMonth: '2026-08',
+        currentMonthCount: 3,
+      },
     })
     const { getByText } = renderWithProviders(<MoreScreen />)
-    expect(getByText('Your August 2026, wrapped')).toBeTruthy()
+    expect(getByText('Your July 2026, wrapped')).toBeTruthy()
   })
 })
 

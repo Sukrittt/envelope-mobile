@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import { useEffect, useState } from 'react'
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -41,30 +42,21 @@ export function LoadingCaption({ style, phrases = PHRASES }: Props) {
   const { tokens } = useTheme()
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [shuffledPhrases] = useState(() => shuffleArray(phrases))
-  const opacity = useRef(new Animated.Value(0.4)).current
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ])
-    )
-    loop.start()
-    return () => loop.stop()
-  }, [opacity])
 
   useEffect(() => {
     const interval = setInterval(() => {
       setPhraseIndex((prev) => (prev + 1) % shuffledPhrases.length)
-    }, 1400)
+    }, 1800)
     return () => clearInterval(interval)
   }, [shuffledPhrases.length])
 
   return (
     <View style={[styles.wrap, style]}>
       <Animated.Text
-        style={[styles.text, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, opacity }]}
+        key={phraseIndex}
+        entering={SlideInDown.duration(450)}
+        exiting={SlideOutUp.duration(450)}
+        style={[styles.text, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
       >
         {shuffledPhrases[phraseIndex]}
       </Animated.Text>
@@ -74,11 +66,17 @@ export function LoadingCaption({ style, phrases = PHRASES }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    alignItems: 'center',
+    width: '100%',
+    height: 34,
+    overflow: 'hidden',
     justifyContent: 'center',
-    paddingVertical: 8,
   },
   text: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     fontSize: 13,
+    textAlign: 'center',
   },
 })
