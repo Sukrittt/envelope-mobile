@@ -40,7 +40,6 @@ export function TabBar() {
       <FloatingNav
         active={active}
         addActive={addActive}
-        variant={addActive ? 'onAccent' : 'default'}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? router.back() : router.push(LOG_EXPENSE_PATH))}
       >

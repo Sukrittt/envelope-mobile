@@ -56,12 +56,12 @@ export const elevation = {
   },
   floating: {
     shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
 } as const
 
 /** Height the floating nav occupies; screens reserve this much bottom padding. */
-export const NAV_HEIGHT = 76
+export const NAV_HEIGHT = 86

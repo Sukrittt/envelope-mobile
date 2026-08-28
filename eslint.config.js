@@ -21,6 +21,21 @@ module.exports = defineConfig([
     // individually with an eslint-disable-next-line + reason, so a genuinely
     // new violation is caught at error level instead of blending into a warn.
     rules: {
+      // Reanimated's runOnJS/scheduleOnRN can only schedule a function that
+      // was DEFINED on the RN runtime. An inline arrow written at the call
+      // site inside a worklet is created on the UI runtime, and the native
+      // side throws "Locally defined function passed to scheduleOnRN" out of
+      // an animation callback, which crashes the app. Hoist the callback (a
+      // useCallback / module-level fn) and pass the reference.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.name=/^(runOnJS|scheduleOnRN)$/] > :matches(ArrowFunctionExpression, FunctionExpression):first-child",
+          message:
+            "Pass a reference to a function defined on the JS runtime (e.g. useCallback) — an inline function is created on the UI runtime and crashes scheduleOnRN.",
+        },
+      ],
       "react-hooks/refs": "off",
       "react-hooks/immutability": "off",
       "@typescript-eslint/no-require-imports": [

@@ -236,7 +236,13 @@ export default function ActivityScreen() {
   function runDelete(t: ExpenseRow) {
     setDeleteTxn(null)
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
-    deleteExpense.mutate({ id: t.id, timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 })
+    deleteExpense.mutate(
+      { id: t.id, timestamp: t.timestamp, item: t.item, amountInr: Number(t.amount_inr) || 0 },
+      // Left set on success so the row stays collapsed until the refetch drops
+      // it — clearing it here springs the row back to full height for a whole
+      // round trip. On failure the row does come back, which is the signal.
+      { onError: () => setPendingDelete(null) },
+    )
   }
 
   const isLoading = expensesQ.isLoading || categoriesQ.isLoading
@@ -309,7 +315,6 @@ export default function ActivityScreen() {
                   active={pendingDelete !== null && keyOf(pendingDelete) === keyOf(txn)}
                   onDone={() => {
                     if (pendingDelete) runDelete(pendingDelete)
-                    setPendingDelete(null)
                   }}
                 >
                   <SwipeableRow

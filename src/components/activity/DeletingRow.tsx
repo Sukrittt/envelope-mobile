@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, type LayoutChangeEvent } from 'react-native'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -23,18 +23,27 @@ export function DeletingRow({
   // unrelated parent re-render mid-delete).
   const onDoneRef = useRef(onDone)
   onDoneRef.current = onDone
+  // Must be a stable function *defined on the JS runtime*. `runOnJS` (now
+  // `scheduleOnRN`) rejects a closure created inside the worklet with
+  // "Locally defined function passed to scheduleOnRN", and that throw comes
+  // out of an animation callback on the UI thread, which crashes the app.
+  const finish = useCallback(() => onDoneRef.current(), [])
 
   useEffect(() => {
     if (!active || measuredHeight === null) return
+    // Reset first: a row whose previous delete failed is left collapsed, and
+    // withTiming to a value it already holds finishes with no animation.
+    pillProgress.value = 0
+    opacity.value = 1
     height.value = measuredHeight
     pillProgress.value = withTiming(1, { duration: 180 }, (finished) => {
       if (!finished) return
       height.value = withTiming(0, { duration: 220 })
       opacity.value = withTiming(0, { duration: 220 }, (done) => {
-        if (done) runOnJS(() => onDoneRef.current())()
+        if (done) runOnJS(finish)()
       })
     })
-  }, [active, measuredHeight, height, opacity, pillProgress])
+  }, [active, measuredHeight, height, opacity, pillProgress, finish])
 
   const containerStyle = useAnimatedStyle(() => ({
     height: active && measuredHeight !== null ? height.value : undefined,

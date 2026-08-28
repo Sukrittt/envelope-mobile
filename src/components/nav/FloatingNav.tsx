@@ -17,22 +17,31 @@ import Reanimated, {
   withSpring,
   withTiming,
   interpolateColor,
+  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { House, ReceiptText, Tags, CircleUser, Plus, X, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import {
+  HomeGlyph,
+  ActivityGlyph,
+  EnvelopeGlyph,
+  ProfileGlyph,
+  PlusGlyph,
+  CloseGlyph,
+  type NavIconComponent,
+} from './NavIcons'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 export type NavRoute = 'index' | 'activity' | 'envelopes' | 'more'
 
 /** Rendered left-to-right, with the add button occupying the centre slot. */
-export const NAV_ROUTES: { name: NavRoute; icon: LucideIcon; label: string }[] = [
-  { name: 'index', icon: House, label: 'Home' },
-  { name: 'activity', icon: ReceiptText, label: 'Activity' },
-  { name: 'envelopes', icon: Tags, label: 'Envelopes' },
-  { name: 'more', icon: CircleUser, label: 'More' },
+export const NAV_ROUTES: { name: NavRoute; glyph: NavIconComponent; label: string }[] = [
+  { name: 'index', glyph: HomeGlyph, label: 'Home' },
+  { name: 'activity', glyph: ActivityGlyph, label: 'Activity' },
+  { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Envelopes' },
+  { name: 'more', glyph: ProfileGlyph, label: 'More' },
 ]
 
 export const NAV_HREF: Record<NavRoute, '/' | '/activity' | '/envelopes' | '/more'> = {
@@ -58,7 +67,7 @@ export function navStateFor(pathname: string): { active: NavRoute | null; addAct
   return { active, addActive, visible: addActive || active !== null }
 }
 
-type NavSlot = { kind: 'route'; name: NavRoute; icon: LucideIcon; label: string } | { kind: 'add' }
+type NavSlot = { kind: 'route'; name: NavRoute; glyph: NavIconComponent; label: string } | { kind: 'add' }
 
 /** Slot order matches NAV_ROUTES, with the add action inserted at the centre. */
 const NAV_SLOTS: NavSlot[] = [
@@ -73,7 +82,11 @@ function indexOfRoute(name: NavRoute | null): number {
   return NAV_SLOTS.findIndex((s) => s.kind === 'route' && s.name === name)
 }
 
-const CIRCLE = 46
+/** Diameter of the slot at centre. Everything off-centre scales down from it. */
+const CIRCLE = 56
+/** What an off-centre circle shrinks to: 56 * 0.82 ~= 46. */
+const INACTIVE_SCALE = 0.82
+const ICON = 26
 const RING_GAP = 3
 const RING_WIDTH = 3
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
@@ -97,13 +110,30 @@ const BACKDROP_PAD = 7
 export const slotOffset = (i: number): number => i * SLOT
 
 /** Nearest slot index for a given scroll offset, clamped to the slot range. */
-export const indexFromOffset = (x: number, count: number): number =>
-  Math.min(count - 1, Math.max(0, Math.round(x / SLOT)))
+export const indexFromOffset = (x: number, count: number): number => {
+  'worklet'
+  return Math.min(count - 1, Math.max(0, Math.round(x / SLOT)))
+}
+
+/**
+ * How far slot `index` sits from the centre of the screen, as 0 (dead centre)
+ * to 1 (a full slot away or further). Drives both the size falloff and the
+ * ring hand-off, so those track the finger continuously instead of waiting for
+ * the drag to commit.
+ */
+export const slotProximity = (x: number, index: number): number => {
+  'worklet'
+  return Math.min(1, Math.abs(x / SLOT - index))
+}
 
 /** How far (px) the centre "add" slot sits from the given active route's slot. */
 export function addSlotShift(active: NavRoute | null): number {
   const routeIndex = indexOfRoute(active)
   return (ADD_INDEX - (routeIndex === -1 ? 0 : routeIndex)) * SLOT
+}
+
+const tickHaptic = () => {
+  Haptics.selectionAsync().catch(() => {})
 }
 
 /**
@@ -112,20 +142,23 @@ export function addSlotShift(active: NavRoute | null): number {
  * scrolls underneath, so every screen reserves NAV_HEIGHT of bottom padding
  * (see Screen / useNavPadding).
  *
- * The selected slot always sits at screen centre. Dragging the row snaps the
- * nearest slot to centre on release and navigates to it; tapping any circle
- * does the same and glides it to centre.
+ * The selected slot always sits at screen centre, drawn larger than its
+ * neighbours and wearing the ring. Dragging the row hands both the size and
+ * the ring to whichever slot is nearest centre, ticking once per slot crossed
+ * so the release point is felt rather than guessed; on release the nearest
+ * slot snaps to centre and navigates to it.
  *
  * The centre slot is an action, not a destination — logging an expense — but
  * sized and colored like every other circle until pressed, so it doesn't
- * compete with the active route's accent fill.
+ * compete with the active route's accent fill. The nav renders identically on
+ * every screen it appears on, log-expense included: only the centre glyph
+ * (Plus -> Close) and which slot holds the ring ever change.
  */
 export function FloatingNav({
   active,
   onSelect,
   onAdd,
   addActive = false,
-  variant = 'default',
   children,
 }: {
   active: NavRoute | null
@@ -133,20 +166,16 @@ export function FloatingNav({
   onAdd: () => void
   /** True on the log-expense screen: the add slot becomes "you are here". */
   addActive?: boolean
-  /** `onAccent` restyles the nav for the flood screen's accent ground. */
-  variant?: 'default' | 'onAccent'
   children?: React.ReactNode
 }) {
   const { tokens, space, elevation, radius } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
-  const onAccent = variant === 'onAccent'
 
-  const idle = onAccent ? 'rgba(255, 255, 255, 0.22)' : tokens.cardSolid
-  const idleIcon = onAccent ? tokens.onAccent : tokens.text2
-  const activeFill = onAccent ? tokens.onAccent : tokens.accent
-  const activeIcon = onAccent ? tokens.accent : tokens.onAccent
-  const ringColor = onAccent ? tokens.onAccent : tokens.accent
+  const idle = tokens.cardSolid
+  const idleIcon = tokens.text2
+  const activeFill = tokens.accent
+  const activeIcon = tokens.onAccent
 
   const activeIndex = addActive ? ADD_INDEX : indexOfRoute(active)
 
@@ -159,8 +188,26 @@ export function FloatingNav({
   // again, and a real external change (tap, deep link) does.
   const mountedIndexRef = useRef(initialIndex)
 
-  const scrollHandler = useAnimatedScrollHandler((e) => {
-    scrollX.value = e.contentOffset.x
+  // Detent ticks are gated on an actual drag, so the programmatic scrollTo
+  // below (tap, deep link) glides across slots silently.
+  const dragging = useSharedValue(false)
+  const tickIndex = useSharedValue(initialIndex)
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onBeginDrag: () => {
+      dragging.value = true
+    },
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x
+      if (!dragging.value) return
+      const idx = indexFromOffset(e.contentOffset.x, NAV_SLOTS.length)
+      if (idx === tickIndex.value) return
+      tickIndex.value = idx
+      runOnJS(tickHaptic)()
+    },
+    onMomentumEnd: () => {
+      dragging.value = false
+    },
   })
 
   // Re-centres the carousel whenever the committed slot changes from outside
@@ -169,8 +216,9 @@ export function FloatingNav({
   useEffect(() => {
     if (activeIndex === -1 || activeIndex === mountedIndexRef.current) return
     mountedIndexRef.current = activeIndex
+    tickIndex.value = activeIndex
     scrollRef.current?.scrollTo({ x: slotOffset(activeIndex), animated: true })
-  }, [activeIndex, scrollRef])
+  }, [activeIndex, scrollRef, tickIndex])
 
   // ponytail: selection only fires on momentum end; a drag released with no
   // momentum can settle without firing on some Android builds. Add an
@@ -180,6 +228,7 @@ export function FloatingNav({
       const idx = indexFromOffset(e.nativeEvent.contentOffset.x, NAV_SLOTS.length)
       if (idx === mountedIndexRef.current) return
       mountedIndexRef.current = idx
+      // Heavier than the drag ticks: this one means "landed", not "passing".
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
       const slot = NAV_SLOTS[idx]
       if (slot.kind === 'add') onAdd()
@@ -194,10 +243,18 @@ export function FloatingNav({
       style={[styles.wrap, { paddingBottom: space.xs }]}
     >
       {children}
-      <NavBackdrop
-        color={onAccent ? tokens.accent : tokens.bg}
-        borderTopLeftRadius={radius.xl}
-        borderTopRightRadius={radius.xl}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.backdrop,
+          {
+            // Log-expense is a full-bleed accent flood; the strip behind the
+            // nav matches it there instead of always reading as a page footer.
+            backgroundColor: addActive ? tokens.accent : tokens.bg,
+            borderTopLeftRadius: radius.xl,
+            borderTopRightRadius: radius.xl,
+          },
+        ]}
       />
       <Reanimated.ScrollView
         ref={scrollRef}
@@ -220,12 +277,12 @@ export function FloatingNav({
           slot.kind === 'add' ? (
             <NavCircle
               key="add"
-              icon={addActive ? X : Plus}
+              glyph={addActive ? CloseGlyph : PlusGlyph}
               label={addActive ? 'Close' : 'Log expense'}
               selected={addActive}
               background={addActive ? activeFill : idle}
               color={addActive ? activeIcon : idleIcon}
-              ringColor={ringColor}
+              ringColor={tokens.accent}
               onPress={onAdd}
               scrollX={scrollX}
               index={i}
@@ -234,12 +291,12 @@ export function FloatingNav({
           ) : (
             <NavCircle
               key={slot.name}
-              icon={slot.icon}
+              glyph={slot.glyph}
               label={slot.label}
               selected={active === slot.name}
               background={active === slot.name ? activeFill : idle}
               color={active === slot.name ? activeIcon : idleIcon}
-              ringColor={ringColor}
+              ringColor={tokens.accent}
               onPress={() => onSelect(slot.name)}
               scrollX={scrollX}
               index={i}
@@ -254,8 +311,8 @@ export function FloatingNav({
 /**
  * Cross-fades a color prop instead of cutting: whenever `color` changes,
  * blends from the previous value to the new one over `duration`ms. Used for
- * the circle fill and ring stroke, which flip palette (default <-> onAccent)
- * when the nav's variant changes without remounting (see navStateFor).
+ * the circle fill, which swaps between the idle and accent colors as selection
+ * moves along the row.
  */
 function useColorFade(color: string, duration = 200): SharedValue<string> {
   const from = useSharedValue(color)
@@ -275,75 +332,44 @@ function useColorFade(color: string, duration = 200): SharedValue<string> {
   return useDerivedValue(() => interpolateColor(progress.value, [0, 1], [from.value, to.value]))
 }
 
-/** Backdrop rectangle, cross-fading `color` (default <-> onAccent) instead of cutting. */
-function NavBackdrop({
-  color,
-  borderTopLeftRadius,
-  borderTopRightRadius,
-}: {
-  color: string
-  borderTopLeftRadius: number
-  borderTopRightRadius: number
-}) {
-  const bgFade = useColorFade(color)
-  const animatedStyle = useAnimatedStyle(() => ({ backgroundColor: bgFade.value }))
-
-  return (
-    <Reanimated.View
-      pointerEvents="none"
-      style={[styles.backdrop, { borderTopLeftRadius, borderTopRightRadius }, animatedStyle]}
-    />
-  )
-}
-
 /**
- * Cross-fades between icon+color pairs. Lucide's `color` is a render-time
- * SVG prop, not an animatable style, so a continuous color tween (like
- * useColorFade) can't drive it — instead the previous {icon, color} is kept
- * as a layer fading out under the new one fading in.
+ * Cross-fades `color` instead of cutting. The glyph never swaps rendering
+ * mode (always a plain fill), but its SVG `fill` is a render-time prop, not
+ * an animatable style, so the tween is faked the same way: the previous color
+ * kept as a layer fading out under the new one fading in.
  */
-function NavIcon({
-  icon: Icon,
-  color,
-  size,
-  strokeWidth,
-}: {
-  icon: LucideIcon
-  color: string
-  size: number
-  strokeWidth: number
-}) {
-  const [prev, setPrev] = useState<{ Icon: LucideIcon; color: string } | null>(null)
-  const currentRef = useRef({ Icon, color })
+function NavIcon({ icon: Icon, color, size }: { icon: NavIconComponent; color: string; size: number }) {
+  const [prevColor, setPrevColor] = useState<string | null>(null)
+  const currentColorRef = useRef(color)
   const progress = useSharedValue(1)
 
   useEffect(() => {
-    if (currentRef.current.Icon === Icon && currentRef.current.color === color) return
-    setPrev(currentRef.current)
-    currentRef.current = { Icon, color }
+    if (currentColorRef.current === color) return
+    setPrevColor(currentColorRef.current)
+    currentColorRef.current = color
     progress.value = 0
     progress.value = withTiming(1, { duration: 200 })
-  }, [Icon, color, progress])
+  }, [color, progress])
 
   const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
   const bottomStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }))
 
   return (
     <View style={{ width: size, height: size }}>
-      {prev ? (
+      {prevColor ? (
         <Reanimated.View style={[StyleSheet.absoluteFill, bottomStyle]} pointerEvents="none">
-          <prev.Icon size={size} color={prev.color} strokeWidth={strokeWidth} />
+          <Icon size={size} color={prevColor} />
         </Reanimated.View>
       ) : null}
       <Reanimated.View style={topStyle} pointerEvents="none">
-        <Icon size={size} color={color} strokeWidth={strokeWidth} />
+        <Icon size={size} color={color} />
       </Reanimated.View>
     </View>
   )
 }
 
 function NavCircle({
-  icon: IconComponent,
+  glyph,
   label,
   selected,
   background,
@@ -354,7 +380,7 @@ function NavCircle({
   index,
   style,
 }: {
-  icon: LucideIcon
+  glyph: NavIconComponent
   label: string
   selected: boolean
   background: string
@@ -368,7 +394,6 @@ function NavCircle({
   const { motion, elevation } = useTheme()
   const pressScale = useSharedValue(1)
   const bgFade = useColorFade(background)
-  const ringFade = useColorFade(ringColor)
   const selProgress = useSharedValue(selected ? 1 : 0)
 
   useEffect(() => {
@@ -376,17 +401,23 @@ function NavCircle({
   }, [selected, selProgress])
 
   const circleStyle = useAnimatedStyle(() => {
-    const t = Math.min(1, Math.abs(scrollX.value / SLOT - index))
+    const t = slotProximity(scrollX.value, index)
     return {
       backgroundColor: bgFade.value,
       opacity: 1 - t * 0.35,
-      transform: [{ scale: pressScale.value * (1 - t * 0.12) }],
+      transform: [{ scale: pressScale.value * (1 - t * (1 - INACTIVE_SCALE)) }],
     }
   })
 
+  // Sized off the drag like the circle, so it still grows/shrinks in transit,
+  // but only ever visible on the committed slot — no pop mid-drag elsewhere.
   const ringStyle = useAnimatedStyle(() => {
-    const t = Math.min(1, Math.abs(scrollX.value / SLOT - index))
-    return { borderColor: ringFade.value, opacity: selProgress.value * (1 - t) }
+    const t = slotProximity(scrollX.value, index)
+    return {
+      borderColor: ringColor,
+      opacity: selProgress.value,
+      transform: [{ scale: pressScale.value * (1 - t * (1 - INACTIVE_SCALE)) }],
+    }
   })
 
   return (
@@ -416,7 +447,7 @@ function NavCircle({
             circleStyle,
           ]}
         >
-          <NavIcon icon={IconComponent} color={color} size={Math.round(CIRCLE * 0.45)} strokeWidth={2.2} />
+          <NavIcon icon={glyph} color={color} size={ICON} />
         </AnimatedPressable>
       </View>
     </View>
