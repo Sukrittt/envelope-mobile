@@ -3,7 +3,6 @@ import { useColorScheme } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { darkTokens, lightTokens, type ThemeTokens } from './tokens'
 import { space, radius, type as type_, motion, elevation } from './scale'
-import { accessMode } from '../api/accessMode'
 
 type ThemePreference = 'light' | 'dark' | 'system'
 
@@ -30,17 +29,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme: 'light' | 'dark' = rawScheme === 'dark' ? 'dark' : 'light'
   const [preference, setPreferenceState] = useState<ThemePreference>('system')
 
+  // Deliberately survives logout: the theme belongs to this device, not to the
+  // account. Clearing it threw a user who had picked Light on a dark-mode phone
+  // straight into dark the moment they signed out.
   useEffect(() => {
     SecureStore.getItemAsync(PREF_KEY).then((stored) => {
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         setPreferenceState(stored)
       }
-    })
-    // Otherwise the next account signed into on this device inherits
-    // whatever the previous one set.
-    return accessMode.subscribeLogout(() => {
-      setPreferenceState('system')
-      SecureStore.deleteItemAsync(PREF_KEY).catch(() => {})
     })
   }, [])
 

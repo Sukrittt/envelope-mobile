@@ -17,6 +17,7 @@ import { formatCurrency } from '@/src/lib/format'
 import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
+import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
@@ -49,7 +50,7 @@ export default function HomeScreen() {
 
   const { hideAmounts } = usePrivacy()
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('home')
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY

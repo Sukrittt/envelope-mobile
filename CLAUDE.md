@@ -46,6 +46,15 @@ Lessons from the Code Quality Checks pass (2026-08), worth not re-learning:
   the next reader into thinking a path still works.
 - Clear all per-user local state on logout (M10), not just the obvious auth token —
   the next account on the device otherwise inherits the previous user's settings.
+  Exception: preferences that belong to the *device*, not the account — the theme
+  (`mc-theme-pref`) deliberately survives logout, because clearing it flipped a user
+  who had picked Light on a dark-mode phone into dark mid-sign-out. Don't re-add a
+  `subscribeLogout` to `ThemeProvider`.
+- Ending the WorkOS session is the API's job, not the app's — revoke via
+  `DELETE /api/user/sessions?id=` (`revokeSession()`), awaited *before* `clearAccess()`
+  while the bearer token is still live. `/user_management/sessions/logout` is a browser
+  redirect endpoint; RN's fetch throws following the 302, so calling it reported every
+  sign-out as a failure.
 
 # success animation
 

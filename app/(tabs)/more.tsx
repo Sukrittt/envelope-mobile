@@ -6,9 +6,12 @@ import { Screen } from '@/src/components/ui/Screen'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { clearAccess } from '@/src/api/accessMode'
+import { clearAccess, sessionId } from '@/src/api/accessMode'
+import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
+import { monthLabel } from '@/src/lib/envelope'
 import { useUser } from '@/src/hooks/useUser'
+import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import type { UserProfile } from '@/src/api/account'
 import appJson from '@/app.json'
 
@@ -31,6 +34,7 @@ export default function MoreScreen() {
 
   const userQuery = useUser()
   const user = userQuery.data
+  const wrappedStatus = useWrappedStatus().data
 
   const displayName = user?.name || user?.email || 'You'
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
@@ -73,10 +77,15 @@ export default function MoreScreen() {
               <FeatureCard
                 icon={Gift}
                 label="Expense Wrapped"
-                blurb="Your month as a story"
+                blurb={
+                  wrappedStatus?.available
+                    ? `Your ${monthLabel(wrappedStatus.month)}, wrapped`
+                    : `Log ${wrappedStatus?.minTransactions ?? 10}+ expenses in a month to unlock`
+                }
                 iconBg={tokens.coralSoft}
                 iconColor={tokens.coral}
-                onPress={() => router.push('/wrapped')}
+                onPress={wrappedStatus?.available ? () => router.push('/wrapped') : undefined}
+                disabled={!wrappedStatus?.available}
               />
               <FeatureCard
                 icon={Brain}
@@ -181,12 +190,23 @@ export default function MoreScreen() {
           </View>
 
           <Pressable
-            onPress={() => {
-              clearAccess().then((revoked) => {
-                if (!revoked) {
-                  Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
+            onPress={async () => {
+              // Revoke server-side first, while the bearer token is still live —
+              // clearAccess() below drops it. A failure here only means the WorkOS
+              // session outlives this device; sign out locally either way.
+              const sid = sessionId()
+              let revoked = true
+              if (sid) {
+                try {
+                  await revokeSession(sid)
+                } catch {
+                  revoked = false
                 }
-              })
+              }
+              await clearAccess()
+              if (!revoked) {
+                Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
+              }
             }}
             style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral }]}
           >
@@ -208,17 +228,23 @@ function FeatureCard({
   iconBg,
   iconColor,
   onPress,
+  disabled,
 }: {
   icon: LucideIcon
   label: string
   blurb: string
   iconBg: string
   iconColor: string
-  onPress: () => void
+  onPress?: () => void
+  disabled?: boolean
 }) {
   const { tokens } = useTheme()
   return (
-    <Pressable onPress={onPress} style={[styles.featureCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.featureCard, { backgroundColor: tokens.card, borderColor: tokens.border }, disabled && styles.featureCardDisabled]}
+    >
       <View style={[styles.featureIcon, { backgroundColor: iconBg }]}>
         <Icon icon={icon} size={18} color={iconColor} />
       </View>
@@ -263,6 +289,7 @@ const styles = StyleSheet.create({
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: { width: '47.5%', gap: 8, padding: 16, borderWidth: 1, borderRadius: 20 },
   featurePlaceholder: { borderStyle: 'dashed' },
+  featureCardDisabled: { opacity: 0.5 },
   featureIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureLabel: { fontSize: 14 },
   featureBlurb: { fontSize: 11, lineHeight: 15 },

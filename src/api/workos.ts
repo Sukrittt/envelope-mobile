@@ -94,8 +94,3 @@ export function exchangeCode(code: string, codeVerifier: string): Promise<WorkOS
 export function refreshTokens(refreshToken: string): Promise<WorkOSTokens> {
   return post({ grant_type: 'refresh_token', refresh_token: refreshToken })
 }
-
-/** End the session on WorkOS's side, not just locally. */
-export function logoutUrl(sessionId: string): string {
-  return `${API}/sessions/logout?session_id=${encodeURIComponent(sessionId)}`
-}

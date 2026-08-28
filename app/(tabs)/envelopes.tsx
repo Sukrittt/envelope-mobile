@@ -24,6 +24,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
 import { useRefresh } from '@/src/hooks/useRefresh'
+import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib/alerts'
 import type { CategoryRow } from '@/src/types'
 import { EMPTY } from '@/src/lib/constants'
@@ -238,7 +239,7 @@ export default function EnvelopesScreen() {
   const moveGroup = useMoveGroup()
 
   const [reordering, setReordering] = useState(false)
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('envelopes')
 
   const [sheet, setSheet] = useState<SheetState | null>(null)
   const [menuTarget, setMenuTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)

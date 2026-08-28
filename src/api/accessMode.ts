@@ -5,7 +5,7 @@
 // but token access is async: `getValidToken()` may need a network round-trip to
 // refresh, so every caller must await it.
 import * as SecureStore from 'expo-secure-store'
-import { logoutUrl, refreshTokens, tokenExpiry, tokenUserId, type WorkOSTokens } from './workos'
+import { refreshTokens, tokenExpiry, tokenUserId, type WorkOSTokens } from './workos'
 
 export type AccessMode = 'real' | 'guest'
 
@@ -131,28 +131,20 @@ export function sessionId(): string | null {
 }
 
 /**
- * Log out: drop the stored session, fall back to guest, re-lock the app.
- * Returns false if the remote revoke failed — the local session is still
- * cleared either way (a user must always be able to sign out of this device
- * regardless of network), but a false return means the WorkOS session may
- * still be alive server-side and callers may want to say so.
+ * Log out locally: drop the stored session, fall back to guest, re-lock the app.
+ * Always succeeds — a user must be able to sign out of this device regardless
+ * of network.
+ *
+ * Ending the session on WorkOS's side is the caller's job: `revokeSession()` in
+ * ./account, awaited *before* this, while the bearer token is still live. Most
+ * callers (a 401, a failed token refresh) are reacting to a session the server
+ * already killed and need no revoke at all.
+ *
+ * This deliberately does NOT ping `/user_management/sessions/logout` — that is a
+ * browser endpoint answering 302 to a post-logout redirect URI, and RN's fetch
+ * throws following it, which reported every single sign-out as a failure.
  */
-export async function clearAccess(): Promise<boolean> {
-  // Revoke on WorkOS's side too, so the session dies everywhere and not just
-  // on this device. Awaited (not fire-and-forget) so a failure is actually
-  // observed instead of racing store(null) silently.
-  const sid = sessionId()
-  let revoked = true
-  if (sid) {
-    try {
-      await fetch(logoutUrl(sid), { signal: AbortSignal.timeout(10_000) })
-    } catch (err) {
-      revoked = false
-      console.warn('Remote session revoke failed — WorkOS session may still be active', err)
-    }
-  }
-
+export async function clearAccess(): Promise<void> {
   await store(null)
   for (const fn of logoutSubs) fn()
-  return revoked
 }
