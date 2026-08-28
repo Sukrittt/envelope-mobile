@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { Animated, Easing } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import * as Haptics from 'expo-haptics'
-import { useSuccessChime } from '@/src/hooks/useSuccessChime'
 
 const AnimatedPath = Animated.createAnimatedComponent(Path)
 // Length of the "M5 13l4 4L19 7" checkmark path: sqrt(32) + sqrt(200) ≈ 19.8
@@ -10,13 +9,10 @@ const CHECK_PATH_LENGTH = 19.8
 
 // Renders inline in place of a button's label (the button keeps its own
 // background/shape — this is just the icon, not a pill that swaps the whole
-// button out). Fades in while the checkmark draws itself via strokeDashoffset,
-// with the success chime and haptic firing alongside the first stroke.
+// button out). Fades in while the checkmark draws itself via strokeDashoffset.
 export function CheckIcon({ color, size = 20 }: { color: string; size?: number }) {
   const opacity = useRef(new Animated.Value(0)).current
   const checkDashoffset = useRef(new Animated.Value(CHECK_PATH_LENGTH)).current
-
-  useSuccessChime()
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})

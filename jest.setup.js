@@ -21,10 +21,3 @@ jest.mock('expo-auth-session', () => ({
   ...jest.requireActual('expo-auth-session'),
   makeRedirectUri: jest.fn(() => 'https://example.com/callback'),
 }))
-
-// CheckIcon plays the success chime, so nearly every screen test now pulls in
-// expo-audio's native player. Mocked globally rather than per-file.
-jest.mock('expo-audio', () => ({
-  useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }),
-  setAudioModeAsync: jest.fn(() => Promise.resolve()),
-}))

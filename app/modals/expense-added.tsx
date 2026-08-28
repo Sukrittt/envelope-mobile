@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated'
 import { DotLottie } from '@lottiefiles/dotlottie-react-native'
+import { useAudioPlayer } from 'expo-audio'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -11,7 +12,6 @@ import { useBudgets } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useDeleteExpense, useExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
-import { useSuccessChime } from '@/src/hooks/useSuccessChime'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { formatDateTimeLong } from '@/src/lib/format'
@@ -84,11 +84,14 @@ export default function ExpenseAddedScreen() {
 
   // ponytail: no sound/haptics preference — the app has none today. Clone
   // src/context/PrivacyContext.tsx if one is ever wanted.
-  // Chime and haptic together at mount, landing with the tick's first stroke.
-  useSuccessChime()
+  // Logging an expense is the only action that chimes — every other success CTA
+  // is the silent inline CheckIcon, so the sound stays the app's one verb.
+  const chime = useAudioPlayer(require('@/assets/sounds/success.mp3'))
   useEffect(() => {
+    // Chime and haptic together at mount, landing with the tick's first stroke.
+    chime.play()
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
-  }, [])
+  }, [chime])
 
   const envelope = useMemo(() => {
     const state = computeEnvelopeState(
