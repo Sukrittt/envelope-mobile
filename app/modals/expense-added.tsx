@@ -86,7 +86,7 @@ export default function ExpenseAddedScreen() {
   // src/context/PrivacyContext.tsx if one is ever wanted.
   // Logging an expense is the only action that chimes — every other success CTA
   // is the silent inline CheckIcon, so the sound stays the app's one verb.
-  const chime = useAudioPlayer(require('@/assets/sounds/success.mp3'))
+  const chime = useAudioPlayer(require('@/assets/sounds/success.wav'))
   useEffect(() => {
     // Chime and haptic together at mount, landing with the tick's first stroke.
     chime.play()
