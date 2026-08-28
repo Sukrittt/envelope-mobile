@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { View, Text, Image, Pressable, Switch, Linking, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, ChevronRight, type LucideIcon } from 'lucide-react-native'
@@ -31,6 +32,8 @@ export default function MoreScreen() {
   const { tokens, preference, setPreference } = useTheme()
   const { hideAmounts, setHideAmounts } = usePrivacy()
   const router = useRouter()
+
+  const [signingOut, setSigningOut] = useState(false)
 
   const userQuery = useUser()
   const user = userQuery.data
@@ -80,7 +83,9 @@ export default function MoreScreen() {
                 blurb={
                   wrappedStatus?.available
                     ? `Your ${monthLabel(wrappedStatus.month)}, wrapped`
-                    : `Log ${wrappedStatus?.minTransactions ?? 10}+ expenses in a month to unlock`
+                    : wrappedStatus
+                      ? `${monthLabel(wrappedStatus.month).split(' ')[0]} had ${wrappedStatus.transactionCount} of the ${wrappedStatus.minTransactions} needed`
+                      : 'Checking last month…'
                 }
                 iconBg={tokens.coralSoft}
                 iconColor={tokens.coral}
@@ -191,6 +196,9 @@ export default function MoreScreen() {
 
           <Pressable
             onPress={async () => {
+              // The revoke is a network round-trip (up to apiFetch's 15s timeout),
+              // so the button has to say it's working — and refuse a second tap.
+              setSigningOut(true)
               // Revoke server-side first, while the bearer token is still live —
               // clearAccess() below drops it. A failure here only means the WorkOS
               // session outlives this device; sign out locally either way.
@@ -204,13 +212,19 @@ export default function MoreScreen() {
                 }
               }
               await clearAccess()
+              // No setSigningOut(false): clearAccess unmounts this screen via the
+              // root navigator's session guard. Resetting it would only flash
+              // "Sign out" back on a screen that is already leaving.
               if (!revoked) {
                 Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
               }
             }}
-            style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral }]}
+            disabled={signingOut}
+            style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral, opacity: signingOut ? 0.6 : 1 }]}
           >
-            <Text style={[styles.logoutText, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>Sign out</Text>
+            <Text style={[styles.logoutText, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </Text>
           </Pressable>
 
           <Text style={[styles.version, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
