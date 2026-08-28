@@ -22,7 +22,7 @@ import {
   TopCategoryCard,
   BiggestPurchaseCard,
   TopWeekdayCard,
-  MonthRaceCard,
+  WeekRaceCard,
   CategoryBreakdownCard,
   StreakCard,
   BadgesCard,
@@ -95,8 +95,8 @@ function buildSlides(
     {
       bg: '#43368e',
       text: '#ffffff',
-      visible: (data.monthlyTotals?.length ?? 0) > 0,
-      render: () => <MonthRaceCard data={data} color="#43368e" onColor="#ffffff" />,
+      visible: (data.weeklyTotals?.length ?? 0) > 0,
+      render: () => <WeekRaceCard data={data} color="#43368e" onColor="#ffffff" />,
     },
     {
       bg: '#c87600',

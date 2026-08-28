@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { getWrapped } from '@/src/api/wrapped'
+import { getWrapped, getWrappedStatus } from '@/src/api/wrapped'
 
-const key = ['wrapped'] as const
+export function useWrapped(month?: string) {
+  return useQuery({ queryKey: ['wrapped', month] as const, queryFn: () => getWrapped(month), staleTime: 15 * 60_000, retry: 1 })
+}
 
-export function useWrapped() {
-  return useQuery({ queryKey: key, queryFn: getWrapped, staleTime: 15 * 60_000, retry: 1 })
+export function useWrappedStatus() {
+  return useQuery({ queryKey: ['wrapped-status'] as const, queryFn: getWrappedStatus, staleTime: 15 * 60_000, retry: 1 })
 }

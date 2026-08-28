@@ -1,6 +1,7 @@
 import { apiFetch } from './client'
 
 export interface WrappedData {
+  month: string
   range: { startDate: string; endDate: string; daysTracked: number }
   totalSpent: number
   totalTransactions: number
@@ -9,14 +10,31 @@ export interface WrappedData {
   topWeekday: { day: string; total: number; count: number } | null
   longestStreak: { days: number; startDate: string; endDate: string } | null
   longestGap: { days: number; startDate: string; endDate: string } | null
-  monthlyTotals: { month: string; label: string; total: number }[]
+  weeklyTotals: { label: string; total: number }[]
 }
 
-export async function getWrapped(): Promise<WrappedData> {
-  const resp = await apiFetch('/api/wrapped')
+export interface WrappedStatus {
+  month: string
+  transactionCount: number
+  available: boolean
+  minTransactions: number
+}
+
+export async function getWrapped(month?: string): Promise<WrappedData> {
+  const url = month ? `/api/wrapped?month=${month}` : '/api/wrapped'
+  const resp = await apiFetch(url)
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))
     throw new Error(detail.error ?? `Failed to load wrapped: ${resp.status}`)
+  }
+  return resp.json()
+}
+
+export async function getWrappedStatus(): Promise<WrappedStatus> {
+  const resp = await apiFetch('/api/wrapped/status')
+  if (!resp.ok) {
+    const detail = await resp.json().catch(() => ({}))
+    throw new Error(detail.error ?? `Failed to load wrapped status: ${resp.status}`)
   }
   return resp.json()
 }

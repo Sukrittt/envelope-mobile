@@ -4,6 +4,7 @@ import type { WrappedData } from '@/src/api/wrapped'
 import { formatCurrency, formatDate, formatDateShort } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
+import { monthLabel } from '@/src/lib/envelope'
 import {
   WrappedCard,
   WrappedBigNumber,
@@ -22,8 +23,6 @@ interface CardProps {
   onColor: string
 }
 
-const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-
 export function CoverCard({
   data,
   color,
@@ -31,11 +30,7 @@ export function CoverCard({
   onStart,
   onStartMuted,
 }: CardProps & { onStart: () => void; onStartMuted: () => void }) {
-  const start = new Date(data.range.startDate)
-  const end = new Date(data.range.endDate)
-  const rangeLabel = Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())
-    ? '2026 RECAP'
-    : `${end.getFullYear()} · ${MONTH_ABBR[start.getMonth()]} → ${MONTH_ABBR[end.getMonth()]}`
+  const rangeLabel = monthLabel(data.month).toUpperCase()
 
   return (
     <WrappedCard
@@ -56,7 +51,7 @@ export function CoverCard({
       </WRise>
       <WRise delay={180}>
         <WrappedCaption
-          value={`${data.totalTransactions} transactions. Zero secrets. Let's talk about your year.`}
+          value={`${data.totalTransactions} transactions. Zero secrets. Let's talk about your month.`}
           onColor={onColor}
         />
       </WRise>
@@ -304,28 +299,28 @@ const RACE_BAR_COLORS = [
   'rgba(219, 124, 212, 1)',
 ]
 
-export function MonthRaceCard({ data, color, onColor }: CardProps) {
-  const months = data.monthlyTotals ?? []
-  if (months.length === 0) return null
-  const max = Math.max(...months.map((m) => m.total))
-  const top = [...months].sort((a, b) => b.total - a.total)[0]
-  const n = months.length
+export function WeekRaceCard({ data, color, onColor }: CardProps) {
+  const weeks = data.weeklyTotals ?? []
+  if (weeks.length === 0) return null
+  const max = Math.max(...weeks.map((w) => w.total))
+  const top = [...weeks].sort((a, b) => b.total - a.total)[0]
+  const n = weeks.length
   const fadeStep = n > 1 ? (600 - 200) / (n - 1) : 0
   const barStep = n > 1 ? (650 - 250) / (n - 1) : 0
 
-  let closer = `${top.label} was the peak. Everything else, comparatively quiet.`
+  let closer = `Days ${top.label} were the peak. Everything else, comparatively quiet.`
   if (n > 1) {
     let dropIdx = -1
     let biggestDrop = 0
     for (let i = 1; i < n; i++) {
-      const drop = months[i - 1].total - months[i].total
+      const drop = weeks[i - 1].total - weeks[i].total
       if (drop > biggestDrop) {
         biggestDrop = drop
         dropIdx = i
       }
     }
     if (dropIdx > 0) {
-      closer = `${months[dropIdx - 1].label}, you were doing so well. What happened in ${months[dropIdx].label}?`
+      closer = `Days ${weeks[dropIdx - 1].label}, you were doing so well. What happened around day ${weeks[dropIdx].label.split('-')[0]}?`
     }
   }
 
@@ -333,21 +328,21 @@ export function MonthRaceCard({ data, color, onColor }: CardProps) {
     <WrappedCard
       color={color}
       onColor={onColor}
-      eyebrow="Month by month"
+      eyebrow="Week by week"
       style={styles.monthRaceCard}
       blobs={[{ size: 280, bottom: -90, left: -90, color: 'rgba(146, 96, 218, 0.28)', motion: 'drift', durationMs: 14000 }]}
     >
       <WRise delay={60}>
         <Text style={[styles.raceTitle, { color: onColor, fontFamily: fontFamily.displayBold }]}>
-          {top.label} won.{'\n'}Of course it did.
+          Days {top.label} won.{'\n'}Of course it did.
         </Text>
       </WRise>
       <View style={{ gap: 10, marginTop: 8 }}>
-        {months.map((m, i) => {
-          const isTop = m.month === top.month
+        {weeks.map((w, i) => {
+          const isTop = w.label === top.label
           return (
-            <WFade key={m.month} delay={200 + i * fadeStep} style={styles.raceRow}>
-              <Text style={[styles.raceLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>{m.label}</Text>
+            <WFade key={w.label} delay={200 + i * fadeStep} style={styles.raceRow}>
+              <Text style={[styles.raceLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>{w.label}</Text>
               <View style={[styles.raceTrack, { backgroundColor: `${onColor}22` }]}>
                 <WGrowX
                   delay={250 + i * barStep}
@@ -355,14 +350,14 @@ export function MonthRaceCard({ data, color, onColor }: CardProps) {
                   style={[
                     styles.raceFill,
                     {
-                      width: `${max > 0 ? (m.total / max) * 100 : 0}%`,
+                      width: `${max > 0 ? (w.total / max) * 100 : 0}%`,
                       backgroundColor: isTop ? onColor : RACE_BAR_COLORS[i % RACE_BAR_COLORS.length],
                     },
                   ]}
                 />
               </View>
               <Text style={[styles.raceValue, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>
-                {formatCurrency(m.total)}
+                {formatCurrency(w.total)}
               </Text>
             </WFade>
           )
