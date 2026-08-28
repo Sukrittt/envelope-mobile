@@ -48,6 +48,19 @@ describe('notification tap routing', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
+  it('deep-links to an explicit route for a warm tap with data.route', () => {
+    addNotificationResponseListener()
+    responseListener!({ notification: { request: { content: { data: { route: '/wrapped' } } } } })
+    expect(mockPush).toHaveBeenCalledWith('/wrapped')
+  })
+
+  it('prefers data.route over data.date when both are present', () => {
+    addNotificationResponseListener()
+    responseListener!({ notification: { request: { content: { data: { route: '/wrapped', date: '2026-08-20' } } } } })
+    expect(mockPush).toHaveBeenCalledWith('/wrapped')
+    expect(mockPush).not.toHaveBeenCalledWith('/(tabs)/activity?date=2026-08-20')
+  })
+
   it('deep-links from a cold-start tap and clears the response so it does not re-fire', async () => {
     mockGetLastNotificationResponseAsync.mockResolvedValueOnce({
       notification: { request: { content: { data: { date: '2026-08-21' } } } },
@@ -57,6 +70,16 @@ describe('notification tap routing', () => {
 
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/activity?date=2026-08-21')
     expect(mockClearLastNotificationResponseAsync).toHaveBeenCalled()
+  })
+
+  it('deep-links to an explicit route from a cold-start tap', async () => {
+    mockGetLastNotificationResponseAsync.mockResolvedValueOnce({
+      notification: { request: { content: { data: { route: '/wrapped' } } } },
+    })
+
+    await checkColdStartNotification()
+
+    expect(mockPush).toHaveBeenCalledWith('/wrapped')
   })
 
   it('does nothing when there is no queued cold-start response', async () => {

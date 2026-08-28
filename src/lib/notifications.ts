@@ -72,14 +72,21 @@ export function addPushTokenListener(): NotificationsType.Subscription | undefin
 }
 
 /**
- * Deep-link into the Activity tab for a given day, reusing the existing
- * `?date=` param the tab already reads. Shared by the warm-tap listener
- * below and `checkColdStartNotification` — a tap that launches the app from
- * killed goes through `getLastNotificationResponseAsync` instead of the
- * listener, but should land in the same place.
+ * Deep-link on notification tap. A `data.route` wins if present (server picks
+ * the destination); otherwise falls back to the Activity tab for a `data.date`
+ * payload, reusing the existing `?date=` param the tab already reads. Shared
+ * by the warm-tap listener below and `checkColdStartNotification` — a tap
+ * that launches the app from killed goes through `getLastNotificationResponseAsync`
+ * instead of the listener, but should land in the same place.
  */
 function routeFromNotificationResponse(response: NotificationsType.NotificationResponse): void {
-  const date = response.notification.request.content.data?.date
+  const data = response.notification.request.content.data
+  const route = data?.route
+  if (typeof route === 'string' && route) {
+    router.push(route as Parameters<typeof router.push>[0])
+    return
+  }
+  const date = data?.date
   if (typeof date === 'string' && date) {
     router.push(`/(tabs)/activity?date=${date}`)
   }

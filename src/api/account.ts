@@ -14,6 +14,7 @@ export interface UserProfile {
   notifyBills?: boolean
   notifyBillLeadDays?: number
   notifyCoach?: boolean
+  notifyWrapped?: boolean
 }
 
 export interface DataSummary {

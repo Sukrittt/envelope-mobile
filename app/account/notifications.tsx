@@ -30,6 +30,7 @@ export default function NotificationsScreen() {
   const bills = user?.notifyBills ?? true
   const billLeadDays = user?.notifyBillLeadDays ?? 3
   const coach = user?.notifyCoach ?? true
+  const wrapped = user?.notifyWrapped ?? true
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
@@ -145,6 +146,24 @@ export default function NotificationsScreen() {
               <Switch
                 value={coach}
                 onValueChange={(v) => updateUser.mutate({ notifyCoach: v })}
+                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
+                thumbColor={tokens.onAccent}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>WRAPPED</Text>
+          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New edition unlocked</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping when last month&apos;s Wrapped is ready</Text>
+              </View>
+              <Switch
+                value={wrapped}
+                onValueChange={(v) => updateUser.mutate({ notifyWrapped: v })}
                 trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
                 thumbColor={tokens.onAccent}
               />
