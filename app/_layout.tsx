@@ -13,6 +13,8 @@ import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { TabBar } from '@/src/components/nav/TabBar'
+import { WidgetSync } from '@/src/widgets/WidgetSync'
+import { clearSnapshot } from '@/src/widgets/snapshot'
 import {
   configureNotificationHandler,
   registerForPushNotificationsAsync,
@@ -84,6 +86,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
       queryClient.clear()
+      // Otherwise the next account signed into on this device inherits the
+      // previous one's budget numbers on the home screen (see PrivacyContext
+      // for the same reasoning applied to the hide-amounts preference).
+      void clearSnapshot()
     })
     return () => {
       unsubscribe()
@@ -188,9 +194,15 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
       </Stack>
       <TabBar />
+      {/* Same gate as the (tabs) Stack.Protected block above: fires the same
+          budgets/expenses queries those screens already fetch, so it must only
+          run once they're reachable — not on every cold boot regardless of
+          auth state. */}
+      {!resolving && hasSession && onboarded === true ? <WidgetSync /> : null}
     </View>
   )
 }

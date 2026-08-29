@@ -68,6 +68,12 @@ export function monthLabel(key: string): string {
   return `${MONTH_NAMES[m - 1]} ${y}`
 }
 
+export function daysLeftInMonth(): number {
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  return daysInMonth - now.getDate()
+}
+
 function monthSpendingByCategory(expenses: ExpenseNum[], month: string): Map<string, number> {
   const map = new Map<string, number>()
   for (const e of expenses) {

@@ -43,7 +43,53 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./assets/fonts/Fredoka_700Bold.ttf",
+            "./assets/fonts/Nunito_600SemiBold.ttf",
+            "./assets/fonts/Nunito_500Medium.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "Envelope",
+              "label": "Envelope",
+              "minWidth": "250dp",
+              "minHeight": "250dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 4,
+              "maxResizeHeight": "400dp",
+              "resizeMode": "horizontal|vertical",
+              "description": "What's left this month, and one-tap logging",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "EnvelopeBar",
+              "label": "Envelope (bar)",
+              "minWidth": "250dp",
+              "minHeight": "40dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal",
+              "description": "What's left this month, in one line",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "EnvelopeMini",
+              "label": "Envelope (mini)",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "none",
+              "description": "What's left this month",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "extra": {
       "router": {},

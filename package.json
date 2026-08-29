@@ -1,10 +1,11 @@
 {
   "name": "mobile",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "src/main.tsx",
   "dependencies": {
     "@expo-google-fonts/fredoka": "^0.4.1",
     "@expo-google-fonts/nunito": "^0.4.2",
+    "@expo/metro-runtime": "~57.0.14",
     "@lottiefiles/dotlottie-react-native": "^0.12.1",
     "@tanstack/react-query": "^5.101.4",
     "expo": "~57.0.12",
@@ -28,6 +29,7 @@
     "lucide-react-native": "^1.33.0",
     "react": "19.2.8",
     "react-native": "0.86.2",
+    "react-native-android-widget": "^0.22.1",
     "react-native-gesture-handler": "~3.2.1",
     "react-native-reanimated": "~4.5.3",
     "react-native-safe-area-context": "~5.7.0",

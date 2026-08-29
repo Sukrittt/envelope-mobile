@@ -12,7 +12,7 @@ import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudget
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
-import { computeEnvelopeState, currentMonthKey, monthLabel, type Envelope } from '@/src/lib/envelope'
+import { computeEnvelopeState, currentMonthKey, daysLeftInMonth, monthLabel, type Envelope } from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -24,12 +24,6 @@ import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
 import { IconButton } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
-
-function daysLeftInMonth(): number {
-  const now = new Date()
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-  return daysInMonth - now.getDate()
-}
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and

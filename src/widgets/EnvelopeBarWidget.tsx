@@ -1,0 +1,35 @@
+// The 4x1 "bar" widget — one line, no resize. Same snapshot as the large
+// widget, just the hero number and a single LOG button.
+import { FlexWidget, TextWidget } from 'react-native-android-widget'
+import type { ThemeTokens } from '@/src/theme/tokens'
+import { fontFamily } from '@/src/theme/fonts'
+import { headerRightLabel, type WidgetData } from './data'
+import { GlassFrame, color } from './glass'
+
+const LOG_URI = 'mobile://modals/log-expense'
+
+export function EnvelopeBarWidget({ tokens, scheme, ...data }: WidgetData & { tokens: ThemeTokens; scheme: 'light' | 'dark' }) {
+  return (
+    <GlassFrame
+      tokens={tokens}
+      scheme={scheme}
+      style={{ padding: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+    >
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <TextWidget text={data.totalLeft} style={{ fontSize: 18, fontFamily: fontFamily.displayBold, color: color(tokens.accent) }} />
+        <TextWidget
+          text={`  ${headerRightLabel(data.daysLeft, data.updatedAt)}`}
+          style={{ fontSize: 10, fontFamily: fontFamily.bodyMedium, color: color(tokens.text2) }}
+        />
+      </FlexWidget>
+      <FlexWidget
+        clickAction="OPEN_URI"
+        clickActionData={{ uri: LOG_URI }}
+        accessibilityLabel="Log an expense"
+        style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100, borderWidth: 1, borderColor: color(tokens.accent) }}
+      >
+        <TextWidget text="LOG" style={{ fontSize: 11, fontFamily: fontFamily.bodySemiBold, color: color(tokens.accentInk) }} />
+      </FlexWidget>
+    </GlassFrame>
+  )
+}

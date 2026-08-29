@@ -15,7 +15,9 @@ export const FILL_DURATION = 900
  *  so the bar reddens on the way rather than starting out at its end state. */
 const THRESHOLDS = [75, 90, 100]
 
-function fillColor(pct: number, tokens: ThemeTokens): string {
+// Exported for the Android widget (src/widgets/EnvelopeWidget.tsx), which
+// draws its own bars via RemoteViews primitives but wants the same thresholds.
+export function fillColor(pct: number, tokens: ThemeTokens): string {
   return pct === 100 ? tokens.text3 : pct > 90 ? tokens.coral : pct > 75 ? tokens.warn : tokens.mint
 }
 

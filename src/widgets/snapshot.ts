@@ -1,0 +1,40 @@
+// The only I/O the widget system does. The headless widget task and the app's
+// WidgetSync component both read/write this one key — kept separate from
+// data.ts (pure) and WidgetSync.tsx (react-query) so the headless task can
+// import just this, without pulling in react-query.
+import * as SecureStore from 'expo-secure-store'
+import type { WidgetData } from './data'
+
+const SNAPSHOT_KEY = 'mc-widget'
+
+export function writeSnapshot(data: WidgetData): Promise<void> {
+  return SecureStore.setItemAsync(SNAPSHOT_KEY, JSON.stringify(data)).catch(() => {})
+}
+
+export async function readSnapshot(): Promise<WidgetData | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(SNAPSHOT_KEY)
+    if (!raw) return null
+    // Defaults backfill fields a snapshot written by an older app version
+    // won't have — the headless task can run against yesterday's snapshot
+    // before the app ever reopens to overwrite it (e.g. right after an
+    // app update, when the OS pokes an existing widget instance).
+    const parsed = JSON.parse(raw) as Partial<WidgetData>
+    return {
+      totalLeft: parsed.totalLeft ?? '₹0',
+      daysLeft: parsed.daysLeft ?? 0,
+      updatedAt: parsed.updatedAt ?? 0,
+      rows: parsed.rows ?? [],
+      chips: parsed.chips ?? [],
+      today: parsed.today ?? [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Called on logout — otherwise the next account signed into on this device
+ *  inherits whatever the previous one spent (same reasoning as PrivacyContext). */
+export function clearSnapshot(): Promise<void> {
+  return SecureStore.deleteItemAsync(SNAPSHOT_KEY).catch(() => {})
+}
