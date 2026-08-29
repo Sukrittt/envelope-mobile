@@ -169,8 +169,8 @@ export default function HomeScreen() {
           </Card>
         )}
 
-        <Reanimated.View layout={LinearTransition.springify().damping(20).stiffness(200)}>
-          <Card elevated={false}>
+        <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
+          <Card elevated={false} style={{ backgroundColor: tokens.card }}>
             <View style={styles.cardHeadRow}>
               <View style={[styles.headerLinks, { gap: space.xs }]}>
                 <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>

@@ -68,6 +68,12 @@ export function monthLabel(key: string): string {
   return `${MONTH_NAMES[m - 1]} ${y}`
 }
 
+/** "2026-08" -> "Aug". */
+export function monthAbbrev(key: string): string {
+  const [, m] = key.split('-').map(Number)
+  return MONTH_NAMES[m - 1].slice(0, 3)
+}
+
 export function daysLeftInMonth(): number {
   const now = new Date()
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()

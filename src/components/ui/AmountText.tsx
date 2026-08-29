@@ -56,17 +56,33 @@ export function AmountText({
     )
   }
 
-  return <Odometer text={text} size={size} textStyle={textStyle} />
+  return <Odometer text={text} value={value} size={size} textStyle={textStyle} />
 }
 
-function Odometer({ text, size, textStyle }: { text: string; size: number; textStyle: StyleProp<TextStyle> }) {
-  // usePrevious: during this render prevRef still holds the previous string, so
+function Odometer({
+  text,
+  value,
+  size,
+  textStyle,
+}: {
+  text: string
+  value: number
+  size: number
+  textStyle: StyleProp<TextStyle>
+}) {
+  // usePrevious: during this render prevRef still holds the previous string/value, so
   // each slot can diff old vs new before it is overwritten.
   const prevRef = useRef(text)
   const prev = prevRef.current
+  // Direction comes from the overall value, not a per-character diff — a
+  // single digit going down (19 -> 20, units 9 -> 0) doesn't mean the
+  // number decreased.
+  const prevValueRef = useRef(value)
+  const direction: 'up' | 'down' = value < prevValueRef.current ? 'down' : 'up'
   useEffect(() => {
     prevRef.current = text
-  }, [text])
+    prevValueRef.current = value
+  }, [text, value])
 
   const rowHeight = Math.round(size * 1.2)
   const chars = text.split('')
@@ -84,6 +100,7 @@ function Odometer({ text, size, textStyle }: { text: string; size: number; textS
             newChar={ch}
             rowHeight={rowHeight}
             textStyle={textStyle}
+            direction={direction}
           />
         )
       })}
@@ -96,11 +113,13 @@ function Digit({
   newChar,
   rowHeight,
   textStyle,
+  direction,
 }: {
   oldChar: string
   newChar: string
   rowHeight: number
   textStyle: StyleProp<TextStyle>
+  direction: 'up' | 'down'
 }) {
   const { motion } = useTheme()
   // Only roll between two digits. Pairing a structural char (₹, `,`, `-`)
@@ -116,9 +135,12 @@ function Digit({
 
   useEffect(() => {
     if (!changed) return
-    translateY.setValue(0)
+    // Increase rolls up (old exits top, new enters from bottom); decrease
+    // mirrors it (old exits bottom, new enters from top) — the stack order
+    // below is flipped to match, so both cases animate toward translateY 0.
+    translateY.setValue(direction === 'down' ? -rowHeight : 0)
     Animated.timing(translateY, {
-      toValue: -rowHeight,
+      toValue: direction === 'down' ? 0 : -rowHeight,
       duration: motion.slow,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
@@ -130,7 +152,7 @@ function Digit({
     // so the view stays frozen on oldChar forever — the "shows 00 not 10"
     // bug. oldChar must be in the deps so a fresh "changed" pair always fires.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oldChar, newChar])
+  }, [oldChar, newChar, direction])
 
   const charStyle = [textStyle, { height: rowHeight, lineHeight: rowHeight }]
 
@@ -145,8 +167,17 @@ function Digit({
   return (
     <View style={{ height: rowHeight, overflow: 'hidden' }}>
       <Animated.View style={{ transform: [{ translateY }] }}>
-        <Text style={charStyle}>{oldChar}</Text>
-        <Text style={charStyle}>{newChar}</Text>
+        {direction === 'down' ? (
+          <>
+            <Text style={charStyle}>{newChar}</Text>
+            <Text style={charStyle}>{oldChar}</Text>
+          </>
+        ) : (
+          <>
+            <Text style={charStyle}>{oldChar}</Text>
+            <Text style={charStyle}>{newChar}</Text>
+          </>
+        )}
       </Animated.View>
     </View>
   )

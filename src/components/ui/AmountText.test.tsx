@@ -61,6 +61,24 @@ describe('AmountText', () => {
     timingSpy.mockRestore()
   })
 
+  it('rolls up when the value increases and down when it decreases', () => {
+    const timingSpy = jest.spyOn(Animated, 'timing')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    const { rerender } = renderWithProviders(<AmountText value={100} size={40} animate />)
+    timingSpy.mockClear()
+    rerender(wrapWithProviders(<AmountText value={200} size={40} animate />, queryClient))
+    // Increase: rolls up, toValue is negative.
+    expect(timingSpy.mock.calls[0][1].toValue).toBeLessThan(0)
+
+    timingSpy.mockClear()
+    rerender(wrapWithProviders(<AmountText value={50} size={40} animate />, queryClient))
+    // Decrease: rolls down, toValue is 0 (started from a negative offset).
+    expect(timingSpy.mock.calls[0][1].toValue).toBe(0)
+
+    timingSpy.mockRestore()
+  })
+
   it('uses tabular figures so digits do not shift width', () => {
     const { getByText } = renderWithProviders(<AmountText value={999} size={20} />)
     const flat = getByText('₹999').props.style.flat()

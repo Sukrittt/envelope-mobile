@@ -172,7 +172,9 @@ export function FloatingNav({
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
 
-  const idle = tokens.cardSolid
+  // On log-expense the strip sits over the accent flood in both schemes, so
+  // the idle circles stay white there too instead of dark-mode's near-black cardSolid.
+  const idle = addActive ? '#ffffff' : tokens.cardSolid
   const idleIcon = tokens.text2
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent

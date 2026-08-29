@@ -12,7 +12,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { monthLabel, shiftMonthKey } from '@/src/lib/envelope'
+import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import type { UserProfile } from '@/src/api/account'
@@ -328,14 +328,14 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
 
   const { currentMonth, currentMonthCount, minTransactions } = status
   const goalReached = currentMonthCount >= minTransactions
-  const nextMonthName = monthLabel(shiftMonthKey(currentMonth, 1)).split(' ')[0]
+  const nextMonthAbbrev = monthAbbrev(shiftMonthKey(currentMonth, 1))
   const dots = dotTracker(currentMonthCount, minTransactions)
   const label = goalReached
-    ? `Goal reached. Your wrap unlocks ${nextMonthName} 1st`
-    : `${currentMonthCount}/${minTransactions} — unlocks ${nextMonthName}'s wrap`
+    ? `Wrap unlocks ${nextMonthAbbrev} 1`
+    : `${currentMonthCount}/${minTransactions} — unlocks ${nextMonthAbbrev} 1`
   const a11yLabel = goalReached
-    ? `${minTransactions} of ${minTransactions} transactions logged. Wrap unlocks ${nextMonthName} 1st.`
-    : `${currentMonthCount} of ${minTransactions} transactions logged. Unlocks ${nextMonthName}'s wrap.`
+    ? `${minTransactions} of ${minTransactions} transactions logged. Wrap unlocks ${nextMonthAbbrev} 1.`
+    : `${currentMonthCount} of ${minTransactions} transactions logged. Unlocks ${nextMonthAbbrev} 1.`
   const dotsColor = goalReached ? tokens.mint : tokens.text3
 
   return {

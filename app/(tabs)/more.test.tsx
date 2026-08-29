@@ -68,8 +68,8 @@ describe('More tab — Expense Wrapped row', () => {
     })
     const { getByText, getByLabelText } = renderWithProviders(<MoreScreen />)
     expect(getByText('●●●○○○○○○○')).toBeTruthy()
-    expect(getByText("3/10 — unlocks August's wrap")).toBeTruthy()
-    expect(getByLabelText("3 of 10 transactions logged. Unlocks August's wrap.")).toBeTruthy()
+    expect(getByText("3/10 — unlocks Aug 1")).toBeTruthy()
+    expect(getByLabelText("3 of 10 transactions logged. Unlocks Aug 1.")).toBeTruthy()
   })
 
   it('freezes the dots and switches to a waiting state once the goal is reached mid-month', () => {
@@ -85,8 +85,8 @@ describe('More tab — Expense Wrapped row', () => {
     })
     const { getByText, getByLabelText } = renderWithProviders(<MoreScreen />)
     expect(getByText('●●●●●●●●●●')).toBeTruthy()
-    expect(getByText('Goal reached. Your wrap unlocks August 1st')).toBeTruthy()
-    expect(getByLabelText('10 of 10 transactions logged. Wrap unlocks August 1st.')).toBeTruthy()
+    expect(getByText('Wrap unlocks Aug 1')).toBeTruthy()
+    expect(getByLabelText('10 of 10 transactions logged. Wrap unlocks Aug 1.')).toBeTruthy()
   })
 
   it('is live with the month label once a completed edition is available', () => {

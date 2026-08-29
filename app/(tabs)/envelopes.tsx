@@ -40,7 +40,7 @@ function pctArraysEqual(a: number[], b: number[]): boolean {
 const OTHER_LABEL = 'Other'
 const ARCHIVED_GROUP = 'Archived'
 const ROW_HEIGHT = 45
-const SPRING = { damping: 64, stiffness: 600 }
+const SPRING = { damping: 90, stiffness: 900 }
 
 function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string }) {
   const style = useAnimatedStyle(() => ({

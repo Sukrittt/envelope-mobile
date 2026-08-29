@@ -9,7 +9,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
 
-const SPRING = { damping: 64, stiffness: 600 }
+const SPRING = { damping: 90, stiffness: 900 }
 const TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
 
 interface Props {

@@ -33,7 +33,10 @@ export function Numpad({
 
   const keyBg = onAccent ? 'transparent' : tokens.card
   const keyBorder = onAccent ? 'transparent' : tokens.border
-  const keyColor = onAccent ? tokens.onAccent : tokens.text
+  // Log-expense's accent flood stays the same saturated orange in both
+  // schemes, so its keys stay white in both too — tokens.onAccent flips to
+  // near-black in dark mode for normal accent surfaces, which is wrong here.
+  const keyColor = onAccent ? '#ffffff' : tokens.text
 
   return (
     <View style={[styles.grid, { gap: space.md - 2 }]}>
