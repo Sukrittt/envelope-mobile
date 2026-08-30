@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -13,6 +13,7 @@ import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { TabBar } from '@/src/components/nav/TabBar'
+import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
 import { WidgetSync } from '@/src/widgets/WidgetSync'
 import { clearSnapshot } from '@/src/widgets/snapshot'
 import {
@@ -64,6 +65,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
+  // Guards which mount/unmount (tabs)'s screens as tabs are switched — a ref
+  // here (not an effect in Home itself) survives Home remounting when the
+  // user leaves and returns to the tab, so the redirect fires once per
+  // sign-in rather than once per Home mount.
+  const loggedExpenseRedirect = useRef(false)
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -86,6 +92,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     const unsubscribeLogout = accessMode.subscribeLogout(() => {
       setHasSession(false)
       queryClient.clear()
+      loggedExpenseRedirect.current = false
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
@@ -145,6 +152,17 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
     router.replace(onboarded ? '/(tabs)' : '/setup')
   }, [resolving, hasSession, onboarded, segments, authScreenMode, router])
+
+  // Logging an expense is the app's primary verb: open straight into it on
+  // launch. Fires once per sign-in (guarded by the ref, reset on logout
+  // above) — not per Home mount, since (tabs) remounts Home whenever the
+  // user switches tabs and back.
+  useEffect(() => {
+    if (resolving || !hasSession || onboarded !== true) return
+    if (loggedExpenseRedirect.current) return
+    loggedExpenseRedirect.current = true
+    router.push(LOG_EXPENSE_PATH)
+  }, [resolving, hasSession, onboarded, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.

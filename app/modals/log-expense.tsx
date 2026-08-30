@@ -59,7 +59,7 @@ function suggestCategory(item: string, words: Record<string, string>, categories
  * starts on the existing amount and backspaces from there.
  */
 export default function LogExpenseScreen() {
-  const { tokens, space, radius, type } = useTheme()
+  const { tokens, space, radius, type, scheme } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -346,7 +346,7 @@ export default function LogExpenseScreen() {
           style={[
             styles.confirm,
             {
-              backgroundColor: logSuccess ? tokens.mint : tokens.onAccent,
+              backgroundColor: logSuccess && !isEdit ? tokens.mint : tokens.onAccent,
               borderRadius: radius.full,
               paddingVertical: space.md + 2,
               opacity: !canSubmit || saving ? 0.5 : 1,
@@ -354,7 +354,9 @@ export default function LogExpenseScreen() {
           ]}
         >
           {logSuccess ? (
-            <CheckIcon color={tokens.onAccent} />
+            // Edit keeps the onAccent background, so the tick must contrast
+            // against that surface — onAccent is near-black in dark mode.
+            <CheckIcon color={scheme === 'dark' ? '#ffffff' : tokens.accentInk} />
           ) : (
             <Text style={[styles.confirmText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }]}>
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add'}

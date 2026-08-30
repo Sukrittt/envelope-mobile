@@ -168,14 +168,14 @@ export function FloatingNav({
   addActive?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, space, elevation, radius } = useTheme()
+  const { tokens, space, elevation, radius, scheme } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
 
   // On log-expense the strip sits over the accent flood in both schemes, so
   // the idle circles stay white there too instead of dark-mode's near-black cardSolid.
   const idle = addActive ? '#ffffff' : tokens.cardSolid
-  const idleIcon = tokens.text2
+  const idleIcon = addActive && scheme === 'dark' ? '#000000' : tokens.text2
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent
 
