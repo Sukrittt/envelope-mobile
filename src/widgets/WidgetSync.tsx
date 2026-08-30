@@ -15,17 +15,17 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { useTheme } from '@/src/theme/ThemeProvider'
-import { lightTokens, darkTokens } from '@/src/theme/tokens'
 import { computeEnvelopeState, currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
 import { todayIST } from '@/src/lib/date'
 import { toWidgetData } from './data'
 import { writeSnapshot } from './snapshot'
+import { variants } from './variants'
 import { EnvelopeWidget } from './EnvelopeWidget'
 import { EnvelopeBarWidget } from './EnvelopeBarWidget'
 import { EnvelopeMiniWidget } from './EnvelopeMiniWidget'
 
 export function WidgetSync() {
-  const { scheme } = useTheme()
+  const { preference } = useTheme()
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
@@ -46,29 +46,20 @@ export function WidgetSync() {
 
     void requestWidgetUpdate({
       widgetName: 'Envelope',
-      renderWidget: (info: WidgetInfo) => ({
-        light: <EnvelopeWidget {...data} tokens={lightTokens} scheme="light" width={info.width} height={info.height} />,
-        dark: <EnvelopeWidget {...data} tokens={darkTokens} scheme="dark" width={info.width} height={info.height} />,
-      }),
+      renderWidget: (info: WidgetInfo) =>
+        variants(preference, (tokens, scheme) => (
+          <EnvelopeWidget {...data} tokens={tokens} scheme={scheme} width={info.width} height={info.height} />
+        )),
     })
     void requestWidgetUpdate({
       widgetName: 'EnvelopeBar',
-      renderWidget: () => ({
-        light: <EnvelopeBarWidget {...data} tokens={lightTokens} scheme="light" />,
-        dark: <EnvelopeBarWidget {...data} tokens={darkTokens} scheme="dark" />,
-      }),
+      renderWidget: () => variants(preference, (tokens, scheme) => <EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} />),
     })
     void requestWidgetUpdate({
       widgetName: 'EnvelopeMini',
-      renderWidget: () => ({
-        light: <EnvelopeMiniWidget {...data} tokens={lightTokens} scheme="light" />,
-        dark: <EnvelopeMiniWidget {...data} tokens={darkTokens} scheme="dark" />,
-      }),
+      renderWidget: () => variants(preference, (tokens, scheme) => <EnvelopeMiniWidget {...data} tokens={tokens} scheme={scheme} />),
     })
-    // scheme isn't used in the payload (light/dark both ship every time — Android
-    // itself picks which one to show), but re-running on a theme flip keeps this
-    // consistent with every other screen re-rendering when scheme changes.
-  }, [budgetsQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, scheme])
+  }, [budgetsQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, preference])
 
   return null
 }

@@ -3,10 +3,7 @@ import { useColorScheme } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { darkTokens, lightTokens, type ThemeTokens } from './tokens'
 import { space, radius, type as type_, motion, elevation } from './scale'
-
-type ThemePreference = 'light' | 'dark' | 'system'
-
-const PREF_KEY = 'mc-theme-pref'
+import { THEME_PREF_KEY, type ThemePreference } from './pref'
 
 interface ThemeContextValue {
   scheme: 'light' | 'dark'
@@ -33,7 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // account. Clearing it threw a user who had picked Light on a dark-mode phone
   // straight into dark the moment they signed out.
   useEffect(() => {
-    SecureStore.getItemAsync(PREF_KEY).then((stored) => {
+    SecureStore.getItemAsync(THEME_PREF_KEY).then((stored) => {
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         setPreferenceState(stored)
       }
@@ -42,7 +39,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setPreference = (pref: ThemePreference) => {
     setPreferenceState(pref)
-    SecureStore.setItemAsync(PREF_KEY, pref).catch(() => {})
+    SecureStore.setItemAsync(THEME_PREF_KEY, pref).catch(() => {})
   }
 
   const scheme = preference === 'system' ? systemScheme : preference
