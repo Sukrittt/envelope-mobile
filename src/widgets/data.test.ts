@@ -1,4 +1,6 @@
 import { selectRows, selectChips, selectToday, toWidgetData, headerRightLabel, layoutFor } from './data'
+import { variants } from './variants'
+import { lightTokens, darkTokens } from '@/src/theme/tokens'
 import { computeEnvelopeState, CREDIT_CARD_CATEGORY } from '@/src/lib/envelope'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
@@ -70,6 +72,24 @@ describe('selectRows', () => {
     const food = selectRows(state).find((r) => r.name === 'Food')!
     expect(food.available).not.toContain('.')
   })
+
+  it('carries the emoji separately as icon', () => {
+    const state = stateWithSpends({ '🍔 Food': 100 })
+    const food = selectRows(state).find((r) => r.name === 'Food')!
+    expect(food.icon).toBe('🍔')
+  })
+
+  it('flags an overspent envelope', () => {
+    const state = stateWithSpends({ '🍔 Food': 1500 })
+    const food = selectRows(state).find((r) => r.name === 'Food')!
+    expect(food.overspent).toBe(true)
+  })
+
+  it('does not flag an envelope that is within budget', () => {
+    const state = stateWithSpends({ '🍔 Food': 100 })
+    const food = selectRows(state).find((r) => r.name === 'Food')!
+    expect(food.overspent).toBe(false)
+  })
 })
 
 describe('selectChips', () => {
@@ -91,7 +111,7 @@ describe('selectChips', () => {
     expect(chip.uri).toBe(`mobile://modals/log-expense?category=${encodeURIComponent('🍔 Food')}`)
   })
 
-  it('labels with the full uppercased category name, no emoji', () => {
+  it('labels with the full category name in sentence case, no emoji', () => {
     const multiWord: CategoryRow[] = [...categories, { name: '🍽️ Eating out', group: 'Living' }]
     const budgets = [
       ...categories.map((c) => budget('2026-08', c.name, c.name === 'Unbudgeted' ? '0' : '1000')),
@@ -100,7 +120,7 @@ describe('selectChips', () => {
     const expenses = [expense('2026-08-05T10:00:00.000Z', '2026-08-05', '🍽️ Eating out', '100')]
     const state = computeEnvelopeState(budgets, expenses, '2026-08', multiWord, ['Living'])
     const chip = selectChips(state).find((c) => c.category === '🍽️ Eating out')!
-    expect(chip.label).toBe('EATING OUT')
+    expect(chip.label).toBe('Eating out')
   })
 })
 
@@ -128,34 +148,67 @@ describe('headerRightLabel', () => {
   const now = Date.parse('2026-08-20T12:00:00Z')
 
   it('shows days left while the snapshot is under a day old', () => {
-    expect(headerRightLabel(11, now - 1000, now)).toBe('LEFT · 11D')
+    expect(headerRightLabel(11, now - 1000, now)).toBe('11 days left')
+  })
+
+  it('uses the singular for exactly one day left', () => {
+    expect(headerRightLabel(1, now - 1000, now)).toBe('1 day left')
   })
 
   it('switches to a staleness label once the snapshot is over a day old', () => {
     const twoDaysAgo = now - 2 * 86_400_000
-    expect(headerRightLabel(11, twoDaysAgo, now)).toBe('UPDATED 2D AGO')
+    expect(headerRightLabel(11, twoDaysAgo, now)).toBe('Updated 2 days ago')
+  })
+
+  it('uses the singular for exactly one stale day', () => {
+    const oneDayAgo = now - 1 * 86_400_000 - 1000
+    expect(headerRightLabel(11, oneDayAgo, now)).toBe('Updated 1 day ago')
   })
 })
 
 describe('layoutFor', () => {
-  it('shows the full layout at the default 4x4 size', () => {
-    expect(layoutFor(250, 250)).toEqual({ rows: 5, today: 3, buttons: 3 })
+  it('shows the full layout at the tall end of the resizable range', () => {
+    expect(layoutFor(250, 320)).toEqual({ rows: 5, today: 3, buttons: 3, actionHeight: 48 })
   })
 
-  it('drops a row and a today line in the middle band', () => {
-    expect(layoutFor(250, 220)).toEqual({ rows: 3, today: 1, buttons: 3 })
+  it('drops a row and a today line in the upper-middle band', () => {
+    expect(layoutFor(250, 270)).toEqual({ rows: 4, today: 2, buttons: 3, actionHeight: 48 })
   })
 
-  it('drops today entirely when short', () => {
-    expect(layoutFor(250, 180)).toEqual({ rows: 2, today: 0, buttons: 3 })
+  it('drops today entirely and shrinks the action row in the lower-middle band', () => {
+    expect(layoutFor(250, 220)).toEqual({ rows: 3, today: 0, buttons: 3, actionHeight: 40 })
+  })
+
+  it('drops to 2 rows when short', () => {
+    expect(layoutFor(250, 180)).toEqual({ rows: 2, today: 0, buttons: 3, actionHeight: 40 })
   })
 
   it('shows only the hero and buttons when very short', () => {
-    expect(layoutFor(250, 120)).toEqual({ rows: 0, today: 0, buttons: 3 })
+    expect(layoutFor(250, 120)).toEqual({ rows: 0, today: 0, buttons: 3, actionHeight: 40 })
   })
 
   it('drops to 2 buttons when narrow', () => {
-    expect(layoutFor(150, 250).buttons).toBe(2)
+    expect(layoutFor(150, 320).buttons).toBe(2)
+  })
+})
+
+describe('variants', () => {
+  it('forces both keys to light tokens for an explicit light preference', () => {
+    const result = variants('light', (tokens, scheme) => ({ tokens, scheme }))
+    expect(result.light).toEqual({ tokens: lightTokens, scheme: 'light' })
+    expect(result.dark).toEqual({ tokens: lightTokens, scheme: 'light' })
+  })
+
+  it('forces both keys to dark tokens for an explicit dark preference', () => {
+    const result = variants('dark', (tokens, scheme) => ({ tokens, scheme }))
+    expect(result.light).toEqual({ tokens: darkTokens, scheme: 'dark' })
+    expect(result.dark).toEqual({ tokens: darkTokens, scheme: 'dark' })
+  })
+
+  it('lets each key differ for the system preference', () => {
+    const result = variants('system', (tokens, scheme) => ({ tokens, scheme }))
+    expect(result.light).toEqual({ tokens: lightTokens, scheme: 'light' })
+    expect(result.dark).toEqual({ tokens: darkTokens, scheme: 'dark' })
   })
 })
 

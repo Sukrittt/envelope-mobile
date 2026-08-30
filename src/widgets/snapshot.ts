@@ -3,9 +3,22 @@
 // data.ts (pure) and WidgetSync.tsx (react-query) so the headless task can
 // import just this, without pulling in react-query.
 import * as SecureStore from 'expo-secure-store'
-import type { WidgetData } from './data'
+import type { WidgetData, WidgetRow } from './data'
 
 const SNAPSHOT_KEY = 'mc-widget'
+
+/** A row written by an older app version won't have `icon`/`overspent` —
+ *  the headless task can run against yesterday's snapshot before the app
+ *  ever reopens to overwrite it (e.g. right after an app update). */
+function backfillRow(r: Partial<WidgetRow>): WidgetRow {
+  return {
+    icon: r.icon ?? '',
+    name: r.name ?? '',
+    pct: r.pct ?? 0,
+    available: r.available ?? '₹0',
+    overspent: r.overspent ?? false,
+  }
+}
 
 export function writeSnapshot(data: WidgetData): Promise<void> {
   return SecureStore.setItemAsync(SNAPSHOT_KEY, JSON.stringify(data)).catch(() => {})
@@ -24,7 +37,7 @@ export async function readSnapshot(): Promise<WidgetData | null> {
       totalLeft: parsed.totalLeft ?? '₹0',
       daysLeft: parsed.daysLeft ?? 0,
       updatedAt: parsed.updatedAt ?? 0,
-      rows: parsed.rows ?? [],
+      rows: (parsed.rows ?? []).map(backfillRow),
       chips: parsed.chips ?? [],
       today: parsed.today ?? [],
     }

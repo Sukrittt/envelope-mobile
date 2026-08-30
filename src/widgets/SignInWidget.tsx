@@ -4,7 +4,7 @@
 import { TextWidget } from 'react-native-android-widget'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
-import { GlassFrame, color } from './glass'
+import { WidgetSurface, color } from './surface'
 
 export function SignInWidget({
   tokens,
@@ -16,7 +16,7 @@ export function SignInWidget({
   compact?: boolean
 }) {
   return (
-    <GlassFrame tokens={tokens} scheme={scheme} style={{ alignItems: 'center', justifyContent: 'center' }}>
+    <WidgetSurface tokens={tokens} scheme={scheme} style={{ padding: 16, alignItems: 'center', justifyContent: 'center' }}>
       <TextWidget
         text="Envelope"
         style={{ fontSize: compact ? 13 : 15, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text) }}
@@ -27,6 +27,6 @@ export function SignInWidget({
           style={{ fontSize: 12, fontFamily: fontFamily.bodyMedium, color: color(tokens.text3), marginTop: 4, textAlign: 'center' }}
         />
       )}
-    </GlassFrame>
+    </WidgetSurface>
   )
 }

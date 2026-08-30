@@ -8,9 +8,11 @@ import type { Envelope, EnvelopeState } from '@/src/lib/envelope'
 import type { ExpenseRow } from '@/src/types'
 
 export interface WidgetRow {
+  icon: string
   name: string
   pct: number
   available: string
+  overspent: boolean
 }
 
 export interface WidgetChip {
@@ -47,15 +49,20 @@ export function selectRows(state: EnvelopeState): WidgetRow[] {
     .filter(isReal)
     .sort((a, b) => b.spentPct - a.spentPct)
     .slice(0, ROW_COUNT)
-    .map((e) => ({
-      name: splitEmoji(e.category).text,
-      pct: e.spentPct,
-      available: formatINR(Math.round(e.available)),
-    }))
+    .map((e) => {
+      const { icon, text } = splitEmoji(e.category)
+      return {
+        icon,
+        name: text,
+        pct: e.spentPct,
+        available: formatINR(Math.round(e.available)),
+        overspent: e.isOverspent,
+      }
+    })
 }
 
 /** Most-used categories this month — the ones worth a one-tap shortcut.
- *  `label` is the button text: full category name, uppercased, emoji-free —
+ *  `label` is the button text: full category name, sentence case, emoji-free —
  *  the native `truncate="END"` handles anything still too long to fit. */
 export function selectChips(state: EnvelopeState): WidgetChip[] {
   return [...state.envelopes]
@@ -66,7 +73,7 @@ export function selectChips(state: EnvelopeState): WidgetChip[] {
       const { text } = splitEmoji(e.category)
       return {
         category: e.category,
-        label: text.toUpperCase(),
+        label: text,
         uri: `mobile://modals/log-expense?category=${encodeURIComponent(e.category)}`,
       }
     })
@@ -87,41 +94,58 @@ export function selectToday(expenses: ExpenseRow[], todayDate: string): WidgetTo
 
 const DAY_MS = 86_400_000
 
-/** "LEFT · Nd" while the snapshot is fresh; once the app hasn't run in over a
- *  day, flip wholesale to how stale the numbers are rather than let a
- *  silently-frozen snapshot pass as live. */
+/** "N days left" while the snapshot is fresh, matching Home's "12 days left";
+ *  once the app hasn't run in over a day, flip wholesale to how stale the
+ *  numbers are rather than let a silently-frozen snapshot pass as live. */
 export function headerRightLabel(daysLeft: number, updatedAt: number, now: number = Date.now()): string {
   const ageMs = now - updatedAt
-  if (ageMs < DAY_MS) return `LEFT · ${daysLeft}D`
-  return `UPDATED ${Math.floor(ageMs / DAY_MS)}D AGO`
+  if (ageMs < DAY_MS) return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
+  const staleDays = Math.floor(ageMs / DAY_MS)
+  return staleDays === 1 ? 'Updated 1 day ago' : `Updated ${staleDays} days ago`
 }
 
 export interface WidgetLayout {
   rows: number
   today: number
   buttons: number
+  actionHeight: number
 }
 
 /** Breakpoints for the large (resizable) widget, driven by the dp size Android
  *  actually hands the renderer — not device heuristics, since that's all we
- *  can observe. Bar/Mini don't resize, so they don't call this. */
+ *  can observe. Bar/Mini don't resize, so they don't call this.
+ *
+ *  Row height grew when rows picked up an icon + colored amount + a real 5dp
+ *  bar (was a hairline), so these bands sit higher than before. 48dp is
+ *  Material's touch-target minimum for the action row; 40dp at the two
+ *  shortest bands is a deliberate concession — the widget itself is only
+ *  165-210dp tall there, and 48 would eat a quarter of it. */
 export function layoutFor(width: number, height: number): WidgetLayout {
   let rows: number
   let today: number
-  if (height >= 250) {
+  let actionHeight: number
+  if (height >= 320) {
     rows = 5
     today = 3
-  } else if (height >= 200) {
+    actionHeight = 48
+  } else if (height >= 260) {
+    rows = 4
+    today = 2
+    actionHeight = 48
+  } else if (height >= 210) {
     rows = 3
-    today = 1
-  } else if (height >= 160) {
+    today = 0
+    actionHeight = 40
+  } else if (height >= 165) {
     rows = 2
     today = 0
+    actionHeight = 40
   } else {
     rows = 0
     today = 0
+    actionHeight = 40
   }
-  return { rows, today, buttons: width < 200 ? 2 : 3 }
+  return { rows, today, buttons: width < 200 ? 2 : 3, actionHeight }
 }
 
 export function toWidgetData(state: EnvelopeState, expenses: ExpenseRow[], daysLeft: number, todayDate: string): WidgetData {
