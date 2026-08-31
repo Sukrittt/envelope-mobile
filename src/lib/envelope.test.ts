@@ -85,6 +85,13 @@ describe('computeEnvelopeState', () => {
     expect(overState.isOverAssigned).toBe(true)
   })
 
+  it('does not carry the credit-card payment envelope forward into a new month', () => {
+    const budgets = [budget('2026-07', CREDIT_CARD_CATEGORY, '432.25')]
+    const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])
+    const cc = state.envelopes.find((e) => e.category === CREDIT_CARD_CATEGORY)!
+    expect(cc.assigned).toBe(0)
+  })
+
   it('excludes the credit-card category from totals', () => {
     const budgets = [budget('2026-08', CREDIT_CARD_CATEGORY, '2000'), budget('2026-08', 'Rent', '1000')]
     const expenses = [expense('2026-08-01', CREDIT_CARD_CATEGORY, '500')]
