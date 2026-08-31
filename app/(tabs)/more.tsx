@@ -78,7 +78,6 @@ export default function MoreScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeadRow}>
               <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>FEATURES</Text>
-              <Text style={[styles.sectionMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>4 live</Text>
             </View>
             <View style={styles.featureGrid}>
               <FeatureCard
@@ -385,7 +384,6 @@ const styles = StyleSheet.create({
   section: { gap: 10 },
   sectionHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 4 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
-  sectionMeta: { fontSize: 11 },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: { width: '47.5%', gap: 8, padding: 16, borderWidth: 1, borderRadius: 20 },
   featureCardDisabled: { opacity: 0.5 },
