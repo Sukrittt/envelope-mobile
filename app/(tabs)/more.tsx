@@ -3,7 +3,7 @@ import { View, Text, Image, Pressable, Switch, Linking, Platform, StyleSheet, Al
 import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
-import { Gift, Brain, TrendingUp, Plus, Lock, Database, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -78,7 +78,7 @@ export default function MoreScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeadRow}>
               <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>FEATURES</Text>
-              <Text style={[styles.sectionMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>4 of 5 live</Text>
+              <Text style={[styles.sectionMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>4 live</Text>
             </View>
             <View style={styles.featureGrid}>
               <FeatureCard
@@ -114,13 +114,7 @@ export default function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={() => router.push('/modals/scan-bill')}
               />
-              <View style={[styles.featureCard, styles.featurePlaceholder, { borderColor: tokens.borderStrong }]}>
-                <View style={[styles.featureIcon, { backgroundColor: tokens.inputBg }]}>
-                  <Icon icon={Plus} size={18} color={tokens.text3} />
-                </View>
-                <Text style={[styles.featureLabel, { color: tokens.text2 }]}>Next feature</Text>
-                <Text style={[styles.featureBlurb, { color: tokens.text3 }]}>drop a card here</Text>
-              </View>
+
             </View>
           </View>
 
@@ -394,7 +388,6 @@ const styles = StyleSheet.create({
   sectionMeta: { fontSize: 11 },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: { width: '47.5%', gap: 8, padding: 16, borderWidth: 1, borderRadius: 20 },
-  featurePlaceholder: { borderStyle: 'dashed' },
   featureCardDisabled: { opacity: 0.5 },
   featureIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureLabel: { fontSize: 14 },
