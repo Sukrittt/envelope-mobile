@@ -37,22 +37,19 @@ describe('currentMonthKey / prevMonthKey', () => {
 describe('computeEnvelopeState', () => {
   const categories: CategoryRow[] = [{ name: 'Rent', group: 'Home' }]
 
-  it('carries forward unspent rollover, floored at 0', () => {
+  it('does not carry unspent money into the next month', () => {
     const budgets = [budget('2026-07', 'Rent', '1000'), budget('2026-08', 'Rent', '1000')]
     const expenses = [expense('2026-07-05', 'Rent', '400')]
     const state = computeEnvelopeState(budgets, expenses, '2026-08', categories, ['Home'])
     const rent = state.envelopes.find((e) => e.category === 'Rent')!
-    // prev assigned(1000) + prev rolledOver(0) - prevSpent(400) = 600
-    expect(rent.rolledOver).toBe(600)
-    expect(rent.available).toBe(1000 + 600 - 0)
+    expect(rent.rolledOver).toBe(0)
+    expect(rent.available).toBe(1000)
   })
 
-  it('floors rollover at 0 when the previous month overspent', () => {
-    const budgets = [budget('2026-07', 'Rent', '1000'), budget('2026-08', 'Rent', '1000')]
-    const expenses = [expense('2026-07-05', 'Rent', '1500')]
-    const state = computeEnvelopeState(budgets, expenses, '2026-08', categories, ['Home'])
-    const rent = state.envelopes.find((e) => e.category === 'Rent')!
-    expect(rent.rolledOver).toBe(0)
+  it('carries forward the last month with an income row when the current month has none', () => {
+    const budgets = [budget('2026-07', '__income__', '5000'), budget('2026-08', 'Rent', '1000')]
+    const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])
+    expect(state.income).toBe(5000)
   })
 
   it('computes readyToAssign and isOverAssigned', () => {

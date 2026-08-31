@@ -4,7 +4,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { currentMonthKey } from '@/src/lib/envelope'
 import HomeScreen from './index'
+
+const MONTH = currentMonthKey()
 
 // Bypasses react-query entirely so the test controls exactly when "fresh
 // data" becomes visible to Home — mirroring what an invalidateQueries
@@ -36,8 +39,8 @@ jest.mock('expo-router', () => ({
 describe('HomeScreen — Ready to Assign odometer', () => {
   beforeEach(() => {
     mockBudgets = [
-      { month: '2026-08', category: '__income__', assigned: '20000', rolled_over: '0' },
-      { month: '2026-08', category: 'Food', assigned: '5000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
     ]
   })
 

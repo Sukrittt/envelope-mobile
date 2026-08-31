@@ -6,6 +6,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen, { ENVELOPE_DELAY } from './expense-added'
 import { FILL_DELAY, FILL_DURATION } from '@/src/components/envelope/ProgressBar'
+import { currentMonthKey } from '@/src/lib/envelope'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -45,8 +46,10 @@ jest.mock('expo-router', () => ({
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 // computeEnvelopeState only counts expenses in the *current* month, so the
-// fixture has to move with the clock rather than pin a date.
-const MONTH = new Date().toISOString().slice(0, 7)
+// fixture has to move with the clock rather than pin a date — using the same
+// (local-time) month key the app itself computes, not a UTC one, or the two
+// drift apart for part of each day.
+const MONTH = currentMonthKey()
 const TODAY = `${MONTH}-15`
 const MONTH_LABEL = MONTHS[Number(MONTH.slice(5)) - 1]
 const YEAR2 = MONTH.slice(2, 4)
