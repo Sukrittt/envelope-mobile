@@ -92,7 +92,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:(auth)/welcome')).toBeTruthy())
+    await waitFor(() => expect(getByTestId('screen:(auth)/welcome')).toBeTruthy(), { timeout: 3000 })
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:(tabs)')).toBeNull()
   })
@@ -112,7 +112,9 @@ describe('RootLayout', () => {
       resolveUser({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
     })
 
-    expect(getByTestId('screen:(tabs)')).toBeTruthy()
+    // `resolving` also gates on MIN_SPLASH_MS's real 2s timer — the default
+    // waitFor timeout (1000ms) isn't long enough to outlast it.
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:setup')).toBeNull()
   })
@@ -124,7 +126,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
+    await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy(), { timeout: 3000 })
     expect(queryByTestId('screen:(tabs)')).toBeNull()
   })
 
@@ -139,7 +141,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'))
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'), { timeout: 3000 })
   })
 
   it('sends a signed-in user who has not onboarded from an auth screen to setup', async () => {
@@ -150,7 +152,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'), { timeout: 3000 })
   })
 
   it('leaves a change-email flow alone', async () => {
@@ -162,7 +164,7 @@ describe('RootLayout', () => {
 
     const { getByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
     expect(mockReplace).not.toHaveBeenCalled()
   })
 })
