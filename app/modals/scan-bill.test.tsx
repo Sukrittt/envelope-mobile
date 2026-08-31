@@ -39,8 +39,9 @@ jest.mock('expo-image-picker', () => ({
 
 const CATEGORIES = [{ name: 'Groceries', group: 'Essentials' }]
 
-// total (900) exceeds the item sum (860) by 40 — a delivery fee reconcile
-// should surface as its own "Fees & taxes" row rather than silently vanishing.
+// total (900) exceeds the item sum (860) by 40 — a delivery-fee gap that's
+// tracked separately from the items now and split across a people-count
+// (default 2), rather than folded into the item list as an extra row.
 const SCAN_RESULT = {
   merchant: 'Blinkit',
   total: 900,
@@ -61,12 +62,21 @@ async function flushCategories() {
   }
 }
 
+async function scanToReview(getByText: (t: string) => unknown) {
+  fireEvent.press(getByText('Choose a screenshot') as never)
+  await waitFor(() => expect(scanBill).toHaveBeenCalled())
+}
+
 beforeEach(() => {
   jest.clearAllMocks()
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   mockRequestLibrary.mockResolvedValue({ granted: true })
   mockRequestCamera.mockResolvedValue({ granted: true })
+  mockLaunchLibrary.mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
+  })
 })
 
 describe('ScanBillScreen', () => {
@@ -78,11 +88,7 @@ describe('ScanBillScreen', () => {
     await waitFor(() => expect(mockBack).toHaveBeenCalled())
   })
 
-  it('scans, reviews, and confirms at the computed split share', async () => {
-    mockLaunchLibrary.mockResolvedValue({
-      canceled: false,
-      assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
-    })
+  it('scans, reviews the fee-adjusted share, and confirms through the breakdown screen', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
     ;(addExpense as jest.Mock).mockResolvedValue({ id: 'e1', timestamp: '2026-08-29T10:00:00' })
 
@@ -91,9 +97,8 @@ describe('ScanBillScreen', () => {
     // Categories load asynchronously — flush that before picking, or the
     // screen would (correctly) refuse to scan with an empty category list.
     await flushCategories()
-    fireEvent.press(getByText('Choose a screenshot'))
+    await scanToReview(getByText)
 
-    await waitFor(() => expect(scanBill).toHaveBeenCalled())
     // react-query invokes the mutationFn with a second (client/meta) argument —
     // only the first is ours to assert on.
     expect((scanBill as jest.Mock).mock.calls[0][0]).toEqual({
@@ -102,32 +107,75 @@ describe('ScanBillScreen', () => {
       categories: ['Groceries'],
     })
 
-    // Everything lands "mine" by default, including the reconciled fees row,
-    // so my share is the full printed total: 60 + 800 + 40 = 900.
-    await waitFor(() => expect(getByText('₹900')).toBeTruthy())
+    // Items default "mine" (60+800=860); the 40 fee gap defaults to a 2-person
+    // split (20), so my share is 880, not the full 900.
+    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+    expect(getByText('of ₹900 bill')).toBeTruthy()
     expect(getByDisplayValue('Blinkit')).toBeTruthy()
 
-    fireEvent.press(getByText('Confirm'))
+    fireEvent.press(getByText('Review ₹880 →'))
+
+    await waitFor(() => expect(getByText('Log ₹880 to Groceries')).toBeTruthy())
+    fireEvent.press(getByText('Log ₹880 to Groceries'))
 
     await waitFor(() =>
       expect(addExpense).toHaveBeenCalledWith({
         item: 'Blinkit',
-        amount_inr: '900',
+        amount_inr: '880',
         category: 'Groceries',
         date: '2026-08-29',
         payment_method: 'bank',
       }),
     )
     expect(mockReplace).toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: '/modals/expense-added', params: expect.objectContaining({ amount: '900' }) }),
+      expect.objectContaining({ pathname: '/modals/expense-added', params: expect.objectContaining({ amount: '880' }) }),
     )
   })
 
+  it('recomputes the share when the fee people-count changes', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    const { getByText } = renderWithProviders(<ScanBillScreen />)
+
+    await flushCategories()
+    await scanToReview(getByText)
+    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+
+    // 40 fee split 3 ways = 13.33, on top of the unchanged 860 of items.
+    fireEvent.press(getByText('3'))
+    await waitFor(() => expect(getByText('₹873.33')).toBeTruthy())
+  })
+
+  it('applies a bulk split to multiple selected items', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    const { getByText } = renderWithProviders(<ScanBillScreen />)
+
+    await flushCategories()
+    await scanToReview(getByText)
+    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+
+    fireEvent.press(getByText('Select'))
+    fireEvent.press(getByText('Milk'))
+    fireEvent.press(getByText('Pizza'))
+    fireEvent.press(getByText('÷2'))
+
+    // Both items now halved: (60/2 + 800/2) + the unchanged 20 fee share = 450.
+    await waitFor(() => expect(getByText('₹450')).toBeTruthy())
+  })
+
+  it('filters items by search query', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    const { getByText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+
+    await flushCategories()
+    await scanToReview(getByText)
+    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+
+    fireEvent.changeText(getByPlaceholderText('Search items'), 'pizza')
+    expect(queryByDisplayValue('Milk')).toBeNull()
+    expect(queryByDisplayValue('Pizza')).toBeTruthy()
+  })
+
   it('shows the manual escape hatch when the scan fails', async () => {
-    mockLaunchLibrary.mockResolvedValue({
-      canceled: false,
-      assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
-    })
     ;(scanBill as jest.Mock).mockRejectedValue(new Error('bill scan failed: 502'))
 
     const { getByText } = renderWithProviders(<ScanBillScreen />)

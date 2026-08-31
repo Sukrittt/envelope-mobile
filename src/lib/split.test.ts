@@ -1,4 +1,4 @@
-import { computeShare, reconcile, type ScanItem } from './split'
+import { computeShare, feeDiff, groupByDivisor, type ScanItem } from './split'
 
 describe('computeShare', () => {
   it('counts a "mine" item (divisor 1) in full', () => {
@@ -35,24 +35,54 @@ describe('computeShare', () => {
   })
 })
 
-describe('reconcile', () => {
-  it('appends a Fees & taxes row for the delivery-fee gap', () => {
-    const items = [{ name: 'Milk', price: 60 }, { name: 'Bread', price: 40 }]
-    expect(reconcile(120, items)).toEqual([...items, { name: 'Fees & taxes', price: 20 }])
+describe('feeDiff', () => {
+  it('returns the delivery-fee gap between items and the printed total', () => {
+    const items = [{ price: 60 }, { price: 40 }]
+    expect(feeDiff(120, items)).toBe(20)
   })
 
-  it('is a no-op when items already sum to the total', () => {
-    const items = [{ name: 'Milk', price: 60 }]
-    expect(reconcile(60, items)).toEqual(items)
+  it('is 0 when items already sum to the total', () => {
+    expect(feeDiff(60, [{ price: 60 }])).toBe(0)
   })
 
-  it('is a no-op for sub-paisa float noise', () => {
-    const items = [{ name: 'Milk', price: 33.33 }, { name: 'Bread', price: 33.33 }, { name: 'Eggs', price: 33.34 }]
-    expect(reconcile(100, items)).toEqual(items)
+  it('is 0 for sub-paisa float noise', () => {
+    const items = [{ price: 33.33 }, { price: 33.33 }, { price: 33.34 }]
+    expect(feeDiff(100, items)).toBe(0)
   })
 
-  it('appends a negative row when the total is less than the item sum', () => {
-    const items = [{ name: 'Milk', price: 60 }]
-    expect(reconcile(50, items)).toEqual([...items, { name: 'Fees & taxes', price: -10 }])
+  it('returns a negative gap when the total is less than the item sum (a discount)', () => {
+    expect(feeDiff(50, [{ price: 60 }])).toBe(-10)
+  })
+})
+
+describe('groupByDivisor', () => {
+  it('groups mixed divisors ascending, each with count/gross/share', () => {
+    const items: ScanItem[] = [
+      { name: 'Milk', price: 60, divisor: 1 },
+      { name: 'Bread', price: 40, divisor: 1 },
+      { name: 'Pizza', price: 800, divisor: 2 },
+    ]
+    expect(groupByDivisor(items)).toEqual([
+      { divisor: 1, count: 2, gross: 100, share: 100 },
+      { divisor: 2, count: 1, gross: 800, share: 400 },
+    ])
+  })
+
+  it('excludes skipped (null-divisor) items', () => {
+    const items: ScanItem[] = [
+      { name: 'Milk', price: 60, divisor: 1 },
+      { name: 'Detergent', price: 380, divisor: null },
+    ]
+    expect(groupByDivisor(items)).toEqual([{ divisor: 1, count: 1, gross: 60, share: 60 }])
+  })
+
+  it('returns an empty array for an empty or all-skipped list', () => {
+    expect(groupByDivisor([])).toEqual([])
+    expect(groupByDivisor([{ name: 'Detergent', price: 380, divisor: null }])).toEqual([])
+  })
+
+  it('rounds share to 2dp', () => {
+    const items: ScanItem[] = [{ name: 'Snacks', price: 100, divisor: 3 }]
+    expect(groupByDivisor(items)).toEqual([{ divisor: 3, count: 1, gross: 100, share: 33.33 }])
   })
 })
