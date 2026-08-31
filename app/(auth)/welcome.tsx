@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react'
-import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, View, Text, Pressable, StyleSheet, Image } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Mail } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useSignIn } from '@/src/api/useSignIn'
 import { AuthBackdrop } from '@/src/components/auth/AuthBackdrop'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
-import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -41,7 +39,11 @@ export default function WelcomeScreen() {
         <View style={styles.heroWrap}>
           <View style={styles.hero}>
             <View style={[styles.iconChip, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]}>
-              <Icon icon={Mail} size={28} color={tokens.onAccent} />
+              <Image
+                source={require('@/assets/icon.png')}
+                style={styles.iconImage}
+                resizeMode="contain"
+              />
             </View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Every rupee{'\n'}in an envelope.
@@ -114,6 +116,7 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     elevation: 10,
   },
+  iconImage: { width: 38, height: 38, borderRadius: 12 },
   title: { fontSize: 34, lineHeight: 38, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, lineHeight: 22, maxWidth: 300 },
   error: { fontSize: 13, marginBottom: 10, textAlign: 'center' },
