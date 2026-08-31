@@ -12,7 +12,14 @@ import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudget
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
-import { computeEnvelopeState, currentMonthKey, daysLeftInMonth, monthLabel, type Envelope } from '@/src/lib/envelope'
+import {
+  computeEnvelopeState,
+  currentMonthKey,
+  prevMonthKey,
+  daysLeftInMonth,
+  monthLabel,
+  type Envelope,
+} from '@/src/lib/envelope'
 import { formatCurrency } from '@/src/lib/format'
 import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -63,6 +70,13 @@ export default function HomeScreen() {
     [budgets, expenses, month, categories, groups],
   )
 
+  // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
+  // one-time heads-up on what was left unspent overall, not a running balance.
+  const prevMonthLeftover = useMemo(() => {
+    const prevState = computeEnvelopeState(budgets, expenses, prevMonthKey(month), categories, groups)
+    return prevState.income - prevState.totalSpent
+  }, [budgets, expenses, month, categories, groups])
+
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
   // is still covering Home — a pushed route blurs it (isFocused false), a
@@ -110,8 +124,7 @@ export default function HomeScreen() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
-  const rolloverTotal = envelopeState.envelopes.reduce((s, e) => s + (e.rolledOver || 0), 0)
-  const showRolloverBanner = !rolloverDismissed && rolloverTotal > 0
+  const showRolloverBanner = !rolloverDismissed && prevMonthLeftover > 0
 
   async function handleEditAmount(category: string, newAssigned: number) {
     const exists = budgets.some((b) => b.month === month && b.category === category)
@@ -184,13 +197,16 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {/* TODO: also surface last month's leftover in a dedicated Insights
+            section — this banner is just the one-time heads-up, not a
+            lasting record once it's dismissed. */}
         {showRolloverBanner && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-              {formatCurrency(rolloverTotal, hideAmounts)} rolled over from last month across your envelopes.
+              {formatCurrency(prevMonthLeftover, hideAmounts)} left over from last month.
             </Text>
             <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Got it</Text>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
         )}
