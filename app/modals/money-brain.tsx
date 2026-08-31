@@ -28,6 +28,7 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
+import { PopIn } from '@/src/components/shared/PopIn'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 
 const CHAT_PHRASES = [
@@ -38,6 +39,13 @@ const CHAT_PHRASES = [
   'Putting your answer together…',
   'Looking at your spending…',
 ]
+
+// Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
+// for the same shared-value-driven pattern and why `entering` isn't used here.
+const MOUNT_START_DELAY_MS = 100
+const BLOCK_STAGGER_MS = 90
+const ITEM_STAGGER_MS = 45
+const ITEM_STAGGER_CAP_INDEX = 6
 
 export default function MoneyBrainModal() {
   const { tokens } = useTheme()
@@ -79,6 +87,15 @@ export default function MoneyBrainModal() {
   const [sending, setSending] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<ScrollView>(null)
+
+  // True until the async brief load first finishes — gates the reveal to
+  // genuinely-first content, not refetches or later re-renders of this same
+  // mounted instance. A ref, not state: nothing needs a re-render off this flip.
+  const revealedRef = useRef(false)
+  const playReveal = !revealedRef.current
+  useEffect(() => {
+    if (!briefQ.isLoading) revealedRef.current = true
+  }, [briefQ.isLoading])
 
   const [historyQueryText, setHistoryQueryText] = useState('')
   const [historyDebouncedQuery, setHistoryDebouncedQuery] = useState('')
@@ -255,7 +272,7 @@ export default function MoneyBrainModal() {
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {!(messages.length === 0 && briefQ.isLoading) && (
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <PopIn play={playReveal} delay={MOUNT_START_DELAY_MS} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardLabel, { color: tokens.text2 }]}>THIS MONTH SO FAR</Text>
           <Text style={[styles.cardValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
             {formatCurrency(envelopeState.totalSpent, hideAmounts)} of{' '}
@@ -282,22 +299,27 @@ export default function MoneyBrainModal() {
               {brief?.narrative}
             </Text>
           )}
-        </View>
+        </PopIn>
         )}
 
         {brief && (
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             {brief.cards.map((c, i) => (
-              <InsightCard
+              <PopIn
                 key={i}
-                icon={c.icon}
-                title={c.title}
-                subtitle={c.subtitle}
-                valueLabel={c.valueLabel}
-                amount={c.amount}
-                tone={c.tone}
-                hideAmounts={hideAmounts}
-              />
+                play={playReveal}
+                delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
+              >
+                <InsightCard
+                  icon={c.icon}
+                  title={c.title}
+                  subtitle={c.subtitle}
+                  valueLabel={c.valueLabel}
+                  amount={c.amount}
+                  tone={c.tone}
+                  hideAmounts={hideAmounts}
+                />
+              </PopIn>
             ))}
           </View>
         )}
@@ -306,17 +328,22 @@ export default function MoneyBrainModal() {
           <View style={{ gap: 8 }}>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ASK ANYTHING</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {brief.questions.map((q) => (
-                <Pressable
+              {brief.questions.map((q, i) => (
+                <PopIn
                   key={q}
-                  onPress={() => send(q)}
-                  disabled={sending}
-                  style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border, opacity: sending ? 0.5 : 1 }]}
+                  play={playReveal}
+                  delay={MOUNT_START_DELAY_MS + 2 * BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
                 >
-                  <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                    {q}
-                  </Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() => send(q)}
+                    disabled={sending}
+                    style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border, opacity: sending ? 0.5 : 1 }]}
+                  >
+                    <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+                      {q}
+                    </Text>
+                  </Pressable>
+                </PopIn>
               ))}
             </ScrollView>
           </View>
