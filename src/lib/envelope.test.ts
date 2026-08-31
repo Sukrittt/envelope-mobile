@@ -52,6 +52,21 @@ describe('computeEnvelopeState', () => {
     expect(state.income).toBe(5000)
   })
 
+  it('carries a category\'s last assigned amount into a month with no row of its own', () => {
+    const budgets = [budget('2026-07', 'Rent', '9000')]
+    const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])
+    const rent = state.envelopes.find((e) => e.category === 'Rent')!
+    expect(rent.assigned).toBe(9000)
+    expect(rent.available).toBe(9000)
+  })
+
+  it('an explicit row for this month, even assigned 0, overrides the carried amount', () => {
+    const budgets = [budget('2026-07', 'Rent', '9000'), budget('2026-08', 'Rent', '0')]
+    const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])
+    const rent = state.envelopes.find((e) => e.category === 'Rent')!
+    expect(rent.assigned).toBe(0)
+  })
+
   it('computes readyToAssign and isOverAssigned', () => {
     const budgets = [
       budget('2026-08', '__income__', '5000'),

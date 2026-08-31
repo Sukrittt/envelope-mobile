@@ -121,13 +121,25 @@ export function computeEnvelopeState(
   const monthBudgets = budgets.filter((b) => b.month === currentMonth)
   const prevMonthBudgets = budgets.filter((b) => b.month < currentMonth)
 
-  const incomeRows = budgets.filter((b) => b.category === INCOME_CATEGORY)
-  // No income entered yet this month (no "start new month" flow exists) — carry
-  // forward the most recent prior month's income until the user changes it.
-  const incomeRow =
-    incomeRows.find((b) => b.month === currentMonth) ??
-    [...incomeRows].filter((b) => b.month < currentMonth).sort((a, b) => b.month.localeCompare(a.month))[0]
-  const income = incomeRow?.assigned ?? 0
+  const budgetsByCategory = new Map<string, BudgetNum[]>()
+  for (const b of budgets) {
+    const arr = budgetsByCategory.get(b.category) ?? []
+    arr.push(b)
+    budgetsByCategory.set(b.category, arr)
+  }
+  // No "start new month" flow exists — a category (income included) with no
+  // row yet this month carries forward the most recent prior month's assigned
+  // amount, until the user changes it. An explicit row for this month (even
+  // assigned: 0) always wins over the carried value.
+  function carriedAssigned(category: string): number {
+    const rows = budgetsByCategory.get(category) ?? []
+    const curr = rows.find((b) => b.month === currentMonth)
+    if (curr) return curr.assigned
+    const prior = [...rows].filter((b) => b.month < currentMonth).sort((a, b) => b.month.localeCompare(a.month))[0]
+    return prior?.assigned ?? 0
+  }
+
+  const income = carriedAssigned(INCOME_CATEGORY)
 
   const monthSpending = monthSpendingByCategory(expenses, currentMonth)
   const lastSpentByCat = lastSpentByCategory(expenses)
@@ -148,10 +160,8 @@ export function computeEnvelopeState(
   let totalSpent = 0
 
   for (const category of allCategories) {
-    const curr = monthBudgets.find((b) => b.category === category)
-
     const isCC = category === CREDIT_CARD_CATEGORY
-    const assigned = curr?.assigned ?? 0
+    const assigned = carriedAssigned(category)
     // Clean slate every month: unspent money does not carry forward. Prior
     // months' own assigned/spent stay untouched in their own rows.
     const computedRollover = 0
