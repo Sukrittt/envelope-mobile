@@ -23,6 +23,7 @@ export function AmountText({
   animate = false,
   style,
   rawText,
+  id,
 }: {
   value: number
   size: number
@@ -35,6 +36,12 @@ export function AmountText({
    * trailing "." or trailing zero the user just typed. Ignored when amounts
    * are hidden. */
   rawText?: string
+  /** Seeds the odometer's "previous value" from a module-level cache instead
+   * of the current value, keyed by this id — needed only by instances that
+   * can remount between an old and new value (e.g. Home's Ready to Assign,
+   * which remounts on tab blur/focus) so the roll survives the remount. Omit
+   * for instances that stay mounted across the change. */
+  id?: string
 }) {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
@@ -56,33 +63,43 @@ export function AmountText({
     )
   }
 
-  return <Odometer text={text} value={value} size={size} textStyle={textStyle} />
+  return <Odometer text={text} value={value} size={size} textStyle={textStyle} id={id} />
 }
+
+// Survives a remount of the Odometer instance that owns a given id, so a
+// screen that gets torn down and rebuilt between the old and new value (e.g.
+// Home on tab blur/focus) still has a real "previous" to diff against instead
+// of seeding from the already-updated value.
+const lastSeen = new Map<string, { text: string; value: number }>()
 
 function Odometer({
   text,
   value,
   size,
   textStyle,
+  id,
 }: {
   text: string
   value: number
   size: number
   textStyle: StyleProp<TextStyle>
+  id?: string
 }) {
   // usePrevious: during this render prevRef still holds the previous string/value, so
   // each slot can diff old vs new before it is overwritten.
-  const prevRef = useRef(text)
+  const seed = id ? lastSeen.get(id) : undefined
+  const prevRef = useRef(seed?.text ?? text)
   const prev = prevRef.current
   // Direction comes from the overall value, not a per-character diff — a
   // single digit going down (19 -> 20, units 9 -> 0) doesn't mean the
   // number decreased.
-  const prevValueRef = useRef(value)
+  const prevValueRef = useRef(seed?.value ?? value)
   const direction: 'up' | 'down' = value < prevValueRef.current ? 'down' : 'up'
   useEffect(() => {
     prevRef.current = text
     prevValueRef.current = value
-  }, [text, value])
+    if (id) lastSeen.set(id, { text, value })
+  }, [text, value, id])
 
   const rowHeight = Math.round(size * 1.2)
   const chars = text.split('')

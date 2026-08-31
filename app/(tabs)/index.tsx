@@ -152,6 +152,7 @@ export default function HomeScreen() {
             color={envelopeState.isOverAssigned ? tokens.coral : tokens.text}
             weight="displayBold"
             animate
+            id="ready-to-assign"
           />
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}

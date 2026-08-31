@@ -79,6 +79,20 @@ describe('AmountText', () => {
     timingSpy.mockRestore()
   })
 
+  it('rolls after a remount when an id seeds the previous value from the last mount', () => {
+    // Home's Ready to Assign remounts on tab blur/focus (see app/_layout.tsx),
+    // so a fresh Odometer instance must still know the pre-change value to
+    // diff against instead of treating the already-updated value as its own start.
+    const timingSpy = jest.spyOn(Animated, 'timing')
+    const { unmount } = renderWithProviders(<AmountText value={100} size={40} animate id="test-remount" />)
+    unmount()
+
+    timingSpy.mockClear()
+    renderWithProviders(<AmountText value={200} size={40} animate id="test-remount" />)
+    expect(timingSpy).toHaveBeenCalled()
+    timingSpy.mockRestore()
+  })
+
   it('uses tabular figures so digits do not shift width', () => {
     const { getByText } = renderWithProviders(<AmountText value={999} size={20} />)
     const flat = getByText('₹999').props.style.flat()
