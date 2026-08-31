@@ -38,13 +38,11 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 28 }]}>
         <View style={styles.heroWrap}>
           <View style={styles.hero}>
-            <View style={[styles.iconChip, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]}>
-              <Image
-                source={require('@/assets/icon.png')}
-                style={styles.iconImage}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('@/assets/icon.png')}
+              style={styles.iconImage}
+              resizeMode="contain"
+            />
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Every rupee{'\n'}in an envelope.
             </Text>
@@ -105,18 +103,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24 },
   heroWrap: { flex: 1, justifyContent: 'center' },
   hero: { gap: 14 },
-  iconChip: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 10,
-  },
-  iconImage: { width: 38, height: 38, borderRadius: 12 },
+  iconImage: { width: 96, height: 96, borderRadius: 24 },
   title: { fontSize: 34, lineHeight: 38, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, lineHeight: 22, maxWidth: 300 },
   error: { fontSize: 13, marginBottom: 10, textAlign: 'center' },
