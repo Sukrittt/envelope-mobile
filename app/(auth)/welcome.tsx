@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24 },
   heroWrap: { flex: 1, justifyContent: 'center' },
   hero: { gap: 14 },
-  iconImage: { width: 96, height: 96, borderRadius: 24 },
+  iconImage: { width: 64, height: 64, borderRadius: 16 },
   title: { fontSize: 34, lineHeight: 38, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, lineHeight: 22, maxWidth: 300 },
   error: { fontSize: 13, marginBottom: 10, textAlign: 'center' },
