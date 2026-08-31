@@ -100,7 +100,7 @@ const DAY_MS = 86_400_000
 export function headerRightLabel(daysLeft: number, updatedAt: number, now: number = Date.now()): string {
   const ageMs = now - updatedAt
   if (ageMs < DAY_MS) {
-    if (daysLeft === 0) return 'less than 24 hours left'
+    if (daysLeft === 0) return 'Less than 24 hrs'
     return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
   }
   const staleDays = Math.floor(ageMs / DAY_MS)

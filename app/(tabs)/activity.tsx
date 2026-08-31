@@ -84,7 +84,7 @@ function keyOf(t: ExpenseRow): string {
 }
 
 export default function ActivityScreen() {
-  const { tokens } = useTheme()
+  const { tokens, scheme } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const { hideAmounts } = usePrivacy()
   const router = useRouter()
@@ -294,7 +294,7 @@ export default function ActivityScreen() {
             onChangeText={setSearch}
             placeholder="Search transactions"
             placeholderTextColor={tokens.text3}
-            style={[styles.search, { backgroundColor: tokens.inputBg, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+            style={[styles.search, { backgroundColor: scheme === 'dark' ? tokens.cardSolid : tokens.inputBg, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
           />
           <IconButton icon={SlidersHorizontal} accessibilityLabel="Filter transactions" onPress={() => setCategorySheetOpen(true)} />
         </View>

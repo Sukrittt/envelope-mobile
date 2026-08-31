@@ -45,6 +45,13 @@
       ],
       "expo-web-browser",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Envelope to access your photos to scan a bill.",
+          "cameraPermission": "Allow Envelope to access your camera to scan a bill."
+        }
+      ],
+      [
         "react-native-android-widget",
         {
           "fonts": [

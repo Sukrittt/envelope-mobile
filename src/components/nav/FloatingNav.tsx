@@ -158,12 +158,15 @@ export function FloatingNav({
   active,
   onSelect,
   onAdd,
+  onAddLongPress,
   addActive = false,
   children,
 }: {
   active: NavRoute | null
   onSelect: (name: NavRoute) => void
   onAdd: () => void
+  /** Long-press shortcut on the add slot only — the carousel-commit path (drag to centre) stays press-only. */
+  onAddLongPress?: () => void
   /** True on the log-expense screen: the add slot becomes "you are here". */
   addActive?: boolean
   children?: React.ReactNode
@@ -286,6 +289,7 @@ export function FloatingNav({
               color={addActive ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={onAdd}
+              onLongPress={addActive ? undefined : onAddLongPress}
               scrollX={scrollX}
               index={i}
               style={elevation.floating}
@@ -378,6 +382,7 @@ function NavCircle({
   color,
   ringColor,
   onPress,
+  onLongPress,
   scrollX,
   index,
   style,
@@ -389,6 +394,7 @@ function NavCircle({
   color: string
   ringColor: string
   onPress: () => void
+  onLongPress?: () => void
   scrollX: SharedValue<number>
   index: number
   style?: object
@@ -441,6 +447,13 @@ function NavCircle({
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
             onPress()
           }}
+          onLongPress={
+            onLongPress &&
+            (() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
+              onLongPress()
+            })
+          }
           style={[
             styles.circle,
             { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2 },

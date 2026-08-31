@@ -42,6 +42,7 @@ export function TabBar() {
         addActive={addActive}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? router.back() : router.push(LOG_EXPENSE_PATH))}
+        onAddLongPress={() => router.push('/modals/scan-bill')}
       >
         {visible ? <FirstExpenseHintGate active={active} /> : null}
       </FloatingNav>

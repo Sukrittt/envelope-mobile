@@ -156,7 +156,7 @@ describe('headerRightLabel', () => {
   })
 
   it('shows less than 24 hours when zero days left', () => {
-    expect(headerRightLabel(0, now - 1000, now)).toBe('less than 24 hours left')
+    expect(headerRightLabel(0, now - 1000, now)).toBe('Less than 24 hrs')
   })
 
   it('switches to a staleness label once the snapshot is over a day old', () => {
