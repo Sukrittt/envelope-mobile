@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Animated, Eas
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { ChevronDown, X } from 'lucide-react-native'
+import { ChevronDown } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { NAV_HEIGHT } from '@/src/theme/scale'
@@ -11,9 +11,9 @@ import { useAddCategory, useCategories } from '@/src/hooks/useCategories'
 import { useCategoryMap } from '@/src/hooks/useCategoryMap'
 import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { useAddExpense, useExpenses, useUpdateExpense } from '@/src/hooks/useExpenses'
+import { publishLogExpenseSubmit, resetLogExpenseSubmit } from '@/src/hooks/useLogExpenseSubmit'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { formatAmountInput } from '@/src/lib/format'
-import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -59,7 +59,7 @@ function suggestCategory(item: string, words: Record<string, string>, categories
  * starts on the existing amount and backspaces from there.
  */
 export default function LogExpenseScreen() {
-  const { tokens, space, radius, type, scheme } = useTheme()
+  const { tokens, space, radius, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -270,19 +270,34 @@ export default function LogExpenseScreen() {
     }
   }
 
+  // Publishes on every render so the nav circle's submit closes over fresh
+  // form state; TabBar (a sibling, not a parent) reads this to drive its
+  // center-icon tap and loading/success visuals.
+  useEffect(() => {
+    publishLogExpenseSubmit({ canSubmit, saving, success: logSuccess, submit: handleSubmit })
+  })
+  useEffect(() => () => resetLogExpenseSubmit(), [])
+
   const onAccentDim = 'rgba(255, 255, 255, 0.7)'
   const fieldBg = 'rgba(255, 255, 255, 0.16)'
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
       <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} disabled={logSuccess} accessibilityLabel="Close">
-          <X size={24} color={tokens.onAccent} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+        <Text
+          style={[
+            styles.headerTitle,
+            {
+              color: '#ffffff',
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+              flex: 1,
+              textAlign: 'center',
+            },
+          ]}
+        >
           {isEdit ? 'Edit expense' : 'Log expense'}
         </Text>
-        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView
@@ -298,7 +313,7 @@ export default function LogExpenseScreen() {
               value={parsedAmount || 0}
               rawText={formatAmountInput(amount)}
               size={type.hero * 1.3}
-              color={amount === '' ? onAccentDim : tokens.onAccent}
+              color={amount === '' ? onAccentDim : '#ffffff'}
               weight="displayBold"
               animate
             />
@@ -311,7 +326,7 @@ export default function LogExpenseScreen() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.xxl, gap: space.md }]}>
+      <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.lg, gap: space.md }]}>
         {error !== '' && (
           <Text style={[styles.error, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>{error}</Text>
         )}
@@ -339,30 +354,6 @@ export default function LogExpenseScreen() {
         </View>
 
         <Numpad onAccent onDigit={pushDigit} onBackspace={handleBackspace} extraKey="." />
-
-        <Pressable
-          onPress={handleSubmit}
-          disabled={!canSubmit || saving || logSuccess}
-          style={[
-            styles.confirm,
-            {
-              backgroundColor: logSuccess && !isEdit ? tokens.mint : tokens.onAccent,
-              borderRadius: radius.full,
-              paddingVertical: space.md + 2,
-              opacity: !canSubmit || saving ? 0.5 : 1,
-            },
-          ]}
-        >
-          {logSuccess ? (
-            // Edit keeps the onAccent background, so the tick must contrast
-            // against that surface — onAccent is near-black in dark mode.
-            <CheckIcon color={scheme === 'dark' ? '#ffffff' : tokens.accentInk} />
-          ) : (
-            <Text style={[styles.confirmText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }]}>
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add'}
-            </Text>
-          )}
-        </Pressable>
       </View>
 
       <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
@@ -468,8 +459,6 @@ const styles = StyleSheet.create({
   categoryPillText: { fontSize: 12 },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: 'center' },
-  confirm: { alignItems: 'center' },
-  confirmText: {},
   moreToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   moreLabel: {},
   sheetTitle: { marginBottom: 12 },

@@ -15,6 +15,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useUser } from '@/src/hooks/useUser'
 import { useExpenses } from '@/src/hooks/useExpenses'
+import { useLogExpenseSubmitState } from '@/src/hooks/useLogExpenseSubmit'
 import { FloatingNav, NAV_HREF, LOG_EXPENSE_PATH, navStateFor, addSlotShift, type NavRoute } from './FloatingNav'
 
 /**
@@ -28,6 +29,8 @@ export function TabBar() {
   const router = useRouter()
   const pathname = usePathname()
   const { active, addActive, visible } = navStateFor(pathname)
+  const submitState = useLogExpenseSubmitState()
+  const addDisabled = !submitState.canSubmit || submitState.saving || submitState.success
 
   const visibility = useSharedValue(visible ? 1 : 0)
   useEffect(() => {
@@ -40,11 +43,19 @@ export function TabBar() {
       <FloatingNav
         active={active}
         addActive={addActive}
+        addSaving={addActive && submitState.saving}
+        addSuccess={addActive && submitState.success}
+        addDisabled={addActive && addDisabled}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
-        onAdd={() => (addActive ? router.back() : router.push(LOG_EXPENSE_PATH))}
+        onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddLongPress={() => router.push('/modals/scan-bill')}
       >
-        {visible ? <FirstExpenseHintGate active={active} /> : null}
+        {visible ? (
+          <>
+            <FirstExpenseHintGate active={active} />
+            {addActive ? <LogExpenseHintGate onSubmit={submitState.submit} disabled={addDisabled} /> : null}
+          </>
+        ) : null}
       </FloatingNav>
     </Reanimated.View>
   )
@@ -71,16 +82,56 @@ function FirstExpenseHintGate({ active }: { active: NavRoute | null }) {
     pathname !== LOG_EXPENSE_PATH
 
   return (
-    <FirstExpenseHint show={show} onPress={() => router.push(LOG_EXPENSE_PATH)} shiftX={addSlotShift(active)} />
+    <FirstExpenseHint
+      show={show}
+      label="Log your first expense here"
+      onPress={() => router.push(LOG_EXPENSE_PATH)}
+      shiftX={addSlotShift(active)}
+    />
   )
 }
 
-// "Log your first expense here" pill + bobbing arrow pointing at the + button.
-// Only shown once onboarding is complete and no expense has been logged yet
-// (server-derived, so it survives restarts and disappears the moment the first
-// expense exists). The pill stays centred on the active slot; only the arrow
-// shifts to keep pointing at the add slot as the carousel moves.
-function FirstExpenseHint({ show, onPress, shiftX }: { show: boolean; onPress: () => void; shiftX: number }) {
+// Same coach mark, shown instead while already on log-expense with zero
+// transactions: the add slot is now the submit trigger, so the pill points at
+// it as "tap to submit" rather than "tap to navigate here". Queries dedupe
+// against FirstExpenseHintGate's identical calls via React Query's cache.
+function LogExpenseHintGate({ onSubmit, disabled }: { onSubmit: () => void; disabled: boolean }) {
+  const userQ = useUser()
+  const expensesQ = useExpenses()
+
+  const show = !!userQ.data?.onboardedAt && expensesQ.isSuccess && (expensesQ.data?.length ?? 0) === 0
+
+  // The add slot is already centred whenever addActive, regardless of which
+  // tab route is "active" underneath (it's null here) — unlike
+  // FirstExpenseHintGate, no addSlotShift offset applies.
+  return (
+    <FirstExpenseHint
+      show={show}
+      label="Tap to add expense"
+      onPress={() => {
+        if (!disabled) onSubmit()
+      }}
+      shiftX={0}
+    />
+  )
+}
+
+// Pill + bobbing arrow pointing at the add slot. Only shown once onboarding
+// is complete and no expense has been logged yet (server-derived, so it
+// survives restarts and disappears the moment the first expense exists). The
+// pill stays centred on the active slot; only the arrow shifts to keep
+// pointing at the add slot as the carousel moves.
+function FirstExpenseHint({
+  show,
+  label,
+  onPress,
+  shiftX,
+}: {
+  show: boolean
+  label: string
+  onPress: () => void
+  shiftX: number
+}) {
   const { tokens, radius, space } = useTheme()
   const [mounted, setMounted] = useState(show)
   // entrance: 0 -> 1 fade/scale/slide-up on show, reverse on hide (unmounts after finishing).
@@ -125,7 +176,7 @@ function FirstExpenseHint({ show, onPress, shiftX }: { show: boolean; onPress: (
     <Pressable onPress={onPress} style={styles.anchor} pointerEvents="box-none" hitSlop={6}>
       <Reanimated.View style={[styles.wrap, { gap: space.xs }, containerStyle]} pointerEvents="box-none">
         <View style={[styles.pill, { backgroundColor: tokens.text, borderRadius: radius.md, paddingVertical: 9, paddingHorizontal: 15 }]}>
-          <Text style={[styles.label, { color: tokens.bg, fontFamily: fontFamily.bodyExtraBold }]}>Log your first expense here</Text>
+          <Text style={[styles.label, { color: tokens.bg, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
         </View>
         <Reanimated.View style={arrowStyle} pointerEvents="none">
           <ArrowDown size={22} color={tokens.text} strokeWidth={2.4} />

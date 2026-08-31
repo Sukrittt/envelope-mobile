@@ -118,11 +118,43 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Home').props.accessibilityState.selected).toBe(false)
   })
 
-  it('marks the add slot selected when addActive, with a Close label', () => {
-    const { getByLabelText, queryByLabelText } = renderWithProviders(
+  it('marks the add slot selected when addActive, keeping the Log expense label', () => {
+    const { getByLabelText } = renderWithProviders(
       <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    expect(getByLabelText('Close').props.accessibilityState.selected).toBe(true)
-    expect(queryByLabelText('Log expense')).toBeNull()
+    expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
+  })
+
+  it('tapping the add circle while addActive still fires onAdd (submit, not back)', () => {
+    const onAdd = jest.fn()
+    const { getByLabelText } = renderWithProviders(
+      <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={onAdd} />,
+    )
+    fireEvent.press(getByLabelText('Log expense'))
+    expect(onAdd).toHaveBeenCalled()
+  })
+
+  it('disables and shows a spinner on the add circle while addSaving', () => {
+    const onAdd = jest.fn()
+    const { getByLabelText, getByTestId } = renderWithProviders(
+      <FloatingNav active={null} addActive addSaving onSelect={jest.fn()} onAdd={onAdd} />,
+    )
+    const circle = getByLabelText('Log expense')
+    expect(circle.props.accessibilityState.disabled).toBe(true)
+    fireEvent.press(circle)
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(getByTestId('nav-add-saving')).toBeTruthy()
+  })
+
+  it('disables and shows a check on the add circle while addSuccess', () => {
+    const onAdd = jest.fn()
+    const { getByLabelText, getByTestId } = renderWithProviders(
+      <FloatingNav active={null} addActive addSuccess onSelect={jest.fn()} onAdd={onAdd} />,
+    )
+    const circle = getByLabelText('Log expense')
+    expect(circle.props.accessibilityState.disabled).toBe(true)
+    fireEvent.press(circle)
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(getByTestId('nav-add-success')).toBeTruthy()
   })
 })

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Pressable,
+  ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
   type NativeSyntheticEvent,
@@ -22,15 +23,8 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
-import {
-  HomeGlyph,
-  ActivityGlyph,
-  EnvelopeGlyph,
-  ProfileGlyph,
-  PlusGlyph,
-  CloseGlyph,
-  type NavIconComponent,
-} from './NavIcons'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
@@ -151,8 +145,10 @@ const tickHaptic = () => {
  * The centre slot is an action, not a destination — logging an expense — but
  * sized and colored like every other circle until pressed, so it doesn't
  * compete with the active route's accent fill. The nav renders identically on
- * every screen it appears on, log-expense included: only the centre glyph
- * (Plus -> Close) and which slot holds the ring ever change.
+ * every screen it appears on, log-expense included: the glyph stays Plus
+ * throughout (tap to navigate here, or to submit once already here), only its
+ * content swaps to a spinner (submitting) or a check (saved), and which slot
+ * holds the ring changes.
  */
 export function FloatingNav({
   active,
@@ -160,6 +156,9 @@ export function FloatingNav({
   onAdd,
   onAddLongPress,
   addActive = false,
+  addSaving = false,
+  addSuccess = false,
+  addDisabled = false,
   children,
 }: {
   active: NavRoute | null
@@ -169,6 +168,12 @@ export function FloatingNav({
   onAddLongPress?: () => void
   /** True on the log-expense screen: the add slot becomes "you are here". */
   addActive?: boolean
+  /** Meaningful only when addActive: submit in flight, shows a spinner in place of the glyph. */
+  addSaving?: boolean
+  /** Meaningful only when addActive: submit just succeeded, briefly shows a check. */
+  addSuccess?: boolean
+  /** Meaningful only when addActive: blocks the tap (invalid form, saving, or success). */
+  addDisabled?: boolean
   children?: React.ReactNode
 }) {
   const { tokens, space, elevation, radius, scheme } = useTheme()
@@ -282,14 +287,26 @@ export function FloatingNav({
           slot.kind === 'add' ? (
             <NavCircle
               key="add"
-              glyph={addActive ? CloseGlyph : PlusGlyph}
-              label={addActive ? 'Close' : 'Log expense'}
+              glyph={PlusGlyph}
+              label="Log expense"
               selected={addActive}
               background={addActive ? activeFill : idle}
               color={addActive ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={onAdd}
               onLongPress={addActive ? undefined : onAddLongPress}
+              disabled={addActive && (addDisabled || addSaving || addSuccess)}
+              overrideContent={
+                addActive && addSuccess ? (
+                  <View testID="nav-add-success">
+                    <CheckIcon color={activeIcon} size={ICON} />
+                  </View>
+                ) : addActive && addSaving ? (
+                  <View testID="nav-add-saving">
+                    <ActivityIndicator color={activeIcon} size="small" />
+                  </View>
+                ) : undefined
+              }
               scrollX={scrollX}
               index={i}
               style={elevation.floating}
@@ -383,6 +400,8 @@ function NavCircle({
   ringColor,
   onPress,
   onLongPress,
+  disabled = false,
+  overrideContent,
   scrollX,
   index,
   style,
@@ -395,6 +414,9 @@ function NavCircle({
   ringColor: string
   onPress: () => void
   onLongPress?: () => void
+  disabled?: boolean
+  /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
+  overrideContent?: React.ReactNode
   scrollX: SharedValue<number>
   index: number
   style?: object
@@ -435,7 +457,8 @@ function NavCircle({
         <AnimatedPressable
           accessibilityRole="tab"
           accessibilityLabel={label}
-          accessibilityState={{ selected }}
+          accessibilityState={{ selected, disabled }}
+          disabled={disabled}
           hitSlop={{ left: (SLOT - CIRCLE) / 2, right: (SLOT - CIRCLE) / 2, top: 8, bottom: 8 }}
           onPressIn={() => {
             pressScale.value = withSpring(0.88, motion.springTight)
@@ -460,9 +483,10 @@ function NavCircle({
             selected ? elevation.floating : elevation.card,
             style,
             circleStyle,
+            disabled ? styles.disabled : null,
           ]}
         >
-          <NavIcon icon={glyph} color={color} size={ICON} />
+          {overrideContent ?? <NavIcon icon={glyph} color={color} size={ICON} />}
         </AnimatedPressable>
       </View>
     </View>
@@ -497,4 +521,5 @@ const styles = StyleSheet.create({
     borderWidth: RING_WIDTH,
   },
   circle: { alignItems: 'center', justifyContent: 'center' },
+  disabled: { opacity: 0.5 },
 })

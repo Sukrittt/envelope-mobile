@@ -1,4 +1,4 @@
-import { selectRows, selectChips, selectToday, toWidgetData, headerRightLabel, layoutFor } from './data'
+import { selectRows, selectChips, selectToday, toWidgetData, headerRightLabel, weeklyTrend, layoutFor } from './data'
 import { variants } from './variants'
 import { lightTokens, darkTokens } from '@/src/theme/tokens'
 import { computeEnvelopeState, CREDIT_CARD_CATEGORY } from '@/src/lib/envelope'
@@ -213,6 +213,38 @@ describe('variants', () => {
     const result = variants('system', (tokens, scheme) => ({ tokens, scheme }))
     expect(result.light).toEqual({ tokens: lightTokens, scheme: 'light' })
     expect(result.dark).toEqual({ tokens: darkTokens, scheme: 'dark' })
+  })
+})
+
+describe('weeklyTrend', () => {
+  const today = '2026-08-12'
+  const d = (date: string, amount: string) => expense('2026-08-05T10:00:00.000Z', date, '🍔 Food', amount)
+
+  it('returns null when there is no spending in either window', () => {
+    expect(weeklyTrend([], today)).toBeNull()
+    expect(weeklyTrend([d('2026-08-20', '100')], today)).toBeNull()
+  })
+
+  it('computes a down trend once this week spent less than last', () => {
+    // last week: 12th-18th? no — week offset is trailing 7 days before today.
+    // This week: 06..12; last week: -1..05 (relative to 12th).
+    const expenses = [d('2026-08-10', '200'), d('2026-08-11', '300'), d('2026-08-04', '1000')]
+    expect(weeklyTrend(expenses, today)).toEqual({ pct: -50, dir: 'down' })
+  })
+
+  it('computes an up trend once this week spent more than last', () => {
+    const expenses = [d('2026-08-10', '1000'), d('2026-08-04', '400')]
+    expect(weeklyTrend(expenses, today)).toEqual({ pct: 150, dir: 'up' })
+  })
+
+  it('is flat when the two windows match', () => {
+    const expenses = [d('2026-08-10', '500'), d('2026-08-04', '500')]
+    expect(weeklyTrend(expenses, today)).toEqual({ pct: 0, dir: 'flat' })
+  })
+
+  it('reads 100% up when there is no prior-week baseline', () => {
+    const expenses = [d('2026-08-10', '500')]
+    expect(weeklyTrend(expenses, today)).toEqual({ pct: 100, dir: 'up' })
   })
 })
 

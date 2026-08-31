@@ -40,6 +40,7 @@ export async function readSnapshot(): Promise<WidgetData | null> {
       rows: (parsed.rows ?? []).map(backfillRow),
       chips: parsed.chips ?? [],
       today: parsed.today ?? [],
+      weeklyTrend: parsed.weeklyTrend ?? null,
     }
   } catch {
     return null

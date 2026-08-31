@@ -69,7 +69,7 @@ export default function InsightsScreen() {
   const expenses = useExpenses().data ?? EMPTY
   const categories = useCategories().data ?? EMPTY
   const groups = useGroups().data ?? EMPTY
-  const subscriptions = useSubscriptions().data ?? []
+  const { data: subscriptions = [], isLoading: subscriptionsLoading } = useSubscriptions()
 
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
   const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
@@ -302,7 +302,7 @@ export default function InsightsScreen() {
             <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
           </Pressable>
         </View>
-        <SubscriptionsPanel subscriptions={subscriptions} />
+        <SubscriptionsPanel subscriptions={subscriptions} loading={subscriptionsLoading} />
       </Card>
     </Screen>
   )

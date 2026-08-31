@@ -26,6 +26,11 @@ export interface WidgetToday {
   amount: string
 }
 
+export interface WeeklyTrend {
+  pct: number
+  dir: 'up' | 'down' | 'flat'
+}
+
 export interface WidgetData {
   totalLeft: string
   daysLeft: number
@@ -33,6 +38,7 @@ export interface WidgetData {
   rows: WidgetRow[]
   chips: WidgetChip[]
   today: WidgetToday[]
+  weeklyTrend: WeeklyTrend | null
 }
 
 const ROW_COUNT = 5
@@ -151,6 +157,25 @@ export function layoutFor(width: number, height: number): WidgetLayout {
   return { rows, today, buttons: width < 200 ? 2 : 3, actionHeight }
 }
 
+/** Week-over-week change in total spending, as a whole percent. The trailing
+ *  7 calendar days (incl. today) vs the 7 before them — "this week" vs "last
+ *  week". Positive means we spent more (bad, red), negative less (good, green). */
+export function weeklyTrend(expenses: ExpenseRow[], todayDate: string): WeeklyTrend | null {
+  const today = Date.parse(`${todayDate}T00:00:00Z`)
+  let thisWeek = 0
+  let lastWeek = 0
+  for (const e of expenses) {
+    if (!e.date || e.date.length !== 10) continue
+    const offset = Math.round((today - Date.parse(`${e.date}T00:00:00Z`)) / DAY_MS)
+    if (offset >= 0 && offset < 7) thisWeek += Number(e.amount_inr) || 0
+    else if (offset >= 7 && offset < 14) lastWeek += Number(e.amount_inr) || 0
+  }
+  if (thisWeek === 0 && lastWeek === 0) return null
+  if (lastWeek === 0) return { pct: 100, dir: 'up' }
+  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+  return { pct, dir: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' }
+}
+
 export function toWidgetData(state: EnvelopeState, expenses: ExpenseRow[], daysLeft: number, todayDate: string): WidgetData {
   const totalLeft = state.envelopes.filter((e) => !e.isCreditCardPayment).reduce((sum, e) => sum + e.available, 0)
   return {
@@ -160,5 +185,6 @@ export function toWidgetData(state: EnvelopeState, expenses: ExpenseRow[], daysL
     rows: selectRows(state),
     chips: selectChips(state),
     today: selectToday(expenses, todayDate),
+    weeklyTrend: weeklyTrend(expenses, todayDate),
   }
 }

@@ -81,6 +81,11 @@ export default function ExpenseAddedScreen() {
   const deleteExpense = useDeleteExpense()
 
   const [undoError, setUndoError] = useState('')
+  const [playTick, setPlayTick] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setPlayTick(true), 500)
+    return () => clearTimeout(t)
+  }, [])
 
   // ponytail: no sound/haptics preference — the app has none today. Clone
   // src/context/PrivacyContext.tsx if one is ever wanted.
@@ -179,14 +184,17 @@ export default function ExpenseAddedScreen() {
       <View style={styles.body}>
         <Reanimated.View style={styles.receipt} layout={LinearTransition.duration(motion.slow)}>
           {/* Wrapper carries the spacing: DotLottie's `style` is a plain ViewStyle,
-              not a StyleProp, so it takes no array. */}
+              not a StyleProp, so it takes no array. Mounts 500ms in so the tick
+              lands after a beat rather than on first paint. */}
           <View style={{ marginBottom: space.xxl }}>
-            <DotLottie
-              source={require('@/assets/animations/success-tick.lottie')}
-              style={styles.tick}
-              autoplay
-              loop={false}
-            />
+            {playTick && (
+              <DotLottie
+                source={require('@/assets/animations/success-tick.lottie')}
+                style={styles.tick}
+                autoplay
+                loop={false}
+              />
+            )}
           </View>
 
           <Reanimated.View

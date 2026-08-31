@@ -1,21 +1,21 @@
-import Svg, { Path, Rect } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
+import { Plus } from 'lucide-react-native'
 
 /**
- * The nav's own icon set. Home/Activity/Envelope/Profile are Phosphor
+ * The nav's own icon set. Home/Activity/Envelope/Profile/Plus are Phosphor
  * "regular"-weight glyphs (assets/nav/*.svg) recolored dynamically instead of
  * their baked-in black. Each path carves its own outline via winding rule
  * rather than a stroke — stroking it instead of filling it breaks the shape —
  * so every glyph always renders as a plain fill; selection is color only
  * (idle -> accent), never a change of rendering mode.
  *
- * Phosphor paths are drawn in a 256x256 box, the hand-drawn Close in 24x24;
- * `size` scales either to the same rendered footprint.
+ * All paths are drawn in a 256x256 box; `size` scales to the same rendered
+ * footprint.
  */
 export type NavGlyphProps = { size: number; color: string }
 export type NavIconComponent = (props: NavGlyphProps) => React.ReactElement
 
 const PHOSPHOR_BOX = 256
-const CLOSE_BOX = 24
 
 function Frame({ size, box, children }: { size: number; box: number; children: React.ReactNode }) {
   return (
@@ -62,14 +62,6 @@ export const ProfileGlyph: NavIconComponent = ({ size, color }) => (
 )
 
 export const PlusGlyph: NavIconComponent = ({ size, color }) => (
-  <Frame size={size} box={PHOSPHOR_BOX}>
-    <Path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z" fill={color} />
-  </Frame>
+  <Plus size={size} color={color} strokeWidth={2.5} />
 )
 
-export const CloseGlyph: NavIconComponent = ({ size, color }) => (
-  <Frame size={size} box={CLOSE_BOX}>
-    <Rect x={10.6} y={4.6} width={2.8} height={14.8} rx={1.4} fill={color} transform="rotate(45 12 12)" />
-    <Rect x={10.6} y={4.6} width={2.8} height={14.8} rx={1.4} fill={color} transform="rotate(-45 12 12)" />
-  </Frame>
-)
