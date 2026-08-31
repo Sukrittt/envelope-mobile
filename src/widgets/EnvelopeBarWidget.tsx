@@ -26,9 +26,9 @@ export function EnvelopeBarWidget({ tokens, scheme, ...data }: WidgetData & { to
         clickAction="OPEN_URI"
         clickActionData={{ uri: LOG_URI }}
         accessibilityLabel="Log an expense"
-        style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 100, backgroundColor: color(tokens.accent) }}
+        style={{ paddingHorizontal: 22, paddingVertical: 10, borderRadius: 100, backgroundColor: color(tokens.accent) }}
       >
-        <TextWidget text="Log" style={{ fontSize: 11, fontFamily: fontFamily.bodySemiBold, color: color(tokens.onAccent) }} />
+        <TextWidget text="Log" style={{ fontSize: 13, fontFamily: fontFamily.bodySemiBold, color: color(tokens.onAccent) }} />
       </FlexWidget>
     </WidgetSurface>
   )
