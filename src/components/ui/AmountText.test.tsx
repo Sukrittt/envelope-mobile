@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react'
+import { useEffect } from 'react'
 import { Animated } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
-import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { PrivacyProvider, usePrivacy } from '@/src/context/PrivacyContext'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AmountText } from './AmountText'
 
@@ -11,6 +12,28 @@ function wrapWithProviders(ui: ReactElement, queryClient: QueryClient) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <PrivacyProvider>{ui}</PrivacyProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  )
+}
+
+// Renders inside PrivacyProvider with the hide-amounts toggle forced on, so a
+// test can assert how a component behaves when amounts are masked.
+function WithHideAmounts({ children }: { children: ReactElement }) {
+  const { setHideAmounts } = usePrivacy()
+  useEffect(() => {
+    setHideAmounts(true)
+  }, [setHideAmounts])
+  return children
+}
+
+function wrapHiddenWithProviders(ui: ReactElement, queryClient: QueryClient) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <PrivacyProvider>
+          <WithHideAmounts>{ui}</WithHideAmounts>
+        </PrivacyProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )
@@ -111,5 +134,27 @@ describe('AmountText', () => {
     const { getByText } = renderWithProviders(<AmountText value={999} size={20} />)
     const flat = getByText('₹999').props.style.flat()
     expect(Object.assign({}, ...flat).fontVariant).toEqual(['tabular-nums'])
+  })
+
+  it('masks the amount when the hide toggle is on', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { getByText } = renderWithProviders(wrapHiddenWithProviders(<AmountText value={1200} size={20} />, queryClient))
+    expect(getByText('₹••••')).toBeTruthy()
+  })
+
+  it('keeps the amount visible on the log screen even when hide is on', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { getByText } = renderWithProviders(
+      wrapHiddenWithProviders(<AmountText value={1200} size={20} ignoreHide />, queryClient),
+    )
+    expect(getByText('₹1,200')).toBeTruthy()
+  })
+
+  it('keeps an in-progress numpad string visible when hide is on', () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { getByText } = renderWithProviders(
+      wrapHiddenWithProviders(<AmountText value={1200} size={20} rawText="1200." ignoreHide />, queryClient),
+    )
+    expect(getByText('1200.')).toBeTruthy()
   })
 })

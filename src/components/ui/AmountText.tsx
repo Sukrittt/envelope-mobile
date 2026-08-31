@@ -24,6 +24,7 @@ export function AmountText({
   style,
   rawText,
   id,
+  ignoreHide = false,
 }: {
   value: number
   size: number
@@ -36,6 +37,10 @@ export function AmountText({
    * trailing "." or trailing zero the user just typed. Ignored when amounts
    * are hidden. */
   rawText?: string
+  /** Opt out of the "hide amounts" mask. For input/confirmation surfaces where
+   * the user is actively typing or has just typed the value themselves —
+   * masking their own in-progress entry would be hostile. */
+  ignoreHide?: boolean
   /** Seeds the odometer's "previous value" from a module-level cache instead
    * of the current value, keyed by this id — needed only by instances that
    * can remount between an old and new value (e.g. Home's Ready to Assign,
@@ -45,7 +50,8 @@ export function AmountText({
 }) {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
-  const text = !hideAmounts && rawText !== undefined ? rawText : formatCurrency(value, hideAmounts)
+  const hide = ignoreHide ? false : hideAmounts
+  const text = !hide && rawText !== undefined ? rawText : formatCurrency(value, hide)
 
   const textStyle: StyleProp<TextStyle> = [
     styles.base,
@@ -55,7 +61,7 @@ export function AmountText({
 
   // Masked values have no digits to roll, and a static render avoids animating
   // between "₹••••" and a real amount when the toggle flips.
-  if (!animate || hideAmounts) {
+  if (!animate || hide) {
     return (
       <Text style={textStyle} accessibilityLabel={text}>
         {text}

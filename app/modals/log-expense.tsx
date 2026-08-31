@@ -316,6 +316,7 @@ export default function LogExpenseScreen() {
               color={amount === '' ? onAccentDim : '#ffffff'}
               weight="displayBold"
               animate
+              ignoreHide
             />
           </Animated.View>
 
