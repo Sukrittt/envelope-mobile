@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -34,6 +34,7 @@ export default function HomeScreen() {
   const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
+  const isFocused = useIsFocused()
 
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
@@ -45,6 +46,10 @@ export default function HomeScreen() {
   const { hideAmounts } = usePrivacy()
   const [rolloverDismissed, setRolloverDismissed] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('home')
+  // How many envelope action sheets are currently open — a plain boolean would
+  // do since only one can be open at a time in practice, but a count is safe
+  // against overlap and avoids relying on that assumption.
+  const [openSheetCount, setOpenSheetCount] = useState(0)
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
@@ -57,6 +62,22 @@ export default function HomeScreen() {
     () => computeEnvelopeState(budgets, expenses, month, categories, groups),
     [budgets, expenses, month, categories, groups],
   )
+
+  // An edit that changes Ready to Assign (Move Money, or an envelope's action
+  // sheet here) resolves and refetches while the screen that made the change
+  // is still covering Home — a pushed route blurs it (isFocused false), a
+  // BottomSheet covers it in place (openSheetCount > 0). Left wired straight
+  // to envelopeState.readyToAssign, the odometer's roll starts and finishes
+  // entirely off-screen, so reveal just shows the settled number. Holding the
+  // displayed value frozen until Home is actually visible again defers that
+  // roll to the moment it can be seen.
+  const covered = !isFocused || openSheetCount > 0
+  const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
+  // Adjusting state during render (not in an effect) so the sync happens in
+  // the same commit as the value that triggered it, with no extra render.
+  if (!covered && displayedReadyToAssign !== envelopeState.readyToAssign) {
+    setDisplayedReadyToAssign(envelopeState.readyToAssign)
+  }
 
   const groupedEnvelopes = useMemo(() => {
     const byGroup = new Map<string, Envelope[]>()
@@ -109,6 +130,10 @@ export default function HomeScreen() {
     router.push({ pathname: '/(tabs)/activity', params: { category } })
   }
 
+  function handleSheetOpenChange(open: boolean) {
+    setOpenSheetCount((c) => c + (open ? 1 : -1))
+  }
+
   const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
   const hasError = budgetsQ.error || expensesQ.error || categoriesQ.error || groupsQ.error
 
@@ -147,9 +172,9 @@ export default function HomeScreen() {
         <View style={[styles.hero, { paddingVertical: space.xl }]}>
           <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
           <AmountText
-            value={envelopeState.readyToAssign}
+            value={displayedReadyToAssign}
             size={type.hero}
-            color={envelopeState.isOverAssigned ? tokens.coral : tokens.text}
+            color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
             weight="displayBold"
             animate
             id="ready-to-assign"
@@ -204,6 +229,7 @@ export default function HomeScreen() {
                   onViewTransactions={handleViewTransactions}
                   expanded={!collapsedGroups.has(group)}
                   onToggle={toggleGroup}
+                  onSheetOpenChange={handleSheetOpenChange}
                 />
               ))}
               {creditCardEnvelope && (
@@ -222,6 +248,7 @@ export default function HomeScreen() {
                     onMoveMoney={handleMoveMoney}
                     onEditAmount={handleEditAmount}
                     onViewTransactions={handleViewTransactions}
+                    onSheetOpenChange={handleSheetOpenChange}
                   />
                 </Reanimated.View>
               )}

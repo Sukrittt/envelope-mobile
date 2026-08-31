@@ -43,10 +43,24 @@ interface Props {
   onMoveMoney: (category: string) => void
   onEditAmount: (category: string, newAssigned: number) => Promise<void>
   onViewTransactions: (category: string) => void
+  /** Told when this row's action sheet opens/closes — Home uses it to hold
+   * Ready to Assign's displayed value frozen while the sheet covers it, so
+   * an edit's odometer roll plays on reveal instead of finishing unseen
+   * behind the sheet. Optional: only Home's rows need to report this. */
+  onSheetOpenChange?: (open: boolean) => void
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
-export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveMoney, onEditAmount, onViewTransactions }: Props) {
+export function EnvelopeRow({
+  envelope,
+  emoji,
+  hideAmounts,
+  displayName,
+  onMoveMoney,
+  onEditAmount,
+  onViewTransactions,
+  onSheetOpenChange,
+}: Props) {
   const { tokens } = useTheme()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -59,6 +73,7 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
     setAmountText(String(envelope.assigned))
     setEditing(false)
     setSheetOpen(true)
+    onSheetOpenChange?.(true)
   }
 
   function closeSheet() {
@@ -66,6 +81,7 @@ export function EnvelopeRow({ envelope, emoji, hideAmounts, displayName, onMoveM
     setEditing(false)
     setEditSuccess(false)
     setEditError('')
+    onSheetOpenChange?.(false)
   }
 
   async function submitEdit() {

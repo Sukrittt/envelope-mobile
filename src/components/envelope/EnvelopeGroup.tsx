@@ -21,6 +21,7 @@ interface Props {
   onViewTransactions: (category: string) => void
   expanded: boolean
   onToggle: (group: string) => void
+  onSheetOpenChange?: (open: boolean) => void
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -33,6 +34,7 @@ export function EnvelopeGroup({
   onViewTransactions,
   expanded,
   onToggle,
+  onSheetOpenChange,
 }: Props) {
   const { tokens } = useTheme()
   const totalAvailable = envelopes.reduce((s, e) => s + e.available, 0)
@@ -71,6 +73,7 @@ export function EnvelopeGroup({
                 onMoveMoney={onMoveMoney}
                 onEditAmount={onEditAmount}
                 onViewTransactions={onViewTransactions}
+                onSheetOpenChange={onSheetOpenChange}
               />
             </View>
           ))}
