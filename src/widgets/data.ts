@@ -99,7 +99,10 @@ const DAY_MS = 86_400_000
  *  numbers are rather than let a silently-frozen snapshot pass as live. */
 export function headerRightLabel(daysLeft: number, updatedAt: number, now: number = Date.now()): string {
   const ageMs = now - updatedAt
-  if (ageMs < DAY_MS) return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
+  if (ageMs < DAY_MS) {
+    if (daysLeft === 0) return 'less than 24 hours left'
+    return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
+  }
   const staleDays = Math.floor(ageMs / DAY_MS)
   return staleDays === 1 ? 'Updated 1 day ago' : `Updated ${staleDays} days ago`
 }

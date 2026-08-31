@@ -154,7 +154,7 @@ export default function HomeScreen() {
             animate
           />
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
-            {monthLabel(month)} · {daysLeftInMonth()} days left
+            {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'less than 24 hours left' : `${daysLeftInMonth()} days left`}
           </Text>
         </View>
 

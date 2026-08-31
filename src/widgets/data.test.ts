@@ -155,6 +155,10 @@ describe('headerRightLabel', () => {
     expect(headerRightLabel(1, now - 1000, now)).toBe('1 day left')
   })
 
+  it('shows less than 24 hours when zero days left', () => {
+    expect(headerRightLabel(0, now - 1000, now)).toBe('less than 24 hours left')
+  })
+
   it('switches to a staleness label once the snapshot is over a day old', () => {
     const twoDaysAgo = now - 2 * 86_400_000
     expect(headerRightLabel(11, twoDaysAgo, now)).toBe('Updated 2 days ago')
