@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import * as SecureStore from 'expo-secure-store'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { ArrowLeft, Plus } from 'lucide-react-native'
@@ -72,6 +73,20 @@ export default function InsightsScreen() {
   const { data: subscriptions = [], isLoading: subscriptionsLoading } = useSubscriptions()
 
   const [chartVariant, setChartVariant] = useState<'area' | 'bar'>('area')
+  const chartVariantKey = 'mc-insights-chart-variant'
+  const chartVariantHydrated = useRef(false)
+  useEffect(() => {
+    SecureStore.getItemAsync(chartVariantKey)
+      .then((raw) => {
+        if (raw === 'area' || raw === 'bar') setChartVariant(raw)
+      })
+      .catch(() => {})
+      .finally(() => { chartVariantHydrated.current = true })
+  }, [])
+  useEffect(() => {
+    if (!chartVariantHydrated.current) return
+    SecureStore.setItemAsync(chartVariantKey, chartVariant).catch(() => {})
+  }, [chartVariant])
   const [trendPeriod, setTrendPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly')
   const [drillFilter, setDrillFilter] = useState<DrillFilter>(null)
   const [insightMonth, setInsightMonth] = useState(() => currentMonthKey())

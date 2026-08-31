@@ -92,7 +92,7 @@ describe('ScanBillScreen', () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
     ;(addExpense as jest.Mock).mockResolvedValue({ id: 'e1', timestamp: '2026-08-29T10:00:00' })
 
-    const { getByText, getByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+    const { getByText, getByDisplayValue, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
     // Categories load asynchronously — flush that before picking, or the
     // screen would (correctly) refuse to scan with an empty category list.
@@ -108,8 +108,11 @@ describe('ScanBillScreen', () => {
     })
 
     // Items default "mine" (60+800=860); the 40 fee gap defaults to a 2-person
-    // split (20), so my share is 880, not the full 900.
-    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+    // split (20), so my share is 880, not the full 900. The hero amount is an
+    // odometer (AmountText animate) — its digits render as separate Text nodes,
+    // so it's queried by its accessibilityLabel (the full formatted string)
+    // rather than getByText.
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
     expect(getByText('of ₹900 bill')).toBeTruthy()
     expect(getByDisplayValue('Blinkit')).toBeTruthy()
 
@@ -134,24 +137,24 @@ describe('ScanBillScreen', () => {
 
   it('recomputes the share when the fee people-count changes', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    const { getByText } = renderWithProviders(<ScanBillScreen />)
+    const { getByText, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
     await scanToReview(getByText)
-    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     // 40 fee split 3 ways = 13.33, on top of the unchanged 860 of items.
     fireEvent.press(getByText('3'))
-    await waitFor(() => expect(getByText('₹873.33')).toBeTruthy())
+    await waitFor(() => expect(getByLabelText('₹873.33')).toBeTruthy())
   })
 
   it('applies a bulk split to multiple selected items', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    const { getByText } = renderWithProviders(<ScanBillScreen />)
+    const { getByText, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
     await scanToReview(getByText)
-    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     fireEvent.press(getByText('Select'))
     fireEvent.press(getByText('Milk'))
@@ -159,16 +162,40 @@ describe('ScanBillScreen', () => {
     fireEvent.press(getByText('÷2'))
 
     // Both items now halved: (60/2 + 800/2) + the unchanged 20 fee share = 450.
-    await waitFor(() => expect(getByText('₹450')).toBeTruthy())
+    await waitFor(() => expect(getByLabelText('₹450')).toBeTruthy())
+  })
+
+  it('pools a scanned fee/discount line into the Fees & discount card instead of the item list', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue({
+      ...SCAN_RESULT,
+      total: 900,
+      items: [...SCAN_RESULT.items, { name: 'Delivery Fee', price: 40, qty: 1 }],
+    })
+    const { getByText, getByLabelText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+
+    await flushCategories()
+    await scanToReview(getByText)
+
+    // "Delivery Fee" is auto-detected and pulled out of the editable list —
+    // it's a read-only line inside Fees & discount, not a TextInput row.
+    await waitFor(() => expect(getByText('Delivery Fee')).toBeTruthy())
+    expect(queryByDisplayValue('Delivery Fee')).toBeNull()
+
+    // Header count reflects only the 2 real product items.
+    expect(getByText('2 items · scanned just now')).toBeTruthy()
+
+    // Pooled fee (40) split across the default 2 people = 20, on top of the
+    // unchanged 860 of product items.
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
   })
 
   it('filters items by search query', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    const { getByText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+    const { getByText, getByLabelText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
     await scanToReview(getByText)
-    await waitFor(() => expect(getByText('₹880')).toBeTruthy())
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     fireEvent.changeText(getByPlaceholderText('Search items'), 'pizza')
     expect(queryByDisplayValue('Milk')).toBeNull()

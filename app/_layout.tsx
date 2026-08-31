@@ -187,7 +187,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   }, [resolving, hasSession, onboarded])
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: tokens.bg }]}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
         <Stack.Protected guard={resolving}>
           <Stack.Screen name="loading" />

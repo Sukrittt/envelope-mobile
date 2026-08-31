@@ -60,6 +60,8 @@ export function SwipeableRow({
       friction={2}
       leftThreshold={ACTION_WIDTH / 2}
       rightThreshold={ACTION_WIDTH / 2}
+      dragOffsetFromLeft={24}
+      dragOffsetFromRight={-24}
       onSwipeableWillOpen={() =>
         onOpen?.(
           rowKey ?? '',

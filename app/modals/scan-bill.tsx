@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, Animated, Easing, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
@@ -7,19 +7,20 @@ import * as Haptics from 'expo-haptics'
 import { X, ArrowLeft, Camera, Images, Plus, Trash2, Search, Check, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { NAV_HEIGHT } from '@/src/theme/scale'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useScanBill } from '@/src/hooks/useScanBill'
 import { useAddExpense } from '@/src/hooks/useExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { formatINR, formatDate } from '@/src/lib/format'
-import { computeShare, feeDiff, groupByDivisor, round2, type ScanItem } from '@/src/lib/split'
+import { computeShare, feeDiff, groupByDivisor, isFeeLine, round2, type ScanItem } from '@/src/lib/split'
 import { todayIST } from '@/src/lib/date'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Card } from '@/src/components/ui/Card'
 import { Chip } from '@/src/components/ui/Chip'
-import { DatePicker } from '@/src/components/shared/DatePicker'
+import { AmountText } from '@/src/components/ui/AmountText'
+import { PopIn } from '@/src/components/shared/PopIn'
+import { FILL_DELAY, FILL_DURATION } from '@/src/components/envelope/ProgressBar'
 import type { ScanResult } from '@/src/api/scan'
 
 type ReviewItem = ScanItem & { key: string; name: string }
@@ -28,6 +29,13 @@ type Phase = 'picking' | 'scanning' | 'review' | 'confirm' | 'error'
 
 const DIVISORS = [1, 2, 3, 4]
 const PEOPLE_COUNTS = [2, 3, 4, 5]
+
+// Reveal cascade for each phase's first paint — same shared-value-driven
+// pattern and constants as money-brain.tsx/Heatmap.tsx, reused as-is.
+const MOUNT_START_DELAY_MS = 100
+const BLOCK_STAGGER_MS = 90
+const ITEM_STAGGER_MS = 45
+const ITEM_STAGGER_CAP_INDEX = 6
 
 let nextKey = 0
 function makeKey(): string {
@@ -39,16 +47,9 @@ function itemsFrom(result: ScanResult): ReviewItem[] {
   return result.items.map((it) => ({ key: makeKey(), name: it.name, price: it.price, divisor: 1 }))
 }
 
-/** mine -> ÷2 -> ÷3 -> ÷4 -> skip -> mine. A custom divisor (set via the ÷n sheet) falls back into the same cycle from wherever it sits numerically. */
-function cycleDivisor(current: number | null): number | null {
-  if (current === null) return 1
-  if (current < 4) return current + 1
-  return null
-}
-
 function splitLabel(divisor: number | null): string {
   if (divisor === null) return 'skip'
-  if (divisor === 1) return 'mine'
+  if (divisor === 1) return 'Mine'
   return `÷${divisor}`
 }
 
@@ -80,26 +81,30 @@ export default function ScanBillScreen() {
   const [category, setCategory] = useState('')
   const [date, setDate] = useState(todayIST())
   const [items, setItems] = useState<ReviewItem[]>([])
-  const [feeAmount, setFeeAmount] = useState(0)
+  const [feeResidual, setFeeResidual] = useState(0)
   const [peopleCount, setPeopleCount] = useState(2)
   const [query, setQuery] = useState('')
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false)
-  const [divisorSheetKey, setDivisorSheetKey] = useState<string | null>(null)
-  const [divisorText, setDivisorText] = useState('')
 
   const selectedCategory = categories.find((c) => c.name === category)
-  const hasFee = Math.abs(feeAmount) >= 0.01
-  const feeShare = hasFee ? round2(feeAmount / peopleCount) : 0
-  const billTotal = useMemo(() => round2(items.reduce((s, it) => s + it.price, 0) + feeAmount), [items, feeAmount])
-  const myShare = useMemo(() => round2(computeShare(items) + feeShare), [items, feeShare])
+  const productItems = useMemo(() => items.filter((it) => !isFeeLine(it.name)), [items])
+  const feeItems = useMemo(() => items.filter((it) => isFeeLine(it.name)), [items])
+  const feeAggregate = useMemo(
+    () => round2(feeItems.reduce((s, it) => s + it.price, 0) + feeResidual),
+    [feeItems, feeResidual],
+  )
+  const hasFee = Math.abs(feeAggregate) >= 0.01
+  const feeShare = hasFee ? round2(feeAggregate / peopleCount) : 0
+  const billTotal = useMemo(() => round2(items.reduce((s, it) => s + it.price, 0) + feeResidual), [items, feeResidual])
+  const myShare = useMemo(() => round2(computeShare(productItems) + feeShare), [productItems, feeShare])
   const sharePct = billTotal > 0 ? Math.round((myShare / billTotal) * 100) : 0
-  const buckets = useMemo(() => groupByDivisor(items), [items])
+  const buckets = useMemo(() => groupByDivisor(productItems), [productItems])
   const visibleItems = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items
-  }, [items, query])
+    return q ? productItems.filter((it) => it.name.toLowerCase().includes(q)) : productItems
+  }, [productItems, query])
   const canProceed = merchant.trim() !== '' && category !== '' && myShare > 0 && !addExpense.isPending
 
   function updateItem(key: string, patch: Partial<ReviewItem>) {
@@ -184,7 +189,7 @@ export default function ScanBillScreen() {
           setCategory(res.category ?? '')
           setDate(res.date ?? todayIST())
           setItems(itemsFrom(res))
-          setFeeAmount(feeDiff(res.total, res.items))
+          setFeeResidual(feeDiff(res.total, res.items))
           setPeopleCount(2)
           setQuery('')
           setSelecting(false)
@@ -228,11 +233,13 @@ export default function ScanBillScreen() {
     )
   }
 
-  const divisorSheetItem = items.find((it) => it.key === divisorSheetKey)
   const categoryLabel = category ? splitEmoji(category).text : ''
 
   return (
-    <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
+    <KeyboardAvoidingView
+      style={[styles.screen, { backgroundColor: tokens.bg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {phase === 'confirm' ? (
         <ScreenHeader onLeft={() => setPhase('review')} leftIcon={ArrowLeft} title="Confirm your log" />
       ) : phase === 'review' ? (
@@ -240,7 +247,7 @@ export default function ScanBillScreen() {
           onLeft={() => router.back()}
           leftIcon={X}
           title="Scan a bill"
-          subtitle={`${items.length} ${items.length === 1 ? 'item' : 'items'} · scanned just now`}
+          subtitle={`${productItems.length} ${productItems.length === 1 ? 'item' : 'items'} · scanned just now`}
           right={
             <Pressable
               onPress={toggleSelecting}
@@ -276,7 +283,7 @@ export default function ScanBillScreen() {
           </Text>
           <Pressable
             onPress={() => router.replace('/modals/log-expense')}
-            style={[styles.confirm, { backgroundColor: tokens.accent, borderRadius: radius.full, paddingVertical: space.md }]}
+            style={[styles.confirm, { backgroundColor: tokens.accent, borderRadius: radius.full, paddingVertical: space.md, paddingHorizontal: space.xl }]}
           >
             <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }}>Enter manually</Text>
           </Pressable>
@@ -285,30 +292,26 @@ export default function ScanBillScreen() {
 
       {phase === 'review' && (
         <>
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, gap: space.md }]}
-            keyboardShouldPersistTaps="handled"
-          >
-            <Card elevated={false} style={{ gap: space.xs }}>
-              <Text style={[styles.microLabel, { color: tokens.text3 }]}>YOUR SHARE</Text>
-              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold, fontSize: type.display }}>
-                {formatINR(myShare)}
-              </Text>
-              <View style={styles.spaceBetween}>
-                <View style={[styles.barTrack, { flex: 1, backgroundColor: tokens.borderStrong }]}>
-                  <View style={[styles.barFill, { width: `${Math.min(100, sharePct)}%`, backgroundColor: tokens.accent }]} />
+          <View style={{ paddingHorizontal: space.lg, paddingTop: 8, gap: space.md }}>
+            <PopIn play delay={MOUNT_START_DELAY_MS}>
+              <Card elevated={false} style={{ gap: space.xs }}>
+                <Text style={[styles.microLabel, { color: tokens.text3 }]}>YOUR SHARE</Text>
+                <AmountText value={myShare} size={type.display} color={tokens.accentInk} animate ignoreHide />
+                <View style={styles.spaceBetween}>
+                  <View style={{ flex: 1 }}>
+                    <RevealBar pct={sharePct} color={tokens.accent} trackColor={tokens.borderStrong} height={6} />
+                  </View>
                 </View>
-              </View>
-              <View style={styles.spaceBetween}>
-                <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-                  of {formatINR(billTotal)} bill
-                </Text>
-                <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>{sharePct}% yours</Text>
-              </View>
-            </Card>
+                <View style={styles.spaceBetween}>
+                  <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                    of {formatINR(billTotal)} bill
+                  </Text>
+                  <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>{sharePct}% yours</Text>
+                </View>
+              </Card>
+            </PopIn>
 
-            <View style={[styles.row, { gap: space.sm }]}>
+            <PopIn play delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS} style={[styles.row, { gap: space.sm }]}>
               <View style={[styles.searchRow, { flex: 1, gap: space.sm, backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
                 <Search size={16} color={tokens.text3} />
                 <TextInput
@@ -330,18 +333,29 @@ export default function ScanBillScreen() {
               >
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>All mine</Text>
               </Pressable>
-            </View>
+            </PopIn>
+          </View>
 
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, gap: space.md }]}
+            keyboardShouldPersistTaps="handled"
+          >
             {visibleItems.length === 0 && items.length > 0 && (
               <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.body, textAlign: 'center', paddingVertical: space.lg }}>
                 No items match &quot;{query}&quot;
               </Text>
             )}
 
-            {visibleItems.map((it) => {
+            {visibleItems.map((it, i) => {
               const isSelected = selected.includes(it.key)
               return (
-                <View key={it.key} style={[styles.itemCard, { gap: space.sm, backgroundColor: tokens.card, borderRadius: radius.md }]}>
+                <PopIn
+                  key={it.key}
+                  play
+                  delay={MOUNT_START_DELAY_MS + 2 * BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
+                  style={[styles.itemCard, { gap: space.sm, backgroundColor: tokens.card, borderRadius: radius.md }]}
+                >
                   {selecting ? (
                     <Pressable onPress={() => toggleSelected(it.key)} style={[styles.row, { gap: space.sm }]}>
                       <View
@@ -363,40 +377,52 @@ export default function ScanBillScreen() {
                     </Pressable>
                   ) : (
                     <>
-                      <View style={[styles.row, { gap: space.sm }]}>
+                      <View style={[styles.row, { justifyContent: 'space-between' }]}>
                         <TextInput
                           value={it.name}
                           onChangeText={(v) => updateItem(it.key, { name: v })}
                           placeholder="Item"
                           placeholderTextColor={tokens.text3}
-                          style={[
-                            styles.nameInput,
-                            { backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
-                          ]}
+                          style={[styles.itemNameInput, { flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }]}
                         />
                         <TextInput
-                          value={String(it.price)}
-                          onChangeText={(v) => updateItem(it.key, { price: Number(v.replace(/[^0-9.]/g, '')) || 0 })}
+                          value={String(round2(it.price / (it.divisor || 1)))}
+                          onChangeText={(v) => {
+                            const enteredShare = Number(v.replace(/[^0-9.]/g, '')) || 0
+                            updateItem(it.key, { price: round2(enteredShare * (it.divisor || 1)) })
+                          }}
                           keyboardType="decimal-pad"
-                          style={[
-                            styles.priceInput,
-                            { backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
-                          ]}
+                          style={{
+                            color: tokens.accentInk,
+                            fontFamily: fontFamily.bodyBold,
+                            fontSize: type.body,
+                            padding: 0,
+                            minWidth: 40,
+                            textAlign: 'right',
+                          }}
                         />
                       </View>
-                      <View style={[styles.row, { gap: space.sm }]}>
-                        <Pressable
-                          onPress={() => updateItem(it.key, { divisor: cycleDivisor(it.divisor) })}
-                          onLongPress={() => {
-                            setDivisorText(it.divisor && it.divisor > 1 ? String(it.divisor) : '')
-                            setDivisorSheetKey(it.key)
-                          }}
-                          style={[styles.splitPill, { backgroundColor: tokens.pillBg, borderRadius: radius.full }]}
-                        >
-                          <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-                            {splitLabel(it.divisor)}
+                      <View style={[styles.row, { justifyContent: 'space-between' }]}>
+                        <View style={styles.row}>
+                          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, marginRight: 6 }}>
+                            ₹{it.price}
                           </Text>
-                        </Pressable>
+                          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                            {it.divisor === 1 ? '· all yours' : `· split ${it.divisor} ways`}
+                          </Text>
+                        </View>
+                        <Text style={[styles.microLabel, { color: tokens.text3 }]}>YOURS</Text>
+                      </View>
+                      <View style={[styles.row, { gap: space.xs }]}>
+                        {DIVISORS.map((d) => (
+                          <Chip
+                            key={d}
+                            label={splitLabel(d)}
+                            selected={it.divisor === d}
+                            onPress={() => updateItem(it.key, { divisor: d })}
+                            style={styles.itemSplitChip}
+                          />
+                        ))}
                         <Pressable
                           onPress={() => removeItem(it.key)}
                           hitSlop={8}
@@ -408,7 +434,7 @@ export default function ScanBillScreen() {
                       </View>
                     </>
                   )}
-                </View>
+                </PopIn>
               )
             })}
 
@@ -418,6 +444,7 @@ export default function ScanBillScreen() {
             </Pressable>
 
             {hasFee && (
+              <PopIn play delay={MOUNT_START_DELAY_MS + 3 * BLOCK_STAGGER_MS}>
               <Card elevated={false} style={{ gap: space.sm }}>
                 <View style={styles.spaceBetween}>
                   <View style={{ flex: 1 }}>
@@ -426,8 +453,22 @@ export default function ScanBillScreen() {
                       Split equally across everyone on the bill
                     </Text>
                   </View>
-                  <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{formatINR(feeAmount)}</Text>
+                  <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{formatINR(feeAggregate)}</Text>
                 </View>
+                {feeItems.length > 0 && (
+                  <View style={{ gap: space.xs }}>
+                    {feeItems.map((it) => (
+                      <View key={it.key} style={styles.spaceBetween}>
+                        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }} numberOfLines={1}>
+                          {it.name || 'Fee'}
+                        </Text>
+                        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                          {formatINR(it.price)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
                 <View style={styles.spaceBetween}>
                   <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>People on this bill</Text>
                   <View style={{ flexDirection: 'row', gap: space.xs }}>
@@ -441,37 +482,42 @@ export default function ScanBillScreen() {
                   <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>{formatINR(feeShare)}</Text>
                 </View>
               </Card>
+              </PopIn>
             )}
 
             <View style={[styles.divider, { backgroundColor: tokens.border }]} />
 
-            <TextInput
-              value={merchant}
-              onChangeText={setMerchant}
-              placeholder="Merchant"
-              placeholderTextColor={tokens.text3}
-              style={[
-                styles.nameInput,
-                { backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
-              ]}
-            />
+            <PopIn
+              play
+              delay={MOUNT_START_DELAY_MS + 4 * BLOCK_STAGGER_MS}
+              style={[styles.row, { justifyContent: 'space-between', gap: space.sm }]}
+            >
+              <TextInput
+                value={merchant}
+                onChangeText={setMerchant}
+                placeholder="Merchant"
+                placeholderTextColor={tokens.text3}
+                style={[
+                  styles.nameInput,
+                  { backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
+                ]}
+              />
 
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
               <Pressable
                 onPress={() => setCategoryPickerOpen(true)}
-                style={[styles.categoryPill, { backgroundColor: tokens.pillBg, borderRadius: radius.full }]}
+                style={[
+                  styles.categoryPill,
+                  { backgroundColor: tokens.cardSolid, borderRadius: radius.full, borderWidth: 1, borderColor: tokens.border },
+                ]}
               >
                 <Text numberOfLines={1} style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
                   {selectedCategory ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}` : 'Category'}
                 </Text>
               </Pressable>
-              <View style={{ flex: 1 }}>
-                <DatePicker mode="single" value={date} onChange={setDate} />
-              </View>
-            </View>
+            </PopIn>
           </ScrollView>
 
-          <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.xxl, gap: space.sm }]}>
+          <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.sm }]}>
             {selecting && (
               <View style={[styles.bulkBar, { gap: space.sm, backgroundColor: tokens.card, borderRadius: radius.md }]}>
                 <View style={styles.spaceBetween}>
@@ -516,36 +562,6 @@ export default function ScanBillScreen() {
               ))}
             </View>
           </BottomSheet>
-
-          <BottomSheet visible={divisorSheetKey !== null} onClose={() => setDivisorSheetKey(null)}>
-            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-              Split {divisorSheetItem?.name || 'item'} between how many?
-            </Text>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <TextInput
-                value={divisorText}
-                onChangeText={setDivisorText}
-                keyboardType="number-pad"
-                placeholder="e.g. 5"
-                placeholderTextColor={tokens.text3}
-                autoFocus
-                style={[
-                  styles.nameInput,
-                  { flex: 1, backgroundColor: tokens.inputBg, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body },
-                ]}
-              />
-              <Pressable
-                onPress={() => {
-                  const n = Math.max(1, Math.round(Number(divisorText)) || 1)
-                  if (divisorSheetKey) updateItem(divisorSheetKey, { divisor: n })
-                  setDivisorSheetKey(null)
-                }}
-                style={[styles.confirm, { backgroundColor: tokens.accentInk, borderRadius: radius.md, paddingHorizontal: space.lg, justifyContent: 'center' }]}
-              >
-                <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>Set</Text>
-              </Pressable>
-            </View>
-          </BottomSheet>
         </>
       )}
 
@@ -555,22 +571,24 @@ export default function ScanBillScreen() {
             style={styles.scroll}
             contentContainerStyle={[styles.body, { paddingHorizontal: space.lg, gap: space.lg }]}
           >
-            <Card elevated={false} style={{ alignItems: 'center', gap: space.xs }}>
-              <Text style={[styles.microLabel, { color: tokens.text3 }]}>LOGGING TO {categoryLabel.toUpperCase()}</Text>
-              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold, fontSize: type.hero }}>
-                {formatINR(myShare)}
-              </Text>
-              <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center' }}>
-                {formatDate(date)} · from a scanned bill of {formatINR(billTotal)}
-              </Text>
-            </Card>
+            <PopIn play delay={MOUNT_START_DELAY_MS}>
+              <Card elevated={false} style={{ alignItems: 'center', gap: space.xs }}>
+                <Text style={[styles.microLabel, { color: tokens.text3 }]}>LOGGING TO {categoryLabel.toUpperCase()}</Text>
+                <RevealAmount value={myShare} size={type.hero} color={tokens.accentInk} />
+                <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center' }}>
+                  {formatDate(date)} · from a scanned bill of {formatINR(billTotal)}
+                </Text>
+              </Card>
+            </PopIn>
 
-            <View style={{ gap: space.xs }}>
+            <View style={{ gap: space.xs, marginBottom: space.lg }}>
               <Text style={[styles.microLabel, { color: tokens.text3, paddingHorizontal: 4 }]}>WHERE IT CAME FROM</Text>
               <Card elevated={false} padded={false} style={{ overflow: 'hidden' }}>
                 {buckets.map((b, i) => (
-                  <View
+                  <PopIn
                     key={b.divisor}
+                    play
+                    delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
                     style={[
                       styles.bucketRow,
                       { gap: space.sm, padding: space.md, borderTopWidth: i > 0 ? StyleSheet.hairlineWidth : 0, borderTopColor: tokens.border },
@@ -588,15 +606,12 @@ export default function ScanBillScreen() {
                       <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
                         {b.count} {b.count === 1 ? 'item' : 'items'} · {b.divisor === 1 ? '100% yours' : `you pay 1/${b.divisor}`}
                       </Text>
-                      <View style={[styles.miniBarTrack, { backgroundColor: tokens.borderStrong }]}>
-                        <View
-                          style={[
-                            styles.miniBarFill,
-                            {
-                              width: `${Math.max(3, Math.round((b.share / Math.max(1, myShare)) * 100))}%`,
-                              backgroundColor: b.divisor === 1 ? tokens.text3 : tokens.accent,
-                            },
-                          ]}
+                      <View style={{ marginTop: 2 }}>
+                        <RevealBar
+                          pct={Math.max(3, Math.round((b.share / Math.max(1, myShare)) * 100))}
+                          color={b.divisor === 1 ? tokens.text3 : tokens.accent}
+                          trackColor={tokens.borderStrong}
+                          height={4}
                         />
                       </View>
                     </View>
@@ -604,10 +619,12 @@ export default function ScanBillScreen() {
                       <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{formatINR(b.share)}</Text>
                       <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>of {formatINR(b.gross)}</Text>
                     </View>
-                  </View>
+                  </PopIn>
                 ))}
                 {hasFee && (
-                  <View
+                  <PopIn
+                    play
+                    delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + Math.min(buckets.length, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
                     style={[
                       styles.bucketRow,
                       { gap: space.sm, padding: space.md, borderTopWidth: buckets.length > 0 ? StyleSheet.hairlineWidth : 0, borderTopColor: tokens.border },
@@ -619,23 +636,22 @@ export default function ScanBillScreen() {
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>Fees &amp; discount, reconciled</Text>
                       <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-                        {formatINR(feeAmount)} split equally across {peopleCount} people
+                        {formatINR(feeAggregate)} split equally across {peopleCount} people
                       </Text>
                     </View>
                     <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{formatINR(feeShare)}</Text>
-                  </View>
+                  </PopIn>
                 )}
               </Card>
             </View>
 
+            <PopIn play delay={MOUNT_START_DELAY_MS + 2 * BLOCK_STAGGER_MS}>
             <Card elevated={false} style={{ gap: space.sm }}>
               <View style={styles.spaceBetween}>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Total bill</Text>
                 <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{formatINR(billTotal)}</Text>
               </View>
-              <View style={[styles.barTrack, { height: 8, backgroundColor: tokens.borderStrong }]}>
-                <View style={[styles.barFill, { width: `${Math.min(100, sharePct)}%`, backgroundColor: tokens.accent }]} />
-              </View>
+              <RevealBar pct={sharePct} color={tokens.accent} trackColor={tokens.borderStrong} height={8} />
               <View style={styles.spaceBetween}>
                 <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
                   You {formatINR(myShare)} · {sharePct}%
@@ -643,9 +659,10 @@ export default function ScanBillScreen() {
                 <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Others {formatINR(billTotal - myShare)}</Text>
               </View>
             </Card>
+            </PopIn>
           </ScrollView>
 
-          <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: NAV_HEIGHT + insets.bottom + space.xxl, gap: space.sm }]}>
+          <View style={[styles.footer, { paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.sm }]}>
             <Pressable
               onPress={handleConfirm}
               disabled={addExpense.isPending}
@@ -683,8 +700,51 @@ export default function ScanBillScreen() {
           </Pressable>
         </View>
       </BottomSheet>
+    </KeyboardAvoidingView>
+  )
+}
+
+/** A share/progress bar that grows from 0 on mount (delayed, eased), matching
+ * the envelope ProgressBar's fill feel — but with a caller-given fixed color
+ * instead of ProgressBar's spend-risk thresholds, which don't apply to a bill
+ * share. Live pct changes after the first reveal tween immediately, so it
+ * stays responsive to split/people-count taps instead of lagging FILL_DELAY. */
+function RevealBar({ pct, color, trackColor, height }: { pct: number; color: string; trackColor: string; height: number }) {
+  const [trackWidth, setTrackWidth] = useState(0)
+  const width = useRef(new Animated.Value(0)).current
+  const revealed = useRef(false)
+  const clamped = Math.max(0, Math.min(100, pct))
+
+  useEffect(() => {
+    if (trackWidth === 0) return
+    const isFirst = !revealed.current
+    revealed.current = true
+    Animated.timing(width, {
+      toValue: (clamped / 100) * trackWidth,
+      duration: FILL_DURATION,
+      delay: isFirst ? FILL_DELAY : 0,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: false,
+    }).start()
+  }, [trackWidth, clamped, width])
+
+  return (
+    <View onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)} style={[styles.barTrack, { height, backgroundColor: trackColor }]}>
+      <Animated.View style={[styles.barFill, { width, backgroundColor: color }]} />
     </View>
   )
+}
+
+/** A hero amount that rolls up from ₹0 on mount instead of just appearing —
+ * for the confirm phase's total, which (unlike the review phase's live
+ * "your share") never changes again once you're on this screen. */
+function RevealAmount({ value, size, color }: { value: number; size: number; color: string }) {
+  const [display, setDisplay] = useState(0)
+  useEffect(() => {
+    const t = setTimeout(() => setDisplay(value), FILL_DELAY)
+    return () => clearTimeout(t)
+  }, [value])
+  return <AmountText value={display} size={size} color={color} weight="displaySemiBold" animate ignoreHide />
 }
 
 function ScreenHeader({
@@ -726,7 +786,7 @@ const styles = StyleSheet.create({
   headerTitle: {},
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
-  body: { paddingTop: 8, paddingBottom: 24 },
+  body: { paddingTop: 8, paddingBottom: 40 },
   row: { flexDirection: 'row', alignItems: 'center' },
   spaceBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   microLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
@@ -738,8 +798,8 @@ const styles = StyleSheet.create({
   allMineButton: { paddingHorizontal: 14, justifyContent: 'center', height: 40 },
   itemCard: { padding: 12 },
   nameInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-  priceInput: { width: 76, paddingHorizontal: 10, paddingVertical: 12, textAlign: 'right' },
-  splitPill: { paddingHorizontal: 12, paddingVertical: 7, minWidth: 48, alignItems: 'center' },
+  itemNameInput: { padding: 0 },
+  itemSplitChip: { paddingHorizontal: 10, paddingVertical: 6 },
   deleteButton: { marginLeft: 'auto', padding: 4 },
   checkbox: { width: 22, height: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   addItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -754,6 +814,4 @@ const styles = StyleSheet.create({
   selectToggle: { height: 30, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   bucketRow: { flexDirection: 'row', alignItems: 'center' },
   badge: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  miniBarTrack: { height: 4, borderRadius: 999, overflow: 'hidden', marginTop: 2 },
-  miniBarFill: { height: '100%', borderRadius: 999 },
 })

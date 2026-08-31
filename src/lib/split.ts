@@ -24,6 +24,14 @@ export function feeDiff(total: number, items: { price: number }[]): number {
   return round2(total - sum)
 }
 
+const FEE_KEYWORDS = ['fee', 'discount', 'offer', 'coupon', 'charge', 'tip']
+
+/** True if an item's name reads as a pooled fee/discount line (delivery fee, coupon, tip…) rather than a real product — case-insensitive substring match. */
+export function isFeeLine(name: string): boolean {
+  const n = name.toLowerCase()
+  return FEE_KEYWORDS.some((kw) => n.includes(kw))
+}
+
 /** Groups non-skipped items by their divisor, ascending, for the confirm screen's breakdown. */
 export function groupByDivisor(items: ScanItem[]): { divisor: number; count: number; gross: number; share: number }[] {
   const byDiv = new Map<number, { divisor: number; count: number; gross: number; share: number }>()
