@@ -104,6 +104,12 @@ function Odometer({
   const rowHeight = Math.round(size * 1.2)
   const chars = text.split('')
   const prevChars = prev.split('')
+  // A digit count change (e.g. ₹400 -> ₹0) always means a real value change,
+  // even when right-aligning happens to pair a surviving slot with the same
+  // character (400's ones digit and 0's only digit are both '0') — without
+  // this, that slot silently renders static and, if it's the only survivor,
+  // nothing animates at all.
+  const lengthChanged = chars.length !== prevChars.length
 
   return (
     <View style={styles.row} accessibilityLabel={text} accessible>
@@ -118,6 +124,7 @@ function Odometer({
             rowHeight={rowHeight}
             textStyle={textStyle}
             direction={direction}
+            lengthChanged={lengthChanged}
           />
         )
       })}
@@ -131,12 +138,14 @@ function Digit({
   rowHeight,
   textStyle,
   direction,
+  lengthChanged,
 }: {
   oldChar: string
   newChar: string
   rowHeight: number
   textStyle: StyleProp<TextStyle>
   direction: 'up' | 'down'
+  lengthChanged: boolean
 }) {
   const { motion } = useTheme()
   // Only roll between two digits. Pairing a structural char (₹, `,`, `-`)
@@ -145,7 +154,10 @@ function Digit({
   // "₹100" — stacks the wrong glyph until the roll finishes, flashing "," or
   // a stray digit where the symbol/leading digit should be.
   const isDigit = (c: string) => c >= '0' && c <= '9'
-  const changed = oldChar !== '' && oldChar !== newChar && isDigit(oldChar) && isDigit(newChar)
+  // `|| lengthChanged`: a digit-count change is always a real value change,
+  // even where a surviving slot's char coincidentally matches (400 -> 0's
+  // ones place is '0' both times) — force the roll so that isn't silently static.
+  const changed = oldChar !== '' && isDigit(oldChar) && isDigit(newChar) && (oldChar !== newChar || lengthChanged)
   // RN core Animated rather than Reanimated: this is a plain translateY tween
   // with no gesture or worklet, and it keeps the primitive renderable under Jest.
   const translateY = useRef(new Animated.Value(0)).current

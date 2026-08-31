@@ -79,6 +79,20 @@ describe('AmountText', () => {
     timingSpy.mockRestore()
   })
 
+  it('rolls when digit count shrinks even if the surviving digit coincidentally matches', () => {
+    // ₹400 -> ₹0: right-aligning pairs the '0' both had in their ones place,
+    // and the '4'/'0' higher-order digits aren't rendered at all in the
+    // shorter new text — without forcing a roll on length change, this
+    // specific transition animates nothing at all.
+    const timingSpy = jest.spyOn(Animated, 'timing')
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = renderWithProviders(<AmountText value={400} size={40} animate />)
+    timingSpy.mockClear()
+    rerender(wrapWithProviders(<AmountText value={0} size={40} animate />, queryClient))
+    expect(timingSpy).toHaveBeenCalled()
+    timingSpy.mockRestore()
+  })
+
   it('rolls after a remount when an id seeds the previous value from the last mount', () => {
     // Home's Ready to Assign remounts on tab blur/focus (see app/_layout.tsx),
     // so a fresh Odometer instance must still know the pre-change value to
