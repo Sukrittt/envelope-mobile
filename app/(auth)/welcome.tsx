@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react'
-import { Animated, View, Text, Pressable, StyleSheet, Image } from 'react-native'
+import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { IndianRupee } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useSignIn } from '@/src/api/useSignIn'
 import { AuthBackdrop } from '@/src/components/auth/AuthBackdrop'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
+import { Icon } from '@/src/components/shared/Icon'
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -38,11 +40,9 @@ export default function WelcomeScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 28 }]}>
         <View style={styles.heroWrap}>
           <View style={styles.hero}>
-            <Image
-              source={require('@/assets/icon.png')}
-              style={styles.iconImage}
-              resizeMode="contain"
-            />
+            <View style={[styles.iconChip, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]}>
+              <Icon icon={IndianRupee} size={28} color={tokens.onAccent} />
+            </View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Every rupee{'\n'}in an envelope.
             </Text>
@@ -103,7 +103,17 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24 },
   heroWrap: { flex: 1, justifyContent: 'center' },
   hero: { gap: 14 },
-  iconImage: { width: 64, height: 64, borderRadius: 16 },
+  iconChip: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+    elevation: 10,
+  },
   title: { fontSize: 34, lineHeight: 38, letterSpacing: -0.3 },
   subtitle: { fontSize: 15, lineHeight: 22, maxWidth: 300 },
   error: { fontSize: 13, marginBottom: 10, textAlign: 'center' },
