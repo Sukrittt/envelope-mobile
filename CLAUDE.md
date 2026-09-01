@@ -12,17 +12,7 @@ Use the graphify skill whenever possible:
 
 # task tracking
 
-Tasks tracked in Notion board "Envelope".
-
-# breaking long-running tasks
-
-For any task expected to span multiple tool calls or involve 3+ files:
-
-1. Create a todo list at the start (use Todowrite tool)
-2. Mark items in_progress as you work them
-3. Mark completed only after verified done (not just "written")
-4. Keep exactly one in_progress at a time
-5. If blocked, add follow-up todo describing the blocker
+Tasks tracked in Notion board "Envelope Tasks".
 
 # tests are the norm
 
@@ -68,12 +58,22 @@ while the envelope block rises in below it — balance left, plus a `ProgressBar
 tweening from the pre-expense fill to the post-expense one. Editing an expense,
 and every other CTA, keeps the inline pattern.
 
-A failed _add_ is the mirror image: it routes to `app/modals/expense-failed.tsx`
-(remote dotLottie from lottie.host with a static `AlertCircle` fallback for when
-the network that caused the failure also blocks the fetch, error haptic, and the
-attempted amount). No reason line — raw server text like "Failed to add expense:
-503" is not something a user can act on. Retry re-fires `useAddExpense` from that screen
-with the params it was handed and lands on `expense-added` on success; Dismiss
-replaces the log-expense form back with those values prefilled. The screen never
-auto-dismisses — a failure needs acknowledging. Failed _edits_, failed category
-creates, and every other CTA keep their inline error text.
+# voice and copy
+
+The app is playful (Fredoka display font, Nunito body, `LoadingCaption.tsx`'s rotating
+captions, Wrapped's persona cards), not corporate. Match that register in every string
+a user reads: second person, sentence case, short.
+
+- No em dashes in user-facing copy. They're the single most recognizable AI-generated
+  tell, and a reader notices before they read a word. Split the sentence instead: two
+  short sentences beat one long clause joined by a dash. Enforced by an eslint rule in
+  `eslint.config.js`, so a stray em dash in a string fails `npm run lint`.
+- Never show raw server or exception text (`e.message`, `String(e)`) in an alert or
+  inline error. "Failed to add expense: 503" gives the user nothing to act on. Write
+  the message instead; match a known, already-written error case if there is one (see
+  `app/(tabs)/envelopes.tsx`'s "already exists" check) and otherwise fall back to
+  something generic like "Check your connection and try again."
+- Reuse the app's existing typographic choices instead of improvising new ones: `·` as
+  a separator (not `—` or `|`), the single `…` glyph for ellipsis (not three periods),
+  and a standalone `—` only as the established placeholder glyph for a missing value
+  (`EnvelopeRow.tsx`, `DatePicker.tsx`) rather than in a sentence.

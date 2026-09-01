@@ -35,6 +35,16 @@ module.exports = defineConfig([
           message:
             "Pass a reference to a function defined on the JS runtime (e.g. useCallback) — an inline function is created on the UI runtime and crashes scheduleOnRN.",
         },
+        {
+          // The leading `.` in each pattern requires a character before the em
+          // dash, so a standalone '—' (the app's placeholder glyph for a
+          // missing value, e.g. EnvelopeRow.tsx / DatePicker.tsx) is exempt.
+          // Comments aren't AST literals, so they're untouched too.
+          selector:
+            "Literal[value=/.—/], JSXText[value=/.—/], TemplateElement[value.raw=/.—/]",
+          message:
+            "No em dashes in user-facing copy — split it into two sentences. See CLAUDE.md's 'voice and copy' section.",
+        },
       ],
       "react-hooks/refs": "off",
       "react-hooks/immutability": "off",

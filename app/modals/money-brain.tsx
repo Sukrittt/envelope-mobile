@@ -143,12 +143,12 @@ export default function MoneyBrainModal() {
       controller.signal,
     )
       .then((resolvedSessionId) => setSessionId(resolvedSessionId))
-      .catch((e) => {
+      .catch(() => {
         setMessages((prev) => {
           const copy = [...prev]
           copy[copy.length - 1] = {
             role: 'model',
-            text: e instanceof Error ? e.message : 'Something went wrong. Try again.',
+            text: 'Something went wrong. Try again.',
           }
           return copy
         })

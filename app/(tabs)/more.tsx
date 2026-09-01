@@ -1,20 +1,25 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, Switch, Linking, Platform, StyleSheet, Alert } from 'react-native'
-import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
-import { Gift, Brain, TrendingUp, Lock, Database, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, type LucideIcon } from 'lucide-react-native'
+import * as ImagePicker from 'expo-image-picker'
+import * as Haptics from 'expo-haptics'
+import { Gift, Brain, TrendingUp, Lock, Database, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
+import { setPendingScanImage } from '@/src/lib/pendingScanImage'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
+import { useCategories } from '@/src/hooks/useCategories'
 import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
@@ -37,10 +42,51 @@ export default function MoreScreen() {
   const router = useRouter()
 
   const [signingOut, setSigningOut] = useState(false)
+  const [scanPickerOpen, setScanPickerOpen] = useState(false)
 
   const userQuery = useUser()
   const user = userQuery.data
   const wrappedStatus = useWrappedStatus().data
+  const categoriesQ = useCategories()
+
+  async function pickBillFrom(source: 'camera' | 'library') {
+    Haptics.selectionAsync().catch(() => {})
+    const perm =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      setScanPickerOpen(false)
+      Alert.alert('Permission needed', 'Camera/photo access is off. Enable it in Settings, or enter this expense manually.')
+      return
+    }
+
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true }
+    const result =
+      source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options)
+    if (result.canceled || !result.assets?.[0]) {
+      setScanPickerOpen(false)
+      return
+    }
+
+    const asset = result.assets[0]
+    if (!asset.base64) {
+      setScanPickerOpen(false)
+      Alert.alert("Couldn't read that image", 'Try again or enter this expense manually.')
+      return
+    }
+    // The scan route always requires a non-empty category list — guarded here,
+    // before the handoff, rather than sending Gemini an empty enum constraint.
+    if ((categoriesQ.data ?? []).length === 0) {
+      setScanPickerOpen(false)
+      Alert.alert('No categories yet', 'Add one first, or enter this expense manually.')
+      return
+    }
+
+    setPendingScanImage({ base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' })
+    setScanPickerOpen(false)
+    router.push('/modals/scan-bill')
+  }
 
   const displayName = user?.name || user?.email || 'You'
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
@@ -111,7 +157,7 @@ export default function MoreScreen() {
                 blurb="Split a cart or receipt"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
-                onPress={() => router.push('/modals/scan-bill')}
+                onPress={() => setScanPickerOpen(true)}
               />
 
             </View>
@@ -241,6 +287,26 @@ export default function MoreScreen() {
             v{appJson.expo.version} · built in the open
           </Text>
       </Screen>
+
+      <BottomSheet visible={scanPickerOpen} onClose={() => setScanPickerOpen(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Scan a bill</Text>
+        <View style={{ gap: 8 }}>
+          <Pressable
+            onPress={() => pickBillFrom('camera')}
+            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
+          >
+            <Camera size={20} color={tokens.text} />
+            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Take a photo</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => pickBillFrom('library')}
+            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
+          >
+            <Images size={20} color={tokens.text} />
+            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Choose a screenshot</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </AnimatedTabContent>
   )
 }
@@ -284,28 +350,7 @@ function dotTracker(count: number, goal: number): string {
   return '●'.repeat(filled) + '○'.repeat(goal - filled)
 }
 
-const LOADING_PHRASES = ['Checking last month…', 'Counting transactions…', 'Tallying it up…', 'Almost there…']
-
-/** Cycles through LOADING_PHRASES, each one sliding up and out as the next slides up from below. */
-function LoadingPhrase({ color }: { color: string }) {
-  const [index, setIndex] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setIndex((i) => (i + 1) % LOADING_PHRASES.length), 1800)
-    return () => clearInterval(id)
-  }, [])
-  return (
-    <View style={styles.loadingPhraseWrap}>
-      <Animated.Text
-        key={index}
-        entering={SlideInDown.duration(450)}
-        exiting={SlideOutUp.duration(450)}
-        style={[styles.featureBlurb, styles.loadingPhraseText, { color }]}
-      >
-        {LOADING_PHRASES[index]}
-      </Animated.Text>
-    </View>
-  )
-}
+const WRAPPED_LOADING_PHRASES = ['Checking last month…', 'Counting transactions…', 'Tallying it up…', 'Almost there…']
 
 function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<typeof useTheme>['tokens']) {
   if (!status) {
@@ -313,7 +358,7 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
       icon: Gift,
       iconBg: tokens.coralSoft,
       iconColor: tokens.coral,
-      blurb: <LoadingPhrase color={tokens.text2} />,
+      blurb: <LoadingPhrase phrases={WRAPPED_LOADING_PHRASES} color={tokens.text2} style={styles.featureBlurb} />,
       available: false,
     }
   }
@@ -333,7 +378,7 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
   const dots = dotTracker(currentMonthCount, minTransactions)
   const label = goalReached
     ? `Wrap unlocks ${nextMonthAbbrev} 1`
-    : `${currentMonthCount}/${minTransactions} — unlocks ${nextMonthAbbrev} 1`
+    : `${currentMonthCount}/${minTransactions} · unlocks ${nextMonthAbbrev} 1`
   const a11yLabel = goalReached
     ? `${minTransactions} of ${minTransactions} transactions logged. Wrap unlocks ${nextMonthAbbrev} 1.`
     : `${currentMonthCount} of ${minTransactions} transactions logged. Unlocks ${nextMonthAbbrev} 1.`
@@ -391,8 +436,6 @@ const styles = StyleSheet.create({
   featureLabel: { fontSize: 14 },
   featureBlurb: { fontSize: 11, lineHeight: 15 },
   dots: { fontSize: 12, letterSpacing: 2, marginBottom: 3 },
-  loadingPhraseWrap: { height: 15, overflow: 'hidden' },
-  loadingPhraseText: { position: 'absolute', top: 0, left: 0, right: 0 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },
@@ -406,4 +449,7 @@ const styles = StyleSheet.create({
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
   version: { fontSize: 11, textAlign: 'center' },
+  sheetTitle: { fontSize: 17, marginBottom: 12 },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, padding: 14 },
+  sourceLabel: { fontSize: 15 },
 })

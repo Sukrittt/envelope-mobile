@@ -17,11 +17,6 @@ export interface UserProfile {
   notifyWrapped?: boolean
 }
 
-export interface DataSummary {
-  transactionCount: number
-  envelopeCount: number
-}
-
 export interface SessionRow {
   id: string
   userAgent: string | null
@@ -59,7 +54,7 @@ export interface ExportRow {
   id: string
   status: 'pending' | 'ready' | 'failed'
   created_at: string
-  blob_url: string | null
+  error: string | null
 }
 
 export interface ExportsResponse {
@@ -82,10 +77,12 @@ export async function getExports(): Promise<ExportsResponse> {
   return resp.json()
 }
 
-export async function getDataSummary(): Promise<DataSummary> {
-  const resp = await apiFetch('/api/data/summary')
-  if (!resp.ok) throw new Error(`Failed to load data summary: ${resp.status}`)
-  return resp.json()
+/** Mints a short-lived signed URL for a ready export — the blob store is private, so there's no plain link to open. */
+export async function getExportDownloadUrl(id: string): Promise<string> {
+  const resp = await apiFetch(`/api/data/exports/${id}/download`)
+  if (!resp.ok) throw new Error(`Failed to get export download link: ${resp.status}`)
+  const body: { url: string } = await resp.json()
+  return body.url
 }
 
 export async function clearTransactions(): Promise<void> {

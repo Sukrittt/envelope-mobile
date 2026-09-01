@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
                   <Text style={[styles.gBadgeText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
                 </View>
                 <Text style={[styles.googleText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                  {pending ? 'Signing in...' : 'Continue with Google'}
+                  {pending ? 'Signing in…' : 'Continue with Google'}
                 </Text>
               </>
             )}

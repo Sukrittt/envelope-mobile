@@ -45,7 +45,8 @@ export default function EmailScreen() {
         router.push({ pathname: '/(auth)/code', params: { email: trimmed, mode: 'change-email' } })
       } catch (err) {
         setPending(false)
-        setError(err instanceof Error ? err.message : 'Could not change email.')
+        const msg = err instanceof Error ? err.message : ''
+        setError(msg.includes('already in use') ? msg : 'Could not change email. Check your connection and try again.')
       }
       return
     }

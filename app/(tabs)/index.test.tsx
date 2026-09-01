@@ -36,7 +36,7 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
 }))
 
-describe('HomeScreen — Ready to Assign odometer', () => {
+describe('HomeScreen · Ready to Assign odometer', () => {
   beforeEach(() => {
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },

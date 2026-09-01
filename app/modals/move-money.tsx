@@ -216,8 +216,8 @@ export default function MoveMoneyModal() {
       }
       await Promise.all(updates)
       setMoveSuccess(true)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to move money')
+    } catch {
+      setError('Could not move money. Check your connection and try again.')
     }
   }
 

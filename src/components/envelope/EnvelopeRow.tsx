@@ -91,8 +91,8 @@ export function EnvelopeRow({
     try {
       await onEditAmount(envelope.category, value)
       setEditSuccess(true)
-    } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Failed to save')
+    } catch {
+      setEditError('Could not save. Check your connection and try again.')
     } finally {
       setEditSaving(false)
     }

@@ -174,7 +174,7 @@ export default function ExpenseAddedScreen() {
             pathname: LOG_EXPENSE_PATH,
             params: { item, amountInr: String(amount), category, date, notes, paymentMethod },
           }),
-        onError: (e) => setUndoError(e instanceof Error ? e.message : 'Could not undo — the expense is still saved'),
+        onError: () => setUndoError('Could not undo. The expense is still saved.'),
       },
     )
   }

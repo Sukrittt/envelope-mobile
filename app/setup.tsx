@@ -100,10 +100,10 @@ function groupWeight(gi: number, weighted: boolean): number {
 }
 
 const TITLES: Record<number, [string, string]> = {
-  1: ['What lands each month?', 'Your take-home income. This becomes the pot you assign from — you can change it any month.'],
+  1: ['What lands each month?', 'Your take-home income. This becomes the pot you assign from. You can change it any month.'],
   2: ['Group your money', 'Groups are the big buckets. Accept these or rename them to fit your life.'],
-  3: ['Add your categories', 'These are the envelopes you actually spend from. Pick the ones you recognise.'],
-  4: ['Assign every rupee', 'We suggested a split. Tap any amount to change it — the leftover has to reach zero.'],
+  3: ['Add your categories', 'These are the envelopes you actually spend from. Pick the ones you recognize.'],
+  4: ['Assign every rupee', 'We suggested a split. Tap any amount to change it. The leftover has to reach zero.'],
 }
 
 function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg: string } {
@@ -288,8 +288,8 @@ export default function SetupScreen() {
 
       setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount, assigned: assignedTotal() })
       setStep(5)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
+    } catch {
+      setError('Something went wrong. Try again.')
     } finally {
       setPending(false)
     }

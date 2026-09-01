@@ -13,12 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
-import * as Haptics from "expo-haptics";
 import {
   ArrowLeft,
-  Camera,
-  Images,
   Plus,
   Trash2,
   Search,
@@ -41,6 +37,7 @@ import {
   type ScanItem,
 } from "@/src/lib/split";
 import { todayIST } from "@/src/lib/date";
+import { takePendingScanImage } from "@/src/lib/pendingScanImage";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Card } from "@/src/components/ui/Card";
@@ -55,7 +52,7 @@ import type { ScanResult } from "@/src/api/scan";
 
 type ReviewItem = ScanItem & { key: string; name: string };
 
-type Phase = "picking" | "scanning" | "review" | "confirm" | "error";
+type Phase = "scanning" | "review" | "confirm" | "error";
 
 const DIVISORS = [1, 2, 3, 4];
 const PEOPLE_COUNTS = [2, 3, 4, 5];
@@ -109,7 +106,7 @@ export default function ScanBillScreen() {
   const scanBill = useScanBill();
   const addExpense = useAddExpense();
 
-  const [phase, setPhase] = useState<Phase>("picking");
+  const [phase, setPhase] = useState<Phase>("scanning");
   const [errorMsg, setErrorMsg] = useState("");
 
   const [merchant, setMerchant] = useState("");
@@ -201,60 +198,25 @@ export default function ScanBillScreen() {
     setItems((prev) => prev.map((it) => ({ ...it, divisor: 1 })));
   }
 
-  async function pickFrom(source: "camera" | "library") {
-    Haptics.selectionAsync().catch(() => {});
-    const perm =
-      source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      setErrorMsg(
-        "Camera/photo access is off — enable it in Settings, or enter this expense manually.",
-      );
-      setPhase("error");
-      return;
-    }
-
-    const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ["images"],
-      quality: 0.5,
-      base64: true,
-    };
-    const result =
-      source === "camera"
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
-    if (result.canceled || !result.assets?.[0]) {
+  // The photo is picked on the "more" screen's own sheet (so the sheet appears
+  // over that screen, not a blank one) and handed off via pendingScanImage —
+  // this route starts straight into "scanning" against whatever it finds.
+  // more.tsx already confirmed categories were non-empty before handing off,
+  // but this screen has its own query client entry and may need a moment to
+  // load them — wait for that instead of racing it with an empty list.
+  const pendingAsset = useRef(takePendingScanImage());
+  useEffect(() => {
+    const asset = pendingAsset.current;
+    if (!asset) {
       router.back();
       return;
     }
+    if (categoriesQ.isLoading) return;
 
-    const asset = result.assets[0];
-    if (!asset.base64) {
-      setErrorMsg(
-        "Couldn't read that image — try again or enter this expense manually.",
-      );
-      setPhase("error");
-      return;
-    }
-    // The scan route always requires a non-empty category list — guards the
-    // case where categories are still loading (or there simply are none yet)
-    // at the moment the picker resolves, rather than sending Gemini an empty
-    // enum constraint and getting back a 400.
-    if (categories.length === 0) {
-      setErrorMsg(
-        "No categories to sort this into yet — add one first, or enter this expense manually.",
-      );
-      setPhase("error");
-      return;
-    }
-
-    setPhase("scanning");
     scanBill.mutate(
       {
         image: asset.base64,
-        mimeType: asset.mimeType ?? "image/jpeg",
+        mimeType: asset.mimeType,
         categories: categories.map((c) => c.name),
       },
       {
@@ -272,13 +234,14 @@ export default function ScanBillScreen() {
         },
         onError: () => {
           setErrorMsg(
-            "Couldn't read that bill — try a clearer photo, or enter this expense manually.",
+            "Couldn't read that bill. Try a clearer photo, or enter this expense manually.",
           );
           setPhase("error");
         },
       },
     );
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesQ.isLoading]);
 
   function handleConfirm() {
     if (addExpense.isPending) return;
@@ -1365,68 +1328,6 @@ export default function ScanBillScreen() {
         </>
       )}
 
-      <BottomSheet visible={phase === "picking"} onClose={() => router.back()}>
-        <Text
-          style={[
-            styles.sheetTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.bodyLg,
-            },
-          ]}
-        >
-          Scan a bill
-        </Text>
-        <View style={{ gap: space.sm }}>
-          <Pressable
-            onPress={() => pickFrom("camera")}
-            style={[
-              styles.sourceRow,
-              {
-                gap: space.sm,
-                backgroundColor: tokens.inputBg,
-                borderRadius: radius.md,
-                padding: space.md,
-              },
-            ]}
-          >
-            <Camera size={20} color={tokens.text} />
-            <Text
-              style={{
-                color: tokens.text,
-                fontFamily: fontFamily.bodySemiBold,
-                fontSize: type.body,
-              }}
-            >
-              Take a photo
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => pickFrom("library")}
-            style={[
-              styles.sourceRow,
-              {
-                gap: space.sm,
-                backgroundColor: tokens.inputBg,
-                borderRadius: radius.md,
-                padding: space.md,
-              },
-            ]}
-          >
-            <Images size={20} color={tokens.text} />
-            <Text
-              style={{
-                color: tokens.text,
-                fontFamily: fontFamily.bodySemiBold,
-                fontSize: type.body,
-              }}
-            >
-              Choose a screenshot
-            </Text>
-          </Pressable>
-        </View>
-      </BottomSheet>
     </KeyboardAvoidingView>
   );
 }
@@ -1628,7 +1529,6 @@ const styles = StyleSheet.create({
   backToItems: { alignItems: "center", paddingVertical: 6 },
   bulkBar: { padding: 12 },
   sheetTitle: { marginBottom: 12 },
-  sourceRow: { flexDirection: "row", alignItems: "center" },
   selectToggle: {
     height: 30,
     paddingHorizontal: 12,

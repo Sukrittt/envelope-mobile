@@ -214,7 +214,7 @@ export default function LogExpenseScreen() {
         },
         {
           onSuccess: () => setLogSuccess(true),
-          onError: (e) => setError(e instanceof Error ? e.message : 'Failed to save'),
+          onError: () => setError('Could not save. Check your connection and try again.'),
         },
       )
     } else {

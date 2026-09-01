@@ -48,7 +48,7 @@ export default function AddHoldingModal() {
       },
       {
         onSuccess: () => setAddSuccess(true),
-        onError: (e) => Alert.alert('Failed to add holding', e instanceof Error ? e.message : String(e)),
+        onError: () => Alert.alert('Could not add holding', 'Check your connection and try again.'),
       },
     )
   }

@@ -18,8 +18,8 @@ const TITLES: Record<ActionType, string> = {
 }
 const DESCRIPTIONS: Record<ActionType, string> = {
   market_update: 'Set the new current value.',
-  contribution: 'Amount being invested. Tracked here only — budget it separately if you want it reflected in Ready to Assign.',
-  withdrawal: 'Amount to withdraw. Tracked here only — budget it separately if you want it reflected in Ready to Assign.',
+  contribution: 'Amount being invested. Tracked here only. Budget it separately if you want it reflected in Ready to Assign.',
+  withdrawal: 'Amount to withdraw. Tracked here only. Budget it separately if you want it reflected in Ready to Assign.',
 }
 const isActionType = (v: unknown): v is ActionType =>
   v === 'market_update' || v === 'contribution' || v === 'withdrawal'
@@ -61,8 +61,8 @@ export default function HoldingActionModal() {
       { name, action, amount: parsed },
       {
         onSuccess: () => setConfirmSuccess(true),
-        onError: (e) => {
-          Alert.alert('Failed', e instanceof Error ? e.message : String(e))
+        onError: () => {
+          Alert.alert('Could not save', 'Check your connection and try again.')
         },
       },
     )

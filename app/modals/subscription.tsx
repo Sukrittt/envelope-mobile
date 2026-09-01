@@ -87,7 +87,7 @@ export default function SubscriptionModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: (e) => Alert.alert('Failed to save subscription', e instanceof Error ? e.message : String(e)),
+          onError: () => Alert.alert('Could not save subscription', 'Check your connection and try again.'),
         },
       )
     } else {
@@ -101,7 +101,7 @@ export default function SubscriptionModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: (e) => Alert.alert('Failed to add subscription', e instanceof Error ? e.message : String(e)),
+          onError: () => Alert.alert('Could not add subscription', 'Check your connection and try again.'),
         },
       )
     }
@@ -110,7 +110,7 @@ export default function SubscriptionModal() {
   function handleReactivate() {
     reactivateSub.mutate(origService, {
       onSuccess: () => setSaved(true),
-      onError: (e) => Alert.alert('Failed to reactivate subscription', e instanceof Error ? e.message : String(e)),
+      onError: () => Alert.alert('Could not reactivate subscription', 'Check your connection and try again.'),
     })
   }
 
@@ -120,9 +120,9 @@ export default function SubscriptionModal() {
         setConfirmSheet(null)
         setSaved(true)
       },
-      onError: (e) => {
+      onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Failed to cancel subscription', e instanceof Error ? e.message : String(e))
+        Alert.alert('Could not cancel subscription', 'Check your connection and try again.')
       },
     })
   }
@@ -133,9 +133,9 @@ export default function SubscriptionModal() {
         setConfirmSheet(null)
         setSaved(true)
       },
-      onError: (e) => {
+      onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Failed to delete subscription', e instanceof Error ? e.message : String(e))
+        Alert.alert('Could not delete subscription', 'Check your connection and try again.')
       },
     })
   }

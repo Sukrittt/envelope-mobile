@@ -54,7 +54,7 @@ function VerifiedRow({ tokens }: { tokens: { mint: string; onAccent: string } })
           />
         </Svg>
       </Animated.View>
-      <Text style={[styles.verifiedText, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>Code verified — signing you in</Text>
+      <Text style={[styles.verifiedText, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>Code verified. Signing you in…</Text>
     </Animated.View>
   )
 }

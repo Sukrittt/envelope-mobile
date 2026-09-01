@@ -3,6 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
 import { addExpense, getExpenses } from '@/src/api/expenses'
 import { scanBill } from '@/src/api/scan'
+import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
 import ScanBillScreen from './scan-bill'
 
 jest.mock('@/src/api/categories', () => ({
@@ -24,17 +25,6 @@ const mockBack = jest.fn()
 const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace, push: jest.fn(), navigate: jest.fn() }),
-}))
-
-const mockRequestCamera = jest.fn()
-const mockRequestLibrary = jest.fn()
-const mockLaunchCamera = jest.fn()
-const mockLaunchLibrary = jest.fn()
-jest.mock('expo-image-picker', () => ({
-  requestCameraPermissionsAsync: () => mockRequestCamera(),
-  requestMediaLibraryPermissionsAsync: () => mockRequestLibrary(),
-  launchCameraAsync: (opts: unknown) => mockLaunchCamera(opts),
-  launchImageLibraryAsync: (opts: unknown) => mockLaunchLibrary(opts),
 }))
 
 const CATEGORIES = [{ name: 'Groceries', group: 'Essentials' }]
@@ -62,29 +52,20 @@ async function flushCategories() {
   }
 }
 
-async function scanToReview(getByText: (t: string) => unknown) {
-  fireEvent.press(getByText('Choose a screenshot') as never)
-  await waitFor(() => expect(scanBill).toHaveBeenCalled())
-}
-
 beforeEach(() => {
   jest.clearAllMocks()
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getExpenses as jest.Mock).mockResolvedValue([])
-  mockRequestLibrary.mockResolvedValue({ granted: true })
-  mockRequestCamera.mockResolvedValue({ granted: true })
-  mockLaunchLibrary.mockResolvedValue({
-    canceled: false,
-    assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
-  })
+  // The photo is picked on the "more" screen before this route ever mounts —
+  // simulate that handoff the same way, via the real pendingScanImage module.
+  setPendingScanImage({ base64: 'abc123', mimeType: 'image/png' })
 })
 
 describe('ScanBillScreen', () => {
-  it('goes back when the picker is cancelled', async () => {
-    mockLaunchLibrary.mockResolvedValue({ canceled: true, assets: null })
-    const { getByText } = renderWithProviders(<ScanBillScreen />)
+  it('goes back when no handed-off image is waiting', async () => {
+    takePendingScanImage() // drain the one beforeEach queued, leaving nothing pending
 
-    fireEvent.press(getByText('Choose a screenshot'))
+    renderWithProviders(<ScanBillScreen />)
     await waitFor(() => expect(mockBack).toHaveBeenCalled())
   })
 
@@ -94,13 +75,9 @@ describe('ScanBillScreen', () => {
 
     const { getByText, getByDisplayValue, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
-    // Categories load asynchronously — flush that before picking, or the
-    // screen would (correctly) refuse to scan with an empty category list.
     await flushCategories()
-    await scanToReview(getByText)
+    await waitFor(() => expect(scanBill).toHaveBeenCalled())
 
-    // react-query invokes the mutationFn with a second (client/meta) argument —
-    // only the first is ours to assert on.
     expect((scanBill as jest.Mock).mock.calls[0][0]).toEqual({
       image: 'abc123',
       mimeType: 'image/png',
@@ -140,7 +117,6 @@ describe('ScanBillScreen', () => {
     const { getByText, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
-    await scanToReview(getByText)
     await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     // 40 fee split 3 ways = 13.33, on top of the unchanged 860 of items.
@@ -153,7 +129,6 @@ describe('ScanBillScreen', () => {
     const { getByText, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
-    await scanToReview(getByText)
     await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     fireEvent.press(getByText('Select'))
@@ -174,7 +149,6 @@ describe('ScanBillScreen', () => {
     const { getByText, getByLabelText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
-    await scanToReview(getByText)
 
     // "Delivery Fee" is auto-detected and pulled out of the editable list —
     // it's a read-only line inside Fees & discount, not a TextInput row.
@@ -191,10 +165,9 @@ describe('ScanBillScreen', () => {
 
   it('filters items by search query', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    const { getByText, getByLabelText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+    const { getByLabelText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
-    await scanToReview(getByText)
     await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     fireEvent.changeText(getByPlaceholderText('Search items'), 'pizza')
@@ -207,7 +180,6 @@ describe('ScanBillScreen', () => {
 
     const { getByText } = renderWithProviders(<ScanBillScreen />)
     await flushCategories()
-    fireEvent.press(getByText('Choose a screenshot'))
 
     await waitFor(() => expect(getByText('Enter manually')).toBeTruthy())
     fireEvent.press(getByText('Enter manually'))

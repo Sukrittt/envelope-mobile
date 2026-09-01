@@ -77,7 +77,7 @@ export default function WidgetPreviewScreen() {
             );
             return (
               <>
-                <PreviewRow label="Envelope — 4x4">
+                <PreviewRow label="Envelope · 4x4">
                   <WidgetPreview
                     width={250}
                     height={250}
@@ -93,7 +93,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope — resized short">
+                <PreviewRow label="Envelope · resized short">
                   <WidgetPreview
                     width={250}
                     height={170}
@@ -109,7 +109,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Bar — 4x1">
+                <PreviewRow label="Envelope Bar · 4x1">
                   <WidgetPreview
                     width={250}
                     height={40}
@@ -123,7 +123,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini — 1x1">
+                <PreviewRow label="Envelope Mini · 1x1">
                   <WidgetPreview
                     width={60}
                     height={60}
