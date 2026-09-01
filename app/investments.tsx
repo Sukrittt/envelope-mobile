@@ -12,6 +12,8 @@ import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { PopIn } from '@/src/components/shared/PopIn'
+import { AmountText } from '@/src/components/ui/AmountText'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -29,6 +31,23 @@ const FIXED_TYPE_COLOR: Record<string, keyof ThemeTokens> = {
   Bonds: 'warn',
 }
 const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'accent', 'coral', 'warn']
+
+const INVESTMENT_PHRASES = [
+  'Waking up your portfolio…',
+  'Counting your compounding…',
+  'Asking the bulls and bears to play nice…',
+  'Polishing the allocation bar…',
+  'Watching the SIPs do their thing…',
+  'Chasing green arrows…',
+  'Hoping the FDs remember their returns…',
+  'Giving Gold its moment…',
+  'Reminding stocks to be kind to you…',
+  'Valuing your positions…',
+  'Reconciling with your risk appetite…',
+  'Letting the market marinate…',
+  'Summoning the fund managers…',
+  "Asking the index funds why you didn't buy earlier…",
+]
 
 function colorForType(type: string, index: number, tokens: ThemeTokens): string {
   const key = FIXED_TYPE_COLOR[type] ?? COLOR_CYCLE[index % COLOR_CYCLE.length]
@@ -56,6 +75,10 @@ function eventColor(type: string, tokens: ThemeTokens): string {
 }
 
 type ActionType = 'market_update' | 'contribution' | 'withdrawal'
+
+const HOLDINGS_MOUNT_DELAY_MS = 100
+const HOLDINGS_ITEM_STAGGER_MS = 45
+const HOLDINGS_ITEM_STAGGER_CAP_INDEX = 6
 
 export default function InvestmentsScreen() {
   const { tokens } = useTheme()
@@ -133,7 +156,7 @@ export default function InvestmentsScreen() {
 
       {isLoading ? (
         <View style={styles.centerFill}>
-          <LoadingCaption />
+          <LoadingCaption phrases={INVESTMENT_PHRASES} />
         </View>
       ) : (
         <ScrollView
@@ -152,9 +175,7 @@ export default function InvestmentsScreen() {
             <Text style={[styles.nwLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
               Net Worth
             </Text>
-            <Text style={[styles.nwAmount, { color: tokens.text, fontFamily: fontFamily.displayBold }]}>
-              {formatCurrency(netWorth, hideAmounts)}
-            </Text>
+            <AmountText value={netWorth} size={styles.nwAmount.fontSize} weight="displayBold" animate />
           </View>
 
           {segments.length > 0 && (
@@ -175,34 +196,40 @@ export default function InvestmentsScreen() {
             </View>
           ) : (
             <View style={{ gap: 10 }}>
-              {holdings.map((h) => (
-                <Pressable
+              {holdings.map((h, i) => (
+                <PopIn
                   key={h.name}
-                  onPress={() => setSheetHolding(h)}
+                  play
+                  delay={HOLDINGS_MOUNT_DELAY_MS + Math.min(i, HOLDINGS_ITEM_STAGGER_CAP_INDEX) * HOLDINGS_ITEM_STAGGER_MS}
                   style={[styles.holdingRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}
                 >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
-                      numberOfLines={1}
-                    >
-                      {h.name}
-                    </Text>
-                    <Text
-                      style={[styles.holdingMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
-                    >
-                      {h.type} · Updated {formatDateTime(h.updated_at)}
-                    </Text>
-                    {h.is_recurring === 'true' && (
-                      <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-                        Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                  <Pressable
+                    onPress={() => setSheetHolding(h)}
+                    style={styles.holdingRowInner}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+                        numberOfLines={1}
+                      >
+                        {h.name}
                       </Text>
-                    )}
-                  </View>
-                  <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                    {formatCurrency(Number(h.value) || 0, hideAmounts)}
-                  </Text>
-                </Pressable>
+                      <Text
+                        style={[styles.holdingMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+                      >
+                        {h.type} · Updated {formatDateTime(h.updated_at)}
+                      </Text>
+                      {h.is_recurring === 'true' && (
+                        <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+                          Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+                      {formatCurrency(Number(h.value) || 0, hideAmounts)}
+                    </Text>
+                  </Pressable>
+                </PopIn>
               ))}
             </View>
           )}
@@ -308,11 +335,13 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, textAlign: 'center' },
   sectionTitle: { fontSize: 16, marginTop: 4 },
   holdingRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+  },
+  holdingRowInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 12,

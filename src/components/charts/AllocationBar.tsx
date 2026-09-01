@@ -1,7 +1,14 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { View, Text, Animated, Easing, StyleSheet } from 'react-native'
 import Svg, { Rect } from 'react-native-svg'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect)
+
+// Mount-only reveal: the whole bar sweeps open once, not on every data refetch.
+const GROW_DELAY = 120
+const GROW_DURATION = 550
 
 export interface AllocationSegment {
   label: string
@@ -13,6 +20,22 @@ export interface AllocationSegment {
 export function AllocationBar({ segments }: { segments: AllocationSegment[] }) {
   const { tokens } = useTheme()
   const total = segments.reduce((s, seg) => s + seg.value, 0)
+
+  // Hooks must run unconditionally — declared above the `total <= 0` bail-out below.
+  const progress = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: GROW_DURATION,
+      delay: GROW_DELAY,
+      easing: Easing.out(Easing.cubic),
+      // Width is a layout prop on an SVG Rect, not native-driver-friendly (same as ProgressBar's fill tween).
+      useNativeDriver: false,
+    }).start()
+    // Mount-only: segment data changing later shouldn't replay the grow.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (total <= 0) return null
 
   let cursor = 0
@@ -28,7 +51,14 @@ export function AllocationBar({ segments }: { segments: AllocationSegment[] }) {
       <View style={[styles.barClip, { backgroundColor: tokens.border }]}>
         <Svg width="100%" height={10} viewBox="0 0 100 10" preserveAspectRatio="none">
           {bars.map((b) => (
-            <Rect key={b.key} x={b.x} y={0} width={b.width} height={10} fill={b.color} />
+            <AnimatedRect
+              key={b.key}
+              x={b.x}
+              y={0}
+              width={progress.interpolate({ inputRange: [0, 1], outputRange: [0, b.width] })}
+              height={10}
+              fill={b.color}
+            />
           ))}
         </Svg>
       </View>
