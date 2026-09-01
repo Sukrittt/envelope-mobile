@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -76,13 +76,13 @@ export function EnvelopeRow({
     onSheetOpenChange?.(true)
   }
 
-  function closeSheet() {
+  const closeSheet = useCallback(() => {
     setSheetOpen(false)
     setEditing(false)
     setEditSuccess(false)
     setEditError('')
     onSheetOpenChange?.(false)
-  }
+  }, [onSheetOpenChange])
 
   async function submitEdit() {
     const value = Math.round(Number(amountText)) || 0
@@ -103,7 +103,7 @@ export function EnvelopeRow({
     if (!editSuccess) return
     const timer = setTimeout(closeSheet, 1100)
     return () => clearTimeout(timer)
-  }, [editSuccess])
+  }, [editSuccess, closeSheet])
 
   const availableColor = envelope.isOverspent ? tokens.coral : tokens.mint
   const name = displayName ?? splitEmoji(envelope.category).text
