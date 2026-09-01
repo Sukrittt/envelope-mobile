@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, Pressable, ScrollView, Alert, Share, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, Alert, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -8,35 +8,52 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { clearTransactions, exportData, getDataSummary } from '@/src/api/account'
+import { clearTransactions, getDataSummary, startExport, getExports, type ExportRow } from '@/src/api/account'
 
 const summaryKey = ['dataSummary'] as const
+const exportsKey = ['exports'] as const
 
-// ponytail: shares the exported text straight through RN's built-in Share
-// sheet instead of writing a temp file via expo-file-system + expo-sharing —
-// expo-file-system isn't installed, and Share.share needs no new dependency.
-// Swap in a real file share if users need to hand off large exports as .csv/.json.
 export default function DataScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const qc = useQueryClient()
   const summaryQuery = useQuery({ queryKey: summaryKey, queryFn: getDataSummary, staleTime: 30_000 })
+  const exportsQuery = useQuery({
+    queryKey: exportsKey,
+    queryFn: getExports,
+    // Poll only while something's still building — a push notification is the
+    // real "it's done" signal, this just catches the screen up if it's open.
+    refetchInterval: (query) => (query.state.data?.exports.some((e) => e.status === 'pending') ? 4000 : false),
+  })
 
-  const [exporting, setExporting] = useState<'csv' | 'json' | null>(null)
+  const [starting, setStarting] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [confirmingClear, setConfirmingClear] = useState(false)
 
-  const handleExport = async (format: 'csv' | 'json') => {
-    setExporting(format)
+  const exportsData = exportsQuery.data
+  const atLimit = exportsData ? exportsData.usedThisMonth >= exportsData.limit : false
+  const pending = exportsData?.exports.some((e) => e.status === 'pending') ?? false
+
+  const handleStartExport = async () => {
+    setStarting(true)
     try {
-      const content = await exportData(format)
-      await Share.share({ message: content })
-    } catch {
-      Alert.alert('Export failed', 'Check your connection and try again.')
+      await startExport()
+    } catch (err) {
+      if (err instanceof Error && err.message === 'quota_exceeded') {
+        const limit = exportsData?.limit
+        Alert.alert(limit ? `You've used all ${limit} exports this month` : "You've used your export limit this month", 'Resets next month.')
+      } else {
+        Alert.alert('Export failed', 'Check your connection and try again.')
+      }
     } finally {
-      setExporting(null)
+      setStarting(false)
+      void qc.invalidateQueries({ queryKey: exportsKey })
     }
+  }
+
+  const handleDownload = (row: ExportRow) => {
+    if (row.blob_url) void Linking.openURL(row.blob_url)
   }
 
   const doClear = async () => {
@@ -70,26 +87,43 @@ export default function DataScreen() {
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>Export</Text>
           <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{summaryLine}</Text>
+          {exportsData ? (
+            <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              {exportsData.usedThisMonth} of {exportsData.limit} exports used this month
+            </Text>
+          ) : null}
           <View style={styles.exportRow}>
             <Pressable
-              onPress={() => handleExport('csv')}
-              disabled={exporting !== null}
+              onPress={handleStartExport}
+              disabled={starting || pending || atLimit}
               style={[styles.exportButton, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}
             >
               <Text style={[styles.exportButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                {exporting === 'csv' ? 'Exporting…' : 'CSV'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => handleExport('json')}
-              disabled={exporting !== null}
-              style={[styles.exportButton, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}
-            >
-              <Text style={[styles.exportButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                {exporting === 'json' ? 'Exporting…' : 'JSON'}
+                {pending ? 'Building…' : starting ? 'Starting…' : 'Export'}
               </Text>
             </Pressable>
           </View>
+          {atLimit ? (
+            <Text style={[styles.cardMeta, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
+              You&apos;ve used all {exportsData?.limit} exports this month. Resets next month.
+            </Text>
+          ) : null}
+          {exportsData && exportsData.exports.length > 0 ? (
+            <View style={{ marginTop: 12, gap: 6 }}>
+              {exportsData.exports.map((row) => (
+                <Pressable
+                  key={row.id}
+                  onPress={() => handleDownload(row)}
+                  disabled={row.status !== 'ready'}
+                  style={styles.exportHistoryRow}
+                >
+                  <Text style={[styles.exportHistoryText, { color: row.status === 'ready' ? tokens.text : tokens.text2 }]}>
+                    {row.created_at} — {row.status}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <Pressable
@@ -151,6 +185,8 @@ const styles = StyleSheet.create({
   exportRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   exportButton: { flex: 1, minHeight: 44, borderRadius: 100, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   exportButtonText: { fontSize: 13 },
+  exportHistoryRow: { paddingVertical: 4 },
+  exportHistoryText: { fontSize: 12 },
   clearRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderWidth: 1, borderRadius: 20 },
   clearTitle: { fontSize: 14 },
   clearHint: { fontSize: 11, marginTop: 2 },

@@ -3,7 +3,6 @@ import { addHolding, deleteHolding, getHoldings, performHoldingAction, updateHol
 
 const key = ['holdings'] as const
 const eventsKey = ['holding-events'] as const
-const budgetsKey = ['budgets'] as const
 
 export function useHoldings() {
   return useQuery({ queryKey: key, queryFn: getHoldings, staleTime: 30_000 })
@@ -16,7 +15,6 @@ export function useAddHolding() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: eventsKey })
-      qc.invalidateQueries({ queryKey: budgetsKey }) // contributions/withdrawals nudge __income__ envelope
     },
   })
 }
@@ -29,7 +27,6 @@ export function useUpdateHolding() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: eventsKey })
-      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
@@ -41,7 +38,6 @@ export function useDeleteHolding() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: eventsKey })
-      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
@@ -53,7 +49,6 @@ export function usePerformHoldingAction() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: eventsKey })
-      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }

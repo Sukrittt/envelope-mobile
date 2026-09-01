@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, Alert, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -6,7 +6,6 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
-import { currentMonthKey } from '@/src/lib/envelope'
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
@@ -19,8 +18,8 @@ const TITLES: Record<ActionType, string> = {
 }
 const DESCRIPTIONS: Record<ActionType, string> = {
   market_update: 'Set the new current value.',
-  contribution: 'Amount being invested (deducted from Ready to Assign).',
-  withdrawal: 'Amount to withdraw (added to Ready to Assign).',
+  contribution: 'Amount being invested. Tracked here only — budget it separately if you want it reflected in Ready to Assign.',
+  withdrawal: 'Amount to withdraw. Tracked here only — budget it separately if you want it reflected in Ready to Assign.',
 }
 const isActionType = (v: unknown): v is ActionType =>
   v === 'market_update' || v === 'contribution' || v === 'withdrawal'
@@ -44,7 +43,6 @@ export default function HoldingActionModal() {
 
   const [amount, setAmount] = useState(action === 'market_update' && holding ? String(currentValue) : '')
   const [confirmSuccess, setConfirmSuccess] = useState(false)
-  const month = useMemo(() => currentMonthKey(), [])
 
   const parsed = Number(amount)
   const canSubmit = amount.trim() !== '' && !Number.isNaN(parsed) && parsed >= 0
@@ -60,7 +58,7 @@ export default function HoldingActionModal() {
   function handleConfirm() {
     if (!canSubmit) return
     performAction.mutate(
-      { name, action, amount: parsed, month },
+      { name, action, amount: parsed },
       {
         onSuccess: () => setConfirmSuccess(true),
         onError: (e) => {

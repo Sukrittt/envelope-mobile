@@ -54,6 +54,10 @@ export interface HoldingRow {
   type: string
   value: string
   updated_at: string
+  is_recurring: string
+  recurring_amount: string
+  recurring_day: string
+  recurring_last_run: string
 }
 
 export interface HoldingEventRow {

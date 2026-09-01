@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable, Alert, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, Pressable, Switch, Alert, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -18,10 +18,15 @@ export default function AddHoldingModal() {
   const [name, setName] = useState('')
   const [type, setType] = useState('')
   const [value, setValue] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
   const [addSuccess, setAddSuccess] = useState(false)
 
   const parsedValue = Number(value)
-  const canSubmit = name.trim() !== '' && value.trim() !== '' && !Number.isNaN(parsedValue) && parsedValue >= 0
+  const canSubmit =
+    name.trim() !== '' &&
+    value.trim() !== '' &&
+    !Number.isNaN(parsedValue) &&
+    parsedValue >= 0
 
   // Let the inline checkmark finish drawing before navigating back.
   useEffect(() => {
@@ -34,7 +39,13 @@ export default function AddHoldingModal() {
   function handleAdd() {
     if (!canSubmit) return
     addHolding.mutate(
-      { name: name.trim(), type: type || 'Other', value: value.trim() },
+      {
+        name: name.trim(),
+        type: type || 'Other',
+        value: value.trim(),
+        is_recurring: isRecurring,
+        recurring_amount: isRecurring ? value.trim() : undefined,
+      },
       {
         onSuccess: () => setAddSuccess(true),
         onError: (e) => Alert.alert('Failed to add holding', e instanceof Error ? e.message : String(e)),
@@ -120,6 +131,25 @@ export default function AddHoldingModal() {
           </View>
         </View>
 
+        <View style={styles.field}>
+          <View style={styles.recurringRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+                Repeat monthly (SIP/PF)
+              </Text>
+              <Text style={[styles.recurringHint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                Auto-adds the value above as a contribution on this day every month
+              </Text>
+            </View>
+            <Switch
+              value={isRecurring}
+              onValueChange={setIsRecurring}
+              trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
+              thumbColor={tokens.onAccent}
+            />
+          </View>
+        </View>
+
         <Pressable
           onPress={handleAdd}
           disabled={!canSubmit || addHolding.isPending || addSuccess}
@@ -159,6 +189,8 @@ const styles = StyleSheet.create({
   body: { padding: 20, gap: 20 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  recurringRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  recurringHint: { fontSize: 12, marginTop: 4, textTransform: 'none', letterSpacing: 0 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16 },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typePill: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },

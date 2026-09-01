@@ -8,7 +8,13 @@ export async function getHoldings(): Promise<HoldingRow[]> {
   return data.rows
 }
 
-export async function addHolding(row: { name: string; type: string; value: string }): Promise<void> {
+export async function addHolding(row: {
+  name: string
+  type: string
+  value: string
+  is_recurring?: boolean
+  recurring_amount?: string
+}): Promise<void> {
   const resp = await apiFetch('/api/holdings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -51,7 +57,6 @@ export async function performHoldingAction(params: {
   name: string
   action: 'market_update' | 'contribution' | 'withdrawal'
   amount: number
-  month: string
 }): Promise<{ previousValue: number; newValue: number }> {
   const resp = await apiFetch('/api/holdings/action', {
     method: 'POST',

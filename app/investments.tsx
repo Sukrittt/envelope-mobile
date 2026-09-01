@@ -193,6 +193,11 @@ export default function InvestmentsScreen() {
                     >
                       {h.type} · Updated {formatDateTime(h.updated_at)}
                     </Text>
+                    {h.is_recurring === 'true' && (
+                      <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+                        Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                      </Text>
+                    )}
                   </View>
                   <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
                     {formatCurrency(Number(h.value) || 0, hideAmounts)}
@@ -314,6 +319,7 @@ const styles = StyleSheet.create({
   },
   holdingName: { fontSize: 15 },
   holdingMeta: { fontSize: 12, marginTop: 2 },
+  recurringBadge: { fontSize: 11, marginTop: 3 },
   holdingValue: { fontSize: 15 },
   eventRow: { borderWidth: 1, borderRadius: 14, padding: 12 },
   eventTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

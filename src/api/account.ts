@@ -55,10 +55,31 @@ export async function deleteAccount(email: string): Promise<void> {
   if (!resp.ok) throw new Error(`Failed to delete account: ${resp.status}`)
 }
 
-export async function exportData(format: 'csv' | 'json'): Promise<string> {
-  const resp = await apiFetch(`/api/data/export?format=${format}`)
-  if (!resp.ok) throw new Error(`Failed to export data: ${resp.status}`)
-  return resp.text()
+export interface ExportRow {
+  id: string
+  status: 'pending' | 'ready' | 'failed'
+  created_at: string
+  blob_url: string | null
+}
+
+export interface ExportsResponse {
+  exports: ExportRow[]
+  usedThisMonth: number
+  limit: number
+}
+
+/** Kicks off a background export; throws `quota_exceeded` distinctly for a 429. */
+export async function startExport(): Promise<{ id: string; status: string; remaining: number }> {
+  const resp = await apiFetch('/api/data/export', { method: 'POST' })
+  if (resp.status === 429) throw new Error('quota_exceeded')
+  if (!resp.ok) throw new Error(`Failed to start export: ${resp.status}`)
+  return resp.json()
+}
+
+export async function getExports(): Promise<ExportsResponse> {
+  const resp = await apiFetch('/api/data/exports')
+  if (!resp.ok) throw new Error(`Failed to load exports: ${resp.status}`)
+  return resp.json()
 }
 
 export async function getDataSummary(): Promise<DataSummary> {
