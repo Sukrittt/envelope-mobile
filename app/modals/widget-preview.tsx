@@ -5,35 +5,39 @@
 // over a real wallpaper and border-radius clipping can still differ, so
 // verify a layout change here first, then confirm once via More > "Add
 // widget to home screen" before calling it done.
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { ArrowLeft } from 'lucide-react-native'
-import { WidgetPreview } from 'react-native-android-widget'
-import { useTheme } from '@/src/theme/ThemeProvider'
-import { fontFamily } from '@/src/theme/fonts'
-import { useBudgets } from '@/src/hooks/useBudgets'
-import { useExpenses } from '@/src/hooks/useExpenses'
-import { useCategories } from '@/src/hooks/useCategories'
-import { useGroups } from '@/src/hooks/useGroups'
-import { computeEnvelopeState, currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
-import { todayIST } from '@/src/lib/date'
-import { toWidgetData } from '@/src/widgets/data'
-import { EnvelopeWidget } from '@/src/widgets/EnvelopeWidget'
-import { EnvelopeBarWidget } from '@/src/widgets/EnvelopeBarWidget'
-import { EnvelopeMiniWidget } from '@/src/widgets/EnvelopeMiniWidget'
+import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
+import { WidgetPreview } from "react-native-android-widget";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { fontFamily } from "@/src/theme/fonts";
+import { useBudgets } from "@/src/hooks/useBudgets";
+import { useExpenses } from "@/src/hooks/useExpenses";
+import { useCategories } from "@/src/hooks/useCategories";
+import { useGroups } from "@/src/hooks/useGroups";
+import {
+  computeEnvelopeState,
+  currentMonthKey,
+  daysLeftInMonth,
+} from "@/src/lib/envelope";
+import { todayIST } from "@/src/lib/date";
+import { toWidgetData } from "@/src/widgets/data";
+import { EnvelopeWidget } from "@/src/widgets/EnvelopeWidget";
+import { EnvelopeBarWidget } from "@/src/widgets/EnvelopeBarWidget";
+import { EnvelopeMiniWidget } from "@/src/widgets/EnvelopeMiniWidget";
 
 export default function WidgetPreviewScreen() {
-  const { tokens, scheme } = useTheme()
-  const insets = useSafeAreaInsets()
-  const router = useRouter()
+  const { tokens, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
 
-  const budgetsQ = useBudgets()
-  const expensesQ = useExpenses()
-  const categoriesQ = useCategories()
-  const groupsQ = useGroups()
+  const budgetsQ = useBudgets();
+  const expensesQ = useExpenses();
+  const categoriesQ = useCategories();
+  const groupsQ = useGroups();
 
-  const ready = budgetsQ.data && expensesQ.data
+  const ready = budgetsQ.data && expensesQ.data;
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
@@ -41,10 +45,22 @@ export default function WidgetPreviewScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <ArrowLeft size={20} color={tokens.text} />
         </Pressable>
-        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displayBold }]}>Widget preview</Text>
+        <Text
+          style={[
+            styles.title,
+            { color: tokens.text, fontFamily: fontFamily.displayBold },
+          ]}
+        >
+          Widget preview
+        </Text>
       </View>
       {!ready ? null : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 40 },
+          ]}
+        >
           {(() => {
             const state = computeEnvelopeState(
               budgetsQ.data!,
@@ -52,8 +68,13 @@ export default function WidgetPreviewScreen() {
               currentMonthKey(),
               categoriesQ.data ?? [],
               groupsQ.data ?? [],
-            )
-            const data = toWidgetData(state, expensesQ.data!, daysLeftInMonth(), todayIST())
+            );
+            const data = toWidgetData(
+              state,
+              expensesQ.data!,
+              daysLeftInMonth(),
+              todayIST(),
+            );
             return (
               <>
                 <PreviewRow label="Envelope — 4x4">
@@ -62,7 +83,13 @@ export default function WidgetPreviewScreen() {
                     height={250}
                     highlightClickableAreas
                     renderWidget={({ width, height }) => (
-                      <EnvelopeWidget {...data} tokens={tokens} scheme={scheme} width={width} height={height} />
+                      <EnvelopeWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                        width={width}
+                        height={height}
+                      />
                     )}
                   />
                 </PreviewRow>
@@ -72,7 +99,13 @@ export default function WidgetPreviewScreen() {
                     height={170}
                     highlightClickableAreas
                     renderWidget={({ width, height }) => (
-                      <EnvelopeWidget {...data} tokens={tokens} scheme={scheme} width={width} height={height} />
+                      <EnvelopeWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                        width={width}
+                        height={height}
+                      />
                     )}
                   />
                 </PreviewRow>
@@ -81,41 +114,72 @@ export default function WidgetPreviewScreen() {
                     width={250}
                     height={40}
                     highlightClickableAreas
-                    renderWidget={() => <EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} />}
+                    renderWidget={() => (
+                      <EnvelopeBarWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                      />
+                    )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini — 2x2">
+                <PreviewRow label="Envelope Mini — 1x1">
                   <WidgetPreview
-                    width={110}
-                    height={110}
+                    width={60}
+                    height={60}
                     highlightClickableAreas
-                    renderWidget={() => <EnvelopeMiniWidget {...data} tokens={tokens} scheme={scheme} />}
+                    renderWidget={() => (
+                      <EnvelopeMiniWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                      />
+                    )}
                   />
                 </PreviewRow>
               </>
-            )
+            );
           })()}
         </ScrollView>
       )}
     </View>
-  )
+  );
 }
 
-function PreviewRow({ label, children }: { label: string; children: React.ReactNode }) {
-  const { tokens } = useTheme()
+function PreviewRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const { tokens } = useTheme();
   return (
     <View style={styles.row}>
-      <Text style={[styles.rowLabel, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{label}</Text>
+      <Text
+        style={[
+          styles.rowLabel,
+          { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+        ]}
+      >
+        {label}
+      </Text>
       {children}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 16 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
   title: { fontSize: 18 },
   content: { paddingHorizontal: 20, gap: 24 },
   row: { gap: 8 },
   rowLabel: { fontSize: 12 },
-})
+});

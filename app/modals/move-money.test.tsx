@@ -29,9 +29,9 @@ const MONTH = currentMonthKey()
 // Electricity (the target) is topped up from three envelopes with different
 // available/assigned ratios, so ranking order is unambiguous: Travel (90%
 // left) > Cook (50% left) > Shopping (10% left).
-function setup(overrides: Partial<typeof BASE_PARAMS> = {}) {
+function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] = []) {
   mockParams = { ...BASE_PARAMS, ...overrides }
-  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
   ;(getBudgets as jest.Mock).mockResolvedValue([
     { month: MONTH, category: 'Electricity', assigned: '0', rolled_over: '0' },
     { month: MONTH, category: 'Travel', assigned: '1000', rolled_over: '0' },
@@ -55,14 +55,14 @@ beforeEach(() => {
 })
 
 // Spending eats into each envelope so `available/assigned` differs: Travel
-// 900/1000, Cook 500/1000, Shopping 100/1000.
-function withSpending() {
-  ;(getExpenses as jest.Mock).mockResolvedValue([
-    { date: `${MONTH}-05`, amount_inr: '100', category: 'Travel' },
-    { date: `${MONTH}-05`, amount_inr: '500', category: 'Cook' },
-    { date: `${MONTH}-05`, amount_inr: '900', category: 'Shopping' },
-  ])
-}
+// 900/1000, Cook 500/1000, Shopping 100/1000. Passed into setup() rather than
+// mocked separately — setup() always sets getExpenses itself, so a standalone
+// mockResolvedValue call before it gets silently clobbered.
+const SPENDING = [
+  { date: `${MONTH}-05`, amount_inr: '100', category: 'Travel' },
+  { date: `${MONTH}-05`, amount_inr: '500', category: 'Cook' },
+  { date: `${MONTH}-05`, amount_inr: '900', category: 'Shopping' },
+]
 
 // The numpad's own digit keys share exact text ("0", "5", ...) with the
 // odometer's per-character digit nodes on the same screen, so pressing by
@@ -87,8 +87,7 @@ it('advances to the sources step once an amount is entered', async () => {
 })
 
 it('auto-fill allocates from the safest sources until the amount is covered', async () => {
-  withSpending()
-  const { getByText, getByLabelText, queryByText } = setup()
+  const { getByText, getByLabelText, queryByText } = setup({}, SPENDING)
   // The screen gates on an ActivityIndicator until all four queries settle —
   // wait for real content (the numpad) rather than just the mock call.
   await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
@@ -98,19 +97,20 @@ it('auto-fill allocates from the safest sources until the amount is covered', as
 
   fireEvent.press(getByText('Auto-fill'))
 
-  // 1000 needed: Travel gives 900 (its full available), Cook covers the last 100.
+  // 1000 needed: Travel gives 900 (its full available), Cook covers the last
+  // 100 — assert the actual split amounts, not just that the names appear
+  // (both names show up in the remaining pool too, picked or not).
   await waitFor(() => expect(getByText('FROM')).toBeTruthy())
-  expect(getByText('Travel')).toBeTruthy()
-  expect(getByText('Cook')).toBeTruthy()
+  expect(getByText('₹900 → ₹0')).toBeTruthy()
+  expect(getByText('₹500 → ₹400')).toBeTruthy()
   expect(queryByText('Shopping')).toBeTruthy() // still in the remaining pool, untouched
   expect(getByText('Move ₹1,000')).toBeTruthy()
 })
 
 it('splits a move across multiple sources on submit', async () => {
-  withSpending()
   ;(addBudget as jest.Mock).mockResolvedValue({})
   ;(updateBudget as jest.Mock).mockResolvedValue({})
-  const { getByText, getByLabelText } = setup()
+  const { getByText, getByLabelText } = setup({}, SPENDING)
   // The screen gates on an ActivityIndicator until all four queries settle —
   // wait for real content (the numpad) rather than just the mock call.
   await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
@@ -131,8 +131,7 @@ it('splits a move across multiple sources on submit', async () => {
 })
 
 it('filters the source list by search', async () => {
-  withSpending()
-  const { getByText, getByLabelText, getByPlaceholderText, queryByText } = setup()
+  const { getByText, getByLabelText, getByPlaceholderText, queryByText } = setup({}, SPENDING)
   // The screen gates on an ActivityIndicator until all four queries settle —
   // wait for real content (the numpad) rather than just the mock call.
   await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
