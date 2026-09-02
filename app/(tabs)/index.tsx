@@ -25,6 +25,7 @@ import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
+import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
@@ -51,7 +52,9 @@ export default function HomeScreen() {
   const addBudget = useAddBudget()
 
   const { hideAmounts } = usePrivacy()
-  const [rolloverDismissed, setRolloverDismissed] = useState(false)
+  const month = currentMonthKey()
+  const prevMonth = prevMonthKey(month)
+  const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(prevMonth)
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('home')
   // How many envelope action sheets are currently open — a plain boolean would
   // do since only one can be open at a time in practice, but a count is safe
@@ -63,8 +66,6 @@ export default function HomeScreen() {
   const categories = categoriesQ.data ?? EMPTY
   const groups = groupsQ.data ?? EMPTY
 
-  const month = currentMonthKey()
-
   const envelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, month, categories, groups),
     [budgets, expenses, month, categories, groups],
@@ -73,9 +74,9 @@ export default function HomeScreen() {
   // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
   // one-time heads-up on what was left unspent overall, not a running balance.
   const prevMonthLeftover = useMemo(() => {
-    const prevState = computeEnvelopeState(budgets, expenses, prevMonthKey(month), categories, groups)
+    const prevState = computeEnvelopeState(budgets, expenses, prevMonth, categories, groups)
     return prevState.income - prevState.totalSpent
-  }, [budgets, expenses, month, categories, groups])
+  }, [budgets, expenses, prevMonth, categories, groups])
 
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
