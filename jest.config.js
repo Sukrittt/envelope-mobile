@@ -1,3 +1,8 @@
+// Set before worker processes fork, not in setupFiles: by the time setupFiles
+// runs inside a worker, V8/ICU has already cached the OS default timezone for
+// Date/Intl, and reassigning process.env.TZ there no longer takes effect.
+process.env.TZ = 'UTC'
+
 module.exports = {
   preset: 'jest-expo',
   setupFiles: ['./jest.setup.js'],
