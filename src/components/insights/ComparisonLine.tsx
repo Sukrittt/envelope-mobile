@@ -1,4 +1,5 @@
-import { Text } from 'react-native'
+import { View, Text } from 'react-native'
+import { Play } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
@@ -6,48 +7,68 @@ import type { MonthComparison } from '@/src/lib/monthly'
 
 interface Props {
   comparison: MonthComparison
-  monthLabel: string
   hideAmounts?: boolean
 }
 
-/** The screen's headline: one sentence answering "is this normal" before any
- *  chart does. Every other card on Insights is a different rendering of the
- *  same total; this is the only place that says whether it's a good number. */
-export function ComparisonLine({ comparison, monthLabel, hideAmounts = false }: Props) {
+/** The screen's headline: the largest amount on the screen, with the one
+ *  sentence that answers "is this normal" underneath it. Every other card on
+ *  Insights is a different rendering of the same total; this is the only
+ *  place that says whether it's a good number. */
+export function ComparisonLine({ comparison, hideAmounts = false }: Props) {
   const { tokens, type } = useTheme()
-  const { spent, baseline, deltaPct, inProgress, projected, driver } = comparison
+  const { spent, baseline, deltaPct, inProgress, projected, driver, days } = comparison
   const spentText = formatCurrency(spent, hideAmounts)
-  const base = { fontSize: type.body, fontFamily: fontFamily.bodyMedium, color: tokens.text2 }
-  const strong = { fontFamily: fontFamily.bodySemiBold, color: tokens.text }
+  const amountStyle = { fontSize: type.heading, fontFamily: fontFamily.displayBold, color: tokens.text }
+  const lineStyle = { fontSize: type.body, fontFamily: fontFamily.bodyMedium, color: tokens.text2 }
+  const strong = { fontFamily: fontFamily.bodySemiBold }
+
+  let line2: React.ReactNode
 
   if (baseline == null || deltaPct == null) {
-    return (
-      <Text style={base}>
-        <Text style={strong}>{spentText}</Text> {inProgress ? 'so far this month.' : `in ${monthLabel}.`}
+    const perDay = days > 0 ? spent / days : 0
+    line2 = (
+      <Text style={lineStyle}>
+        {formatCurrency(perDay, hideAmounts)}/day across {days} {days === 1 ? 'day' : 'days'}
       </Text>
     )
-  }
-
-  const over = deltaPct > 0
-  const arrow = over ? '▲' : '▼'
-  const deltaColor = over ? tokens.coral : tokens.mint
-  const deltaLabel = `${arrow} ${Math.abs(deltaPct).toFixed(0)}%`
-  const driverText = driver ? `${driver.emoji ? `${driver.emoji} ` : ''}${driver.category} drove it.` : ''
-
-  if (inProgress) {
-    return (
-      <Text style={base}>
-        <Text style={strong}>{spentText}</Text> so far, <Text style={[strong, { color: deltaColor }]}>{deltaLabel}</Text>{' '}
-        {over ? 'above' : 'under'} your usual pace.
-        {projected != null ? ` On track for about ${formatCurrency(projected, hideAmounts)}.` : ''}
-      </Text>
+  } else {
+    const over = deltaPct > 0
+    const deltaColor = over ? tokens.coral : tokens.mint
+    const deltaLabel = `${Math.abs(deltaPct).toFixed(0)}%`
+    const deltaIcon = (
+      <View style={{ transform: [{ rotate: over ? '-90deg' : '90deg' }] }}>
+        <Play size={12} color={deltaColor} fill={deltaColor} />
+      </View>
     )
+
+    if (inProgress) {
+      line2 = (
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+          {deltaIcon}
+          <Text style={lineStyle}>
+            <Text style={[strong, { color: deltaColor }]}>{deltaLabel}</Text> {over ? 'above' : 'under'} your usual pace
+            {projected != null ? ` · on track for about ${formatCurrency(projected, hideAmounts)}` : ''}
+          </Text>
+        </View>
+      )
+    } else {
+      const driverText = driver ? ` · ${driver.emoji ? `${driver.emoji} ` : ''}${driver.category} drove it` : ''
+      line2 = (
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+          {deltaIcon}
+          <Text style={lineStyle}>
+            <Text style={[strong, { color: deltaColor }]}>{deltaLabel}</Text> {over ? 'above' : 'under'} your usual 3 months
+            {driverText}
+          </Text>
+        </View>
+      )
+    }
   }
 
   return (
-    <Text style={base}>
-      <Text style={strong}>{spentText}</Text> in {monthLabel}. <Text style={[strong, { color: deltaColor }]}>{deltaLabel}</Text>{' '}
-      {over ? 'above' : 'under'} your usual 3 months. {driverText}
-    </Text>
+    <View style={{ gap: 2 }}>
+      <Text style={amountStyle}>{spentText}</Text>
+      {line2}
+    </View>
   )
 }

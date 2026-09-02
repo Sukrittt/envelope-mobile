@@ -3,6 +3,7 @@ import Svg, { Rect, Line } from 'react-native-svg'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
+import { monthAbbrev } from '@/src/lib/envelope'
 
 export interface TrendPoint {
   /** Month key, "YYYY-MM". */
@@ -21,6 +22,12 @@ interface Props {
   hideAmounts?: boolean
   /** Tapping a bar moves the screen's selected month. */
   onSelect?: (key: string) => void
+  /** Month key still in progress. Its bar stays at full opacity regardless of
+   *  selection (opacity means "not selected" everywhere else, and reusing it
+   *  for "partial" reads as disabled) and its axis label gets a `*` plus a
+   *  caption spelling out what the asterisk means. */
+  partialKey?: string | null
+  partialNote?: string | null
 }
 
 const VIEW_W = 800
@@ -28,6 +35,7 @@ const VIEW_H = 250
 const PAD_TOP = 35
 const PAD_BOTTOM = 25
 const PAD_X = 8
+const MAX_BAR_W = 56
 
 /** Compact axis label: 1234 -> "₹1.2k", 950 -> "₹950". */
 function compactAxis(value: number, hide: boolean): string {
@@ -36,16 +44,19 @@ function compactAxis(value: number, hide: boolean): string {
   return `₹${Math.round(value)}`
 }
 
-function monthAbbrevOf(key: string): string {
-  const [, m] = key.split('-').map(Number)
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return MONTHS[m - 1] ?? key
-}
-
 /** Trailing-12-months bar chart. Bars only (a smoothed area over discrete
  *  months implied a continuity that wasn't there) with a dashed baseline so
  *  the card can answer "is this normal" instead of just "it went up". */
-export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmounts = false, onSelect }: Props) {
+export function TrendChart({
+  data,
+  baseline,
+  selectedKey,
+  height = 200,
+  hideAmounts = false,
+  onSelect,
+  partialKey,
+  partialNote,
+}: Props) {
   const { tokens } = useTheme()
 
   if (data.length === 0) {
@@ -63,7 +74,7 @@ export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmou
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM
   const barGap = 8
   const slot = (VIEW_W - PAD_X * 2) / n
-  const barW = Math.max(6, slot - barGap)
+  const barW = Math.min(MAX_BAR_W, Math.max(6, slot - barGap))
 
   const bars = data.map((d, i) => {
     const h = Math.max(2, (d.value / max) * plotH)
@@ -103,7 +114,7 @@ export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmou
           )}
           {bars.map((b) => {
             const isSelected = selected ? b.key === selected.key : false
-            const dimmed = selected != null && !isSelected
+            const dimmed = selected != null && !isSelected && b.key !== partialKey
             return (
               <Rect
                 key={b.key}
@@ -113,7 +124,7 @@ export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmou
                 height={b.h}
                 rx={4}
                 fill={tokens.accent}
-                fillOpacity={dimmed ? 0.35 : 1}
+                fillOpacity={dimmed ? 0.55 : 1}
               />
             )
           })}
@@ -145,10 +156,14 @@ export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmou
               d.date === selectedKey && { fontFamily: fontFamily.bodySemiBold },
             ]}
           >
-            {monthAbbrevOf(d.date)}
+            {monthAbbrev(d.date)}
+            {d.date === partialKey ? '*' : ''}
           </Text>
         ))}
       </View>
+      {partialKey != null && partialNote && data.some((d) => d.date === partialKey) && (
+        <Text style={[styles.partialNote, { color: tokens.text3 }]}>* {partialNote}</Text>
+      )}
     </View>
   )
 }
@@ -162,4 +177,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 9 },
   valueTag: { position: 'absolute', top: 4, marginLeft: -30, width: 60, alignItems: 'center' },
   valueTagText: { fontSize: 11 },
+  partialNote: { fontSize: 10, paddingHorizontal: 4, paddingTop: 4 },
 })

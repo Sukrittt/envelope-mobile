@@ -9,6 +9,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated'
+import { Play } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatINR } from '@/src/lib/format'
@@ -168,13 +169,18 @@ function DeltaBadge({ tick, delta }: { tick: number; delta: number }) {
   }, [tick])
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: translateY.value }] }))
-  const label = delta > 0 ? `▲ +${formatINR(delta)}` : `▼ −${formatINR(-delta)}`
+  const label = delta > 0 ? `+${formatINR(delta)}` : `−${formatINR(-delta)}`
   const color = delta > 0 ? tokens.mint : tokens.coral
 
   return (
-    <Animated.Text key={tick} style={[styles.delta, { color, fontFamily: fontFamily.bodyMedium }, style]}>
-      {label}
-    </Animated.Text>
+    <Animated.View key={tick} style={[styles.delta, styles.deltaRow, style]}>
+      <View style={{ transform: [{ rotate: delta > 0 ? '-90deg' : '90deg' }] }}>
+        <Play size={10} color={color} fill={color} />
+      </View>
+      <Animated.Text style={{ color, fontFamily: fontFamily.bodyMedium, fontSize: 11, fontWeight: '500' }}>
+        {label}
+      </Animated.Text>
+    </Animated.View>
   )
 }
 
@@ -182,5 +188,6 @@ const styles = StyleSheet.create({
   wrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', justifyContent: 'center' },
   char: { letterSpacing: -0.5, textAlign: 'center' },
-  delta: { position: 'absolute', top: -14, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: '500' },
+  delta: { position: 'absolute', top: -14, left: 0, right: 0 },
+  deltaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
 })

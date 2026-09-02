@@ -1,11 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { Play } from 'lucide-react-native'
+import Reanimated, {
+  Easing,
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
+import { PopIn } from '@/src/components/shared/PopIn'
 import { DonutChart } from './DonutChart'
 import type { BreakdownRow, MonthComparison } from '@/src/lib/monthly'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -31,27 +41,58 @@ const VISIBLE_ROWS = 6
  *  slice left in the ring is big enough to tap — a 1% slice never was. */
 const DONUT_TAIL_PCT = 3
 
+// Rows land after the donut's wipe is already underway, one behind the next.
+// The index is capped so a long list doesn't trail off past the fold.
+const ROW_START_DELAY = 200
+const ROW_STAGGER_MS = 40
+const ROW_STAGGER_CAP = 6
+/** Each bar fills just after its own row has settled into place. */
+const BAR_OFFSET_MS = 60
+const BAR_DURATION = 450
+
 /** Spend-vs-own-budget bar: 100% of the track is "fully spent this
  *  category's budget", so the fill length is self-explanatory with no
  *  legend needed — same convention as the rest of the app's ProgressBar.
  *  Turns coral past 100% instead of overflowing the track. No bar at all
- *  when there's no budget to measure against. */
+ *  when there's no budget to measure against.
+ *
+ *  Not `envelope/ProgressBar`: that one owns the mint/warn/coral threshold
+ *  palette (the Android widget depends on those thresholds too), while this
+ *  bar fills with its row's own chart colour. The fill is a mount-only
+ *  0 -> pct reveal, so there's no threshold hand-over to stage either. */
 function BudgetBar({
   spent,
   assigned,
   color,
   tokens,
+  play,
+  delay,
 }: {
   spent: number
   assigned: number
   color: string
   tokens: ThemeTokens
+  play: boolean
+  delay: number
 }) {
   const pct = (spent / assigned) * 100
   const over = pct > 100
+  const target = Math.min(100, pct)
+
+  const progress = useSharedValue(play ? 0 : 1)
+  useEffect(() => {
+    if (!play) return
+    progress.value = withDelay(delay, withTiming(1, { duration: BAR_DURATION, easing: Easing.inOut(Easing.cubic) }))
+    // Intentionally runs once for this bar's own mount — `play` and `delay` are
+    // read only for their initial value, not tracked reactively (same as PopIn).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * target}%` }), [target])
+
   return (
     <View style={[styles.barTrack, { backgroundColor: tokens.borderStrong }]}>
-      <View style={[styles.barFill, { width: `${Math.min(100, pct)}%`, backgroundColor: over ? tokens.coral : color }]} />
+      <Reanimated.View style={[styles.barFill, { backgroundColor: over ? tokens.coral : color }, fillStyle]} />
     </View>
   )
 }
@@ -73,6 +114,16 @@ export function CategoryBreakdown({
   const { hideAmounts } = usePrivacy()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const [sortBy, setSortBy] = useState<'spend' | 'budget'>('spend')
+
+  // True only for this instance's very first render, so a month change or a
+  // mode switch (both of which swap the rows out) never replays the reveal.
+  // Same ref-not-state call as Heatmap's own mount guard.
+  const isMountingRef = useRef(true)
+  useEffect(() => {
+    isMountingRef.current = false
+  }, [])
+  const playMount = isMountingRef.current
 
   const canFilterVariable = mode === 'category' && rows.some((r) => fixedCategories.has(r.key))
 
@@ -117,8 +168,19 @@ export function CategoryBreakdown({
   // threshold) still needs its wedge to light up, not nothing.
   const donutSelectedKey =
     selectedKey == null ? null : segments.some((s) => s.key === selectedKey) ? selectedKey : '__other__'
-  const visibleRows = expanded ? displayRows : displayRows.slice(0, VISIBLE_ROWS)
-  const hiddenCount = displayRows.length - VISIBLE_ROWS
+
+  // Row order for the legend list only — the donut and its colors stay keyed
+  // to spend order regardless, so slices never reshuffle when this toggles.
+  const sortedRows = useMemo(() => {
+    if (sortBy === 'spend') return displayRows
+    const withBudget = displayRows.filter((r) => !r.assignedIsCarried && r.assigned > 0)
+    const withoutBudget = displayRows.filter((r) => r.assignedIsCarried || r.assigned <= 0)
+    withBudget.sort((a, b) => b.spent / b.assigned - a.spent / a.assigned)
+    return [...withBudget, ...withoutBudget]
+  }, [displayRows, sortBy])
+
+  const visibleRows = expanded ? sortedRows : sortedRows.slice(0, VISIBLE_ROWS)
+  const hiddenCount = sortedRows.length - VISIBLE_ROWS
 
   const centerDelta = comparison && comparison.baseline != null && comparison.deltaPct != null ? comparison : null
 
@@ -141,23 +203,50 @@ export function CategoryBreakdown({
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>By group</Text>
           </Pressable>
         </View>
-        {canFilterVariable && (
-          <Pressable
-            accessibilityLabel="Variable spend only"
-            onPress={onToggleVariableOnly}
-            style={[
-              styles.filterChip,
-              { borderRadius: radius.full, borderColor: tokens.borderStrong },
-              variableOnly && { backgroundColor: tokens.chipActiveBg, borderColor: tokens.chipActiveBg },
-            ]}
-          >
-            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>Variable only</Text>
-          </Pressable>
-        )}
+
+        <View style={styles.controlsRight}>
+          {canFilterVariable && (
+            <Pressable
+              accessibilityLabel="Variable spend only"
+              onPress={onToggleVariableOnly}
+              style={[
+                styles.filterChip,
+                { borderRadius: radius.full, borderColor: tokens.borderStrong },
+                variableOnly && { backgroundColor: tokens.chipActiveBg, borderColor: tokens.chipActiveBg },
+              ]}
+            >
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>Variable only</Text>
+            </Pressable>
+          )}
+          <View style={[styles.measureToggle, { backgroundColor: tokens.inputBg, borderRadius: radius.full }]}>
+            <Pressable
+              accessibilityLabel="Measure by amount spent"
+              onPress={() => setSortBy('spend')}
+              style={[styles.measureCell, { borderRadius: radius.full }, sortBy === 'spend' && { backgroundColor: tokens.chipActiveBg }]}
+            >
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodyBold }}>₹</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Measure by percent of budget used"
+              onPress={() => setSortBy('budget')}
+              style={[styles.measureCell, { borderRadius: radius.full }, sortBy === 'budget' && { backgroundColor: tokens.chipActiveBg }]}
+            >
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodyBold }}>%</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       <View style={styles.donutWrap}>
         <DonutChart segments={segments} selectedKey={donutSelectedKey} onSelect={onSelectKey}>
+          {/* Keyed on the selection so each swap is a genuine remount and the
+              fade actually fires. On cold mount `entering` may not fire at all
+              this deep in a ScrollView, which just leaves it rendered as-is. */}
+          <Reanimated.View
+            key={selectedKey ?? '__none__'}
+            entering={FadeIn.duration(150)}
+            style={styles.centerBlock}
+          >
           {selectedRow ? (
             <>
               {selectedRow.emoji ? <Text style={{ fontSize: 22 }}>{selectedRow.emoji}</Text> : null}
@@ -170,18 +259,41 @@ export function CategoryBreakdown({
             </>
           ) : centerDelta ? (
             <>
-              <Text
-                style={{
-                  color: centerDelta.deltaPct! > 0 ? tokens.coral : tokens.mint,
-                  fontSize: type.body,
-                  fontFamily: fontFamily.bodySemiBold,
-                }}
-              >
-                {centerDelta.deltaPct! > 0 ? '▲' : '▼'} {Math.abs(centerDelta.deltaPct!).toFixed(0)}%
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <View
+                  style={{
+                    transform: [{ rotate: centerDelta.deltaPct! > 0 ? '-90deg' : '90deg' }],
+                  }}
+                >
+                  <Play
+                    size={12}
+                    color={centerDelta.deltaPct! > 0 ? tokens.coral : tokens.mint}
+                    fill={centerDelta.deltaPct! > 0 ? tokens.coral : tokens.mint}
+                  />
+                </View>
+                <Text
+                  style={{
+                    color: centerDelta.deltaPct! > 0 ? tokens.coral : tokens.mint,
+                    fontSize: type.body,
+                    fontFamily: fontFamily.bodySemiBold,
+                  }}
+                >
+                  {Math.abs(centerDelta.deltaPct!).toFixed(0)}%
+                </Text>
+              </View>
               <Text style={{ color: tokens.text2, fontSize: 11, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
                 {formatCurrency(Math.abs(centerDelta.spent - centerDelta.baseline!), hideAmounts)}{' '}
                 {centerDelta.deltaPct! > 0 ? 'more' : 'less'} than usual
+              </Text>
+            </>
+          ) : displayRows[0] ? (
+            <>
+              {displayRows[0].emoji ? <Text style={{ fontSize: 22 }}>{displayRows[0].emoji}</Text> : null}
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+                {displayRows[0].label}
+              </Text>
+              <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
+                {displayRows[0].pct.toFixed(0)}%
               </Text>
             </>
           ) : (
@@ -192,22 +304,28 @@ export function CategoryBreakdown({
               </Text>
             </>
           )}
+          </Reanimated.View>
         </DonutChart>
       </View>
 
       <View style={{ marginTop: space.md, gap: space.sm }}>
-        {visibleRows.map((row) => {
+        {visibleRows.map((row, i) => {
           const color = colorByKey.get(row.key) ?? tokens.text3
           const isSelected = selectedKey === row.key
           const hasBudget = !row.assignedIsCarried && row.assigned > 0
+          const rowDelay = ROW_START_DELAY + Math.min(i, ROW_STAGGER_CAP) * ROW_STAGGER_MS
           return (
+            <PopIn key={row.key} play={playMount} delay={rowDelay}>
             <Pressable
-              key={row.key}
               onPress={() => onSelectKey(isSelected ? null : row.key)}
               style={[isSelected && { opacity: 1 }, !isSelected && selectedKey != null && { opacity: 0.5 }]}
             >
               <View style={styles.legendTop}>
-                {row.emoji ? <Text style={{ fontSize: 13 }}>{row.emoji}</Text> : null}
+                {row.emoji ? (
+                  <Text style={{ fontSize: 13 }}>{row.emoji}</Text>
+                ) : (
+                  <View style={[styles.legendDot, { backgroundColor: color }]} />
+                )}
                 <Text
                   style={[styles.legendLabel, { color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }]}
                   numberOfLines={1}
@@ -217,32 +335,45 @@ export function CategoryBreakdown({
                 <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
                   {formatCurrency(row.spent, hideAmounts)}
                 </Text>
-                <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium, width: 40, textAlign: 'right' }}>
-                  {row.pct.toFixed(0)}%
-                </Text>
                 {row.deltaPct != null && (
-                  <Text
-                    style={{
-                      color: row.deltaPct > 0 ? tokens.coral : tokens.mint,
-                      fontSize: type.caption,
-                      fontFamily: fontFamily.bodySemiBold,
-                      width: 48,
-                      textAlign: 'right',
-                    }}
-                  >
-                    {row.deltaPct > 0 ? '▲' : '▼'}{Math.abs(row.deltaPct).toFixed(0)}%
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 32, gap: 2 }}>
+                    <View style={{ transform: [{ rotate: row.deltaPct > 0 ? '-90deg' : '90deg' }] }}>
+                      <Play
+                        size={8}
+                        color={row.deltaPct > 0 ? tokens.coral : tokens.mint}
+                        fill={row.deltaPct > 0 ? tokens.coral : tokens.mint}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        color: row.deltaPct > 0 ? tokens.coral : tokens.mint,
+                        fontSize: 10,
+                        fontFamily: fontFamily.bodySemiBold,
+                      }}
+                    >
+                      {Math.abs(row.deltaPct).toFixed(0)}%
+                    </Text>
+                  </View>
                 )}
               </View>
               <View style={{ marginTop: space.xs }}>
                 {hasBudget ? (
-                  <BudgetBar spent={row.spent} assigned={row.assigned} color={color} tokens={tokens} />
+                  <BudgetBar
+                    spent={row.spent}
+                    assigned={row.assigned}
+                    color={color}
+                    tokens={tokens}
+                    play={playMount}
+                    delay={rowDelay + BAR_OFFSET_MS}
+                  />
                 ) : (
                   <View style={[styles.barTrack, { backgroundColor: tokens.borderStrong }]} />
                 )}
               </View>
-              <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium, marginTop: 2 }}>
-                {row.assignedIsCarried ? 'No budget set' : `${formatCurrency(row.assigned, hideAmounts)} budgeted`}
+              <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium, marginTop: 6 }}>
+                {hasBudget
+                  ? `${formatCurrency(row.spent, hideAmounts)} of ${formatCurrency(row.assigned, hideAmounts)}`
+                  : 'No budget set'}
               </Text>
               {isSelected && mode === 'category' && (
                 <Pressable
@@ -255,6 +386,7 @@ export function CategoryBreakdown({
                 </Pressable>
               )}
             </Pressable>
+            </PopIn>
           )
         })}
         {!expanded && hiddenCount > 0 && (
@@ -266,9 +398,19 @@ export function CategoryBreakdown({
         )}
       </View>
 
-      <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium, marginTop: space.md }}>
-        Left over in {monthLabel}: {formatCurrency(leftover, hideAmounts)}
-      </Text>
+      <View
+        style={[
+          styles.leftoverRow,
+          { borderTopColor: tokens.border, marginTop: space.md, paddingTop: space.md },
+        ]}
+      >
+        <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
+          Income left in {monthLabel}
+        </Text>
+        <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+          {formatCurrency(leftover, hideAmounts)}
+        </Text>
+      </View>
     </View>
   )
 }
@@ -277,10 +419,16 @@ const styles = StyleSheet.create({
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   toggleGroup: { flexDirection: 'row', gap: 2, padding: 3 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  controlsRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
+  measureToggle: { flexDirection: 'row', width: 64, padding: 3, gap: 2 },
+  measureCell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
   donutWrap: { alignItems: 'center', marginTop: 16 },
+  centerBlock: { alignItems: 'center' },
   legendTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLabel: { flex: 1 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
   barTrack: { height: 6, borderRadius: 100, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 100 },
+  leftoverRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth },
 })

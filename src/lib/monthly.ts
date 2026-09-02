@@ -179,6 +179,9 @@ export interface MonthComparison {
    *  when it accounts for at least 40% of the total delta — otherwise the
    *  move is spread across categories and naming one would be misleading. */
   driver: { category: string; emoji: string; delta: number } | null
+  /** Days elapsed if `inProgress`, else the month's full day count — for a
+   *  daily-pace line when there's no baseline yet to compare against. */
+  days: number
 }
 
 const DRIVER_SHARE_THRESHOLD = 0.4
@@ -204,10 +207,12 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
 
   const deltaPct = baseline != null && baseline > 0 ? ((spent - baseline) / baseline) * 100 : null
 
+  const [y, m] = month.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate()
+  const days = inProgress && cutoffDay ? cutoffDay : daysInMonth
+
   let projected: number | null = null
   if (inProgress && cutoffDay) {
-    const [y, m] = month.split('-').map(Number)
-    const daysInMonth = new Date(y, m, 0).getDate()
     projected = (spent / cutoffDay) * daysInMonth
   }
 
@@ -234,7 +239,7 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
     }
   }
 
-  return { spent, baseline, deltaPct, inProgress, projected, driver }
+  return { spent, baseline, deltaPct, inProgress, projected, driver, days }
 }
 
 const FIXED_CV_THRESHOLD = 0.1
