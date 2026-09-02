@@ -66,6 +66,7 @@ export interface ArchivedItem {
   label: string
   deletedAt: string
   purgesAt: string
+  amount?: number
 }
 
 /** Every soft-deleted row still within its 7-day grace window, across all collections. */
@@ -84,6 +85,16 @@ export async function restoreArchivedItem(collection: ArchivableCollection, id: 
   })
   if (resp.status === 409) throw new Error('A live item with this name already exists.')
   if (!resp.ok) throw new Error(`Failed to restore item: ${resp.status}`)
+}
+
+/** Purges an archived item immediately instead of waiting out the 7-day grace window. */
+export async function purgeArchivedItem(collection: ArchivableCollection, id: string): Promise<void> {
+  const resp = await apiFetch('/api/archive', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection, id }),
+  })
+  if (!resp.ok) throw new Error(`Failed to delete item: ${resp.status}`)
 }
 
 export interface ExportRow {

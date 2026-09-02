@@ -1,5 +1,15 @@
 import { apiFetch } from './client'
-import { getUser, updateUser, changeEmail, startExport, getExports, getArchive, restoreArchivedItem, restoreAccount } from './account'
+import {
+  getUser,
+  updateUser,
+  changeEmail,
+  startExport,
+  getExports,
+  getArchive,
+  restoreArchivedItem,
+  purgeArchivedItem,
+  restoreAccount,
+} from './account'
 
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
@@ -74,6 +84,21 @@ describe('getArchive / restoreArchivedItem / restoreAccount', () => {
   it('restoreArchivedItem throws the generic status message for other failures', async () => {
     mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
     await expect(restoreArchivedItem('categories', 'abc123')).rejects.toThrow('Failed to restore item: 500')
+  })
+
+  it('purgeArchivedItem DELETEs the collection and id', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true })
+    await purgeArchivedItem('categories', 'abc123')
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/archive', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'categories', id: 'abc123' }),
+    })
+  })
+
+  it('purgeArchivedItem throws on failure', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 404 })
+    await expect(purgeArchivedItem('categories', 'abc123')).rejects.toThrow('Failed to delete item: 404')
   })
 
   it('restoreAccount POSTs with no body', async () => {
