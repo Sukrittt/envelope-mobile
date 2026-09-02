@@ -203,7 +203,14 @@ export function CategoryBreakdown({
         </DonutChart>
       </View>
 
-      <View style={{ marginTop: space.md, gap: space.sm }}>
+      {displayRows.length > 0 && (
+        <View style={styles.tickLegend}>
+          <View style={[styles.tickLegendMark, { backgroundColor: tokens.text }]} />
+          <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyMedium }}>marks the budgeted amount</Text>
+        </View>
+      )}
+
+      <View style={{ marginTop: space.sm, gap: space.sm }}>
         {visibleRows.map((row) => {
           const color = colorByKey.get(row.key) ?? tokens.text3
           const isSelected = selectedKey === row.key
@@ -283,6 +290,8 @@ const styles = StyleSheet.create({
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
   donutWrap: { alignItems: 'center', marginTop: 16 },
+  tickLegend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16 },
+  tickLegendMark: { width: 2, height: 10 },
   legendTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLabel: { flex: 1 },
   barTrack: { height: 6, borderRadius: 100, overflow: 'visible' },

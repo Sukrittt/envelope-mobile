@@ -16,8 +16,6 @@ const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 const MOUNT_START_DELAY_MS = 150
 const COLUMN_STAGGER_MS = 70
 const ROW_STAGGER_MS = 15
-const CELL_SIZE = 30
-
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 // One hue (accent), four clearly separated opacities — the old heatA/heatB
@@ -201,10 +199,10 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 6, marginTop: 6, justifyContent: 'center' },
-  cell: { width: CELL_SIZE, height: CELL_SIZE },
+  row: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  cell: { flex: 1, aspectRatio: 1 },
   filledCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  weekdayLabel: { width: CELL_SIZE, textAlign: 'center', fontSize: 10 },
+  weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 10 },
   legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12 },
   legendLabel: { fontSize: 10 },
   legendSwatch: { width: 10, height: 10, borderRadius: 3 },

@@ -102,6 +102,7 @@ export function TrendChart({ data, baseline, selectedKey, height = 160, hideAmou
             />
           )}
           {bars.map((b) => {
+            if (b.value === 0) return null
             const isSelected = selected ? b.key === selected.key : false
             const dimmed = selected != null && !isSelected
             return (
