@@ -224,3 +224,12 @@ describe('More tab · Scan a bill sheet', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 })
+
+it('opens the guided tour from the account list', async () => {
+  const { getByText } = renderWithProviders(<MoreScreen />)
+  await flushCategories()
+
+  fireEvent.press(getByText('How this works'))
+
+  expect(mockPush).toHaveBeenCalledWith('/account/guided-tour')
+})

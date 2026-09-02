@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, BookOpen, Bug, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, Bug, Compass, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -13,7 +13,7 @@ const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
   'Move it into envelopes like Rent, Food or Football.',
   'Log an expense against an envelope and only that envelope drops.',
-  'Whatever is left rolls into next month, so a light month cushions a heavy one.',
+  'Next month starts clean: the leftover is gone, but your plan carries over so you are not budgeting from zero.',
   'Watch one number: Ready to Assign. At zero, every rupee has a job.',
 ]
 
@@ -62,6 +62,14 @@ export default function HelpScreen() {
               ))}
             </View>
           )}
+          <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+          <Pressable onPress={() => router.push('/account/guided-tour')} style={styles.row}>
+            <Icon icon={Compass} size={16} />
+            <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+              Take the guided tour
+            </Text>
+            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+          </Pressable>
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(bugUrl())} style={styles.row}>
             <Icon icon={Bug} size={16} />
