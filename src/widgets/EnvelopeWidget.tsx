@@ -3,15 +3,15 @@
 // (WidgetSync, live data) and the headless widget-task-handler (last
 // snapshot), so it must not touch hooks, storage, or navigation itself; only
 // clickAction/clickActionData for taps.
-import { FlexWidget, TextWidget, SvgWidget } from 'react-native-android-widget'
-import { fillColor } from '@/src/components/envelope/ProgressBar'
-import type { ThemeTokens } from '@/src/theme/tokens'
-import { fontFamily } from '@/src/theme/fonts'
-import { headerRightLabel, layoutFor, type WidgetData } from './data'
-import { WidgetSurface, color } from './surface'
-import { plusSvg } from './icons'
+import { FlexWidget, TextWidget, SvgWidget } from "react-native-android-widget";
+import { fillColor } from "@/src/components/envelope/ProgressBar";
+import type { ThemeTokens } from "@/src/theme/tokens";
+import { fontFamily } from "@/src/theme/fonts";
+import { headerRightLabel, layoutFor, type WidgetData } from "./data";
+import { WidgetSurface, color } from "./surface";
+import { plusSvg } from "./icons";
 
-const LOG_URI = 'mobile://modals/log-expense'
+const LOG_URI = "mobile://modals/log-expense";
 
 export function EnvelopeWidget({
   tokens,
@@ -19,87 +19,210 @@ export function EnvelopeWidget({
   width,
   height,
   ...data
-}: WidgetData & { tokens: ThemeTokens; scheme: 'light' | 'dark'; width: number; height: number }) {
-  const layout = layoutFor(width, height)
-  const rows = data.rows.slice(0, layout.rows)
-  const today = data.today.slice(0, layout.today)
-  const chips = data.chips.slice(0, layout.buttons)
-  const rupeeSign = data.totalLeft.slice(0, 1)
-  const amount = data.totalLeft.slice(1)
+}: WidgetData & {
+  tokens: ThemeTokens;
+  scheme: "light" | "dark";
+  width: number;
+  height: number;
+}) {
+  const layout = layoutFor(width, height);
+  const rows = data.rows.slice(0, layout.rows);
+  const today = data.today.slice(0, layout.today);
+  const chips = data.chips.slice(0, layout.buttons);
+  const rupeeSign = data.totalLeft.slice(0, 1);
+  const amount = data.totalLeft.slice(1);
 
   return (
-    <WidgetSurface tokens={tokens} scheme={scheme} style={{ padding: 16, paddingVertical: 14 }}>
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'flex-end' }}>
-        <TextWidget text={rupeeSign} style={{ fontSize: 20, fontFamily: fontFamily.displayBold, color: color(tokens.text), marginBottom: 3 }} />
-        <TextWidget text={amount} style={{ fontSize: 34, fontFamily: fontFamily.displayBold, color: color(tokens.text) }} />
+    <WidgetSurface
+      tokens={tokens}
+      scheme={scheme}
+      style={{ padding: 16, paddingVertical: 14 }}
+    >
+      <FlexWidget
+        style={{
+          width: "match_parent",
+          flexDirection: "row",
+          alignItems: "flex-end",
+        }}
+      >
+        <TextWidget
+          text={rupeeSign}
+          style={{
+            fontSize: 20,
+            fontFamily: fontFamily.displayBold,
+            color: color(tokens.text),
+            marginBottom: 3,
+          }}
+        />
+        <TextWidget
+          text={amount}
+          style={{
+            fontSize: 34,
+            fontFamily: fontFamily.displayBold,
+            color: color(tokens.text),
+          }}
+        />
       </FlexWidget>
       <TextWidget
         text={headerRightLabel(data.daysLeft, data.updatedAt)}
-        style={{ fontSize: 11, fontFamily: fontFamily.bodyMedium, color: color(tokens.text2), marginTop: 2 }}
+        style={{
+          fontSize: 11,
+          fontFamily: fontFamily.bodyMedium,
+          color: color(tokens.text2),
+          marginTop: 2,
+        }}
       />
 
-      <FlexWidget style={{ width: 'match_parent', flex: 1, flexDirection: 'column', justifyContent: 'space-between', marginTop: 16 }}>
+      <FlexWidget
+        style={{
+          width: "match_parent",
+          flex: 1,
+          flexDirection: "column",
+          justifyContent: "space-between",
+          marginTop: 16,
+        }}
+      >
         {rows.length > 0 && (
-          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', flexGap: 12 }}>
-            {rows.map((row) => (
-              <FlexWidget key={row.name} style={{ width: 'match_parent', flexDirection: 'column', flexGap: 5 }}>
-                <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
-                  {row.icon !== '' && (
-                    <TextWidget text={row.icon} style={{ fontSize: 13, marginRight: 6 }} />
-                  )}
-                  <FlexWidget style={{ flex: 1 }}>
+          <FlexWidget
+            style={{
+              width: "match_parent",
+              flexDirection: "column",
+              flexGap: 12,
+            }}
+          >
+            {rows.map((row) => {
+              // Clamped so a fully-spent envelope still leaves a visible track
+              // remainder — a bar that reaches the full width reads as a
+              // section divider, not a progress bar.
+              const filled = Math.max(2, Math.min(92, Math.round(row.pct)));
+              return (
+                <FlexWidget
+                  key={row.name}
+                  style={{
+                    width: "match_parent",
+                    flexDirection: "column",
+                    flexGap: 5,
+                  }}
+                >
+                  <FlexWidget
+                    style={{
+                      width: "match_parent",
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    {row.icon !== "" && (
+                      <TextWidget
+                        text={row.icon}
+                        style={{ fontSize: 13, marginRight: 6 }}
+                      />
+                    )}
+                    <FlexWidget style={{ flex: 1 }}>
+                      <TextWidget
+                        text={row.name}
+                        truncate="END"
+                        maxLines={1}
+                        style={{
+                          fontSize: 13,
+                          fontFamily: fontFamily.bodySemiBold,
+                          color: color(tokens.text),
+                        }}
+                      />
+                    </FlexWidget>
                     <TextWidget
-                      text={row.name}
-                      truncate="END"
-                      maxLines={1}
-                      style={{ fontSize: 13, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text) }}
+                      text={row.available}
+                      style={{
+                        fontSize: 13,
+                        fontFamily: fontFamily.bodySemiBold,
+                        color: color(
+                          row.overspent ? tokens.coral : tokens.mint,
+                        ),
+                      }}
                     />
                   </FlexWidget>
-                  <TextWidget
-                    text={row.available}
-                    style={{ fontSize: 13, fontFamily: fontFamily.bodySemiBold, color: color(row.overspent ? tokens.coral : tokens.mint) }}
-                  />
+                  <FlexWidget
+                    style={{
+                      width: "match_parent",
+                      flexDirection: "row",
+                      height: 5,
+                      borderRadius: 3,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <FlexWidget
+                      style={{
+                        flex: filled,
+                        height: 5,
+                        backgroundColor: color(fillColor(row.pct, tokens)),
+                      }}
+                    />
+                    <FlexWidget
+                      style={{
+                        flex: 100 - filled,
+                        height: 5,
+                        backgroundColor: color(tokens.border),
+                      }}
+                    />
+                  </FlexWidget>
                 </FlexWidget>
-                <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', height: 5, borderRadius: 3, overflow: 'hidden' }}>
-                  {(() => {
-                    // Clamped so a fully-spent envelope still leaves a visible
-                    // track remainder — a bar that reaches the full width reads
-                    // as a section divider, not a progress bar.
-                    const filled = Math.max(2, Math.min(92, Math.round(row.pct)))
-                    return (
-                      <>
-                        <FlexWidget style={{ flex: filled, height: 5, backgroundColor: color(fillColor(row.pct, tokens)) }} />
-                        <FlexWidget style={{ flex: 100 - filled, height: 5, backgroundColor: color(tokens.border) }} />
-                      </>
-                    )
-                  })()}
-                </FlexWidget>
-              </FlexWidget>
-            ))}
+              );
+            })}
           </FlexWidget>
         )}
 
         {layout.today > 0 && (
-          <FlexWidget style={{ width: 'match_parent', flexDirection: 'column' }}>
+          <FlexWidget
+            style={{ width: "match_parent", flexDirection: "column" }}
+          >
             <TextWidget
               text="TODAY"
-              style={{ fontSize: 10, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text3), letterSpacing: 0.5, marginTop: 16, marginBottom: 6 }}
+              style={{
+                fontSize: 10,
+                fontFamily: fontFamily.bodySemiBold,
+                color: color(tokens.text3),
+                letterSpacing: 0.5,
+                marginTop: 16,
+                marginBottom: 6,
+              }}
             />
             {today.length === 0 ? (
               <TextWidget
                 text="Nothing logged yet"
-                style={{ fontSize: 12, fontFamily: fontFamily.bodyMedium, color: color(tokens.text3) }}
+                style={{
+                  fontSize: 12,
+                  fontFamily: fontFamily.bodyMedium,
+                  color: color(tokens.text3),
+                }}
               />
             ) : (
               today.map((t, i) => (
-                <FlexWidget key={i} style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', marginTop: i === 0 ? 0 : 4 }}>
+                <FlexWidget
+                  key={i}
+                  style={{
+                    width: "match_parent",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginTop: i === 0 ? 0 : 4,
+                  }}
+                >
                   <TextWidget
                     text={t.item}
                     truncate="END"
                     maxLines={1}
-                    style={{ fontSize: 12, fontFamily: fontFamily.bodyMedium, color: color(tokens.text2) }}
+                    style={{
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodyMedium,
+                      color: color(tokens.text2),
+                    }}
                   />
-                  <TextWidget text={t.amount} style={{ fontSize: 12, fontFamily: fontFamily.bodyMedium, color: color(tokens.text) }} />
+                  <TextWidget
+                    text={t.amount}
+                    style={{
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodyMedium,
+                      color: color(tokens.text),
+                    }}
+                  />
                 </FlexWidget>
               ))
             )}
@@ -107,7 +230,14 @@ export function EnvelopeWidget({
         )}
       </FlexWidget>
 
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', flexGap: 6, marginTop: 12 }}>
+      <FlexWidget
+        style={{
+          width: "match_parent",
+          flexDirection: "row",
+          flexGap: 6,
+          marginTop: 12,
+        }}
+      >
         {chips.map((chip) => (
           <FlexWidget
             key={chip.category}
@@ -117,8 +247,8 @@ export function EnvelopeWidget({
             style={{
               flex: 1,
               height: layout.actionHeight,
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: "center",
+              justifyContent: "center",
               borderRadius: 100,
               backgroundColor: color(tokens.chipActiveBg),
             }}
@@ -127,7 +257,11 @@ export function EnvelopeWidget({
               text={chip.label}
               truncate="END"
               maxLines={1}
-              style={{ fontSize: 11, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text) }}
+              style={{
+                fontSize: 11,
+                fontFamily: fontFamily.bodySemiBold,
+                color: color(tokens.text),
+              }}
             />
           </FlexWidget>
         ))}
@@ -138,15 +272,18 @@ export function EnvelopeWidget({
           style={{
             width: layout.actionHeight,
             height: layout.actionHeight,
-            alignItems: 'center',
-            justifyContent: 'center',
+            alignItems: "center",
+            justifyContent: "center",
             borderRadius: 100,
             backgroundColor: color(tokens.accent),
           }}
         >
-          <SvgWidget svg={plusSvg(tokens.onAccent)} style={{ width: 18, height: 18 }} />
+          <SvgWidget
+            svg={plusSvg(tokens.onAccent)}
+            style={{ width: 18, height: 18 }}
+          />
         </FlexWidget>
       </FlexWidget>
     </WidgetSurface>
-  )
+  );
 }
