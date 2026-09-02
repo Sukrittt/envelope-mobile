@@ -47,6 +47,7 @@ export interface SubscriptionRow {
   status: string
   renewal_or_end_month: string
   notes: string
+  category: string
 }
 
 export interface HoldingRow {

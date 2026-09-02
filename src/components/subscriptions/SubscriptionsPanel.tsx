@@ -191,12 +191,14 @@ function SubscriptionRowItem({
   toneSoftColor,
   isActive,
   onPress,
+  onViewTransactions,
 }: {
   sub: SubscriptionRow;
   toneSolid: string;
   toneSoftColor: string;
   isActive: boolean;
   onPress: () => void;
+  onViewTransactions?: () => void;
 }) {
   const { tokens, space, radius, type: t } = useTheme();
   const press = usePressSpring(0.98);
@@ -269,6 +271,28 @@ function SubscriptionRowItem({
           >
             {meta}
           </Text>
+          {onViewTransactions ? (
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+                  () => {},
+                );
+                onViewTransactions();
+              }}
+            >
+              <Text
+                style={{
+                  color: toneSolid,
+                  fontSize: t.micro,
+                  fontFamily: fontFamily.bodySemiBold,
+                  marginTop: 3,
+                }}
+              >
+                View transactions ›
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={{ alignItems: "flex-end" }}>
@@ -360,6 +384,13 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
         ? { pathname: "/modals/subscription", params: { service } }
         : "/modals/subscription",
     );
+  }
+
+  // Same drill-in pattern as an envelope's "View transactions" action
+  // (app/(tabs)/index.tsx) — jumps to Activity pre-filtered to the
+  // subscription's linked category.
+  function viewTransactions(category: string) {
+    router.push({ pathname: "/(tabs)/activity", params: { category } });
   }
 
   const chevronStyle = useAnimatedStyle(() => ({
@@ -492,6 +523,11 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
                 toneSoftColor={brand ? brand.soft : toneSoft(i, tokens)}
                 isActive
                 onPress={() => openModal(sub.service)}
+                onViewTransactions={
+                  sub.category
+                    ? () => viewTransactions(sub.category)
+                    : undefined
+                }
               />
             );
           })
@@ -532,6 +568,11 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
                   toneSoftColor={tokens.inputBg}
                   isActive={false}
                   onPress={() => openModal(sub.service)}
+                  onViewTransactions={
+                    sub.category
+                      ? () => viewTransactions(sub.category)
+                      : undefined
+                  }
                 />
               ))
             ) : (

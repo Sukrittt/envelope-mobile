@@ -15,6 +15,8 @@ import {
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
+import { splitEmoji } from '@/src/lib/emoji'
 
 const CYCLES = ['monthly', 'yearly', 'quarterly', 'weekly', 'one-time']
 
@@ -45,6 +47,8 @@ export default function SubscriptionModal() {
   const [cycle, setCycle] = useState(existing?.billing_cycle || 'monthly')
   const [nextDueDate, setNextDueDate] = useState(existing?.next_due_date ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? '')
+  const [category, setCategory] = useState(existing?.category ?? '')
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [saved, setSaved] = useState(false)
   const [confirmSheet, setConfirmSheet] = useState<'cancel' | 'delete' | null>(null)
 
@@ -57,6 +61,7 @@ export default function SubscriptionModal() {
     setCycle(existing.billing_cycle || 'monthly')
     setNextDueDate(existing.next_due_date ?? '')
     setNotes(existing.notes ?? '')
+    setCategory(existing.category ?? '')
   }, [existing])
 
   const parsedAmount = Number(amount)
@@ -83,6 +88,7 @@ export default function SubscriptionModal() {
             billing_cycle: cycle,
             next_due_date: nextDueDate.trim(),
             notes: notes.trim(),
+            category,
           },
         },
         {
@@ -98,6 +104,7 @@ export default function SubscriptionModal() {
           billing_cycle: cycle,
           next_due_date: nextDueDate.trim(),
           notes: notes.trim(),
+          category,
         },
         {
           onSuccess: () => setSaved(true),
@@ -221,6 +228,23 @@ export default function SubscriptionModal() {
           />
         </View>
 
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
+          <Pressable
+            onPress={() => setCategorySheetOpen(true)}
+            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+          >
+            <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
+              {category ? splitEmoji(category).text : 'No category linked'}
+            </Text>
+          </Pressable>
+          {category ? (
+            <Text style={[styles.categoryHint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+              We&apos;ll auto-add an expense for this subscription in {category} on its due date.
+            </Text>
+          ) : null}
+        </View>
+
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit || saving || mutatingAction || saved}
@@ -262,6 +286,13 @@ export default function SubscriptionModal() {
           </View>
         ) : null}
       </ScrollView>
+
+      <CategoryPickerSheet
+        visible={categorySheetOpen}
+        onClose={() => setCategorySheetOpen(false)}
+        value={category}
+        onSelect={setCategory}
+      />
 
       <BottomSheet visible={confirmSheet !== null} onClose={() => !mutatingAction && setConfirmSheet(null)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -317,6 +348,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, textTransform: 'capitalize' },
+  categoryHint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
   dangerZone: { marginTop: 24, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth },

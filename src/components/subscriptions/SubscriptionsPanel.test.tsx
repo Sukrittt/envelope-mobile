@@ -18,6 +18,7 @@ function sub(overrides: Partial<SubscriptionRow>): SubscriptionRow {
     status: 'active',
     renewal_or_end_month: '',
     notes: '',
+    category: '',
     ...overrides,
   }
 }
@@ -86,5 +87,20 @@ describe('row navigation', () => {
     expect(matches).toHaveLength(2)
     fireEvent.press(matches[1])
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/subscription', params: { service: 'Netflix' } })
+  })
+})
+
+describe('category link', () => {
+  it('shows no "View transactions" action when the subscription has no linked category', () => {
+    const subs = [sub({ service: 'Netflix', category: '' })]
+    const { queryByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
+    expect(queryByText('View transactions ›')).toBeNull()
+  })
+
+  it('drills into Activity pre-filtered to the linked category', () => {
+    const subs = [sub({ service: 'Netflix', category: 'Entertainment' })]
+    const { getByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
+    fireEvent.press(getByText('View transactions ›'))
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/activity', params: { category: 'Entertainment' } })
   })
 })
