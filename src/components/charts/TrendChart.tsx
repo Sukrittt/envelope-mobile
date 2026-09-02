@@ -24,9 +24,9 @@ interface Props {
 }
 
 const VIEW_W = 800
-const VIEW_H = 200
-const PAD_TOP = 28
-const PAD_BOTTOM = 20
+const VIEW_H = 250
+const PAD_TOP = 35
+const PAD_BOTTOM = 25
 const PAD_X = 8
 
 /** Compact axis label: 1234 -> "₹1.2k", 950 -> "₹950". */
@@ -45,7 +45,7 @@ function monthAbbrevOf(key: string): string {
 /** Trailing-12-months bar chart. Bars only (a smoothed area over discrete
  *  months implied a continuity that wasn't there) with a dashed baseline so
  *  the card can answer "is this normal" instead of just "it went up". */
-export function TrendChart({ data, baseline, selectedKey, height = 160, hideAmounts = false, onSelect }: Props) {
+export function TrendChart({ data, baseline, selectedKey, height = 200, hideAmounts = false, onSelect }: Props) {
   const { tokens } = useTheme()
 
   if (data.length === 0) {
@@ -102,7 +102,6 @@ export function TrendChart({ data, baseline, selectedKey, height = 160, hideAmou
             />
           )}
           {bars.map((b) => {
-            if (b.value === 0) return null
             const isSelected = selected ? b.key === selected.key : false
             const dimmed = selected != null && !isSelected
             return (

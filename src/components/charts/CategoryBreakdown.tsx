@@ -31,35 +31,27 @@ const VISIBLE_ROWS = 6
  *  slice left in the ring is big enough to tap — a 1% slice never was. */
 const DONUT_TAIL_PCT = 3
 
-/** Spend-vs-budget bar. Length is the category's share of the displayed
- *  total (so it doubles as the row's own % readout); a tick marks where the
- *  budget falls on that same scale, and the run past it turns coral. */
-function ShareBar({
-  pct,
-  budgetPct,
+/** Spend-vs-own-budget bar: 100% of the track is "fully spent this
+ *  category's budget", so the fill length is self-explanatory with no
+ *  legend needed — same convention as the rest of the app's ProgressBar.
+ *  Turns coral past 100% instead of overflowing the track. No bar at all
+ *  when there's no budget to measure against. */
+function BudgetBar({
+  spent,
+  assigned,
   color,
   tokens,
 }: {
-  pct: number
-  budgetPct: number | null
+  spent: number
+  assigned: number
   color: string
   tokens: ThemeTokens
 }) {
-  const clamped = Math.min(100, pct)
-  const tick = budgetPct != null ? Math.min(100, budgetPct) : null
-  const overBudget = tick != null && clamped > tick
-  const baseWidth = overBudget ? tick! : clamped
-  const overWidth = overBudget ? clamped - tick! : 0
+  const pct = (spent / assigned) * 100
+  const over = pct > 100
   return (
     <View style={[styles.barTrack, { backgroundColor: tokens.borderStrong }]}>
-      <View style={[styles.barFill, { width: `${baseWidth}%`, backgroundColor: color }]} />
-      {overBudget && (
-        <View style={[styles.barFill, styles.barFillAbs, { left: `${tick}%`, width: `${overWidth}%`, backgroundColor: tokens.coral }]} />
-      )}
-      {tick != null && tick > 0 && <View style={[styles.barTick, { left: `${tick}%`, backgroundColor: tokens.text }]} />}
-      {budgetPct != null && budgetPct > 100 && (
-        <Text style={[styles.overflowGlyph, { color: tokens.text3 }]}>›</Text>
-      )}
+      <View style={[styles.barFill, { width: `${Math.min(100, pct)}%`, backgroundColor: over ? tokens.coral : color }]} />
     </View>
   )
 }
@@ -203,18 +195,11 @@ export function CategoryBreakdown({
         </DonutChart>
       </View>
 
-      {displayRows.length > 0 && (
-        <View style={styles.tickLegend}>
-          <View style={[styles.tickLegendMark, { backgroundColor: tokens.text }]} />
-          <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyMedium }}>marks the budgeted amount</Text>
-        </View>
-      )}
-
-      <View style={{ marginTop: space.sm, gap: space.sm }}>
+      <View style={{ marginTop: space.md, gap: space.sm }}>
         {visibleRows.map((row) => {
           const color = colorByKey.get(row.key) ?? tokens.text3
           const isSelected = selectedKey === row.key
-          const budgetPct = row.assignedIsCarried ? null : displayTotal > 0 ? (row.assigned / displayTotal) * 100 : null
+          const hasBudget = !row.assignedIsCarried && row.assigned > 0
           return (
             <Pressable
               key={row.key}
@@ -250,7 +235,11 @@ export function CategoryBreakdown({
                 )}
               </View>
               <View style={{ marginTop: space.xs }}>
-                <ShareBar pct={row.pct} budgetPct={budgetPct} color={color} tokens={tokens} />
+                {hasBudget ? (
+                  <BudgetBar spent={row.spent} assigned={row.assigned} color={color} tokens={tokens} />
+                ) : (
+                  <View style={[styles.barTrack, { backgroundColor: tokens.borderStrong }]} />
+                )}
               </View>
               <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium, marginTop: 2 }}>
                 {row.assignedIsCarried ? 'No budget set' : `${formatCurrency(row.assigned, hideAmounts)} budgeted`}
@@ -290,13 +279,8 @@ const styles = StyleSheet.create({
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
   donutWrap: { alignItems: 'center', marginTop: 16 },
-  tickLegend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16 },
-  tickLegendMark: { width: 2, height: 10 },
   legendTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLabel: { flex: 1 },
-  barTrack: { height: 6, borderRadius: 100, overflow: 'visible' },
+  barTrack: { height: 6, borderRadius: 100, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 100 },
-  barFillAbs: { position: 'absolute', top: 0 },
-  barTick: { position: 'absolute', top: -2, width: 2, height: 10, marginLeft: -1 },
-  overflowGlyph: { position: 'absolute', right: -10, top: -8, fontSize: 12 },
 })

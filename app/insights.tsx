@@ -197,7 +197,11 @@ export default function InsightsScreen() {
   );
   const trendData: TrendPoint[] = useMemo(() => {
     const totals = monthTotals(expenses, trendMonths);
-    return trendMonths.map((m) => ({ date: m, value: totals.get(m) ?? 0 }));
+    // Months with nothing spent don't get a slot at all — a new user with
+    // one month of data sees one bar, not eleven empty ones waiting to fill in.
+    return trendMonths
+      .map((m) => ({ date: m, value: totals.get(m) ?? 0 }))
+      .filter((d) => d.value > 0);
   }, [expenses, trendMonths]);
 
   const comparison = useMemo(

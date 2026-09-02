@@ -17,10 +17,9 @@ export function useDismissedRolloverBanner(monthKey: string) {
 
   useEffect(() => {
     hydrated.current = false
-    setDismissed(false)
     SecureStore.getItemAsync(key)
       .then((raw) => {
-        if (raw) setDismissed(true)
+        setDismissed(raw === '1')
       })
       .catch(() => {})
       .finally(() => {

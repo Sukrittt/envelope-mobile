@@ -11,6 +11,14 @@ import {
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import {
   ArrowLeft,
   Trash2,
@@ -60,8 +68,45 @@ function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
 }
 
 const DATA_LOADING_PHRASES = ["Loading your exports…", "Almost there…"];
+const EXPORT_BUILDING_PHRASES = [
+  "Packing your data…",
+  "Tidying the columns…",
+  "Almost ready…",
+];
 
 const exportsKey = ["exports"] as const;
+
+// Same spring family EnvelopeGroup.tsx/envelopes.tsx use for list reflow.
+const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
+
+function ExportRowIcon({
+  status,
+  color,
+  soft,
+  icon,
+}: {
+  status: ExportRow["status"];
+  color: string;
+  soft: string;
+  icon: typeof Clock;
+}) {
+  const pulse = useAnimatedStyle(() => ({
+    opacity:
+      status === "pending"
+        ? withRepeat(withTiming(0.4, { duration: 700 }), -1, true)
+        : 1,
+  }));
+  return (
+    <Animated.View
+      key={status}
+      entering={FadeIn.duration(150)}
+      exiting={FadeOut.duration(120)}
+      style={[styles.exportHistoryIcon, { backgroundColor: soft }, pulse]}
+    >
+      <Icon icon={icon} size={16} color={color} />
+    </Animated.View>
+  );
+}
 
 export default function DataScreen() {
   const { tokens } = useTheme();
@@ -218,14 +263,31 @@ export default function DataScreen() {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.exportButtonText,
-                  { color: tokens.text, fontFamily: fontFamily.bodyBold },
-                ]}
-              >
-                {pending ? "Building…" : starting ? "Starting…" : "Export"}
-              </Text>
+              {starting || pending ? (
+                <View style={styles.exportButtonPhraseWrap}>
+                  <LoadingPhrase
+                    phrases={EXPORT_BUILDING_PHRASES}
+                    color={tokens.text}
+                    style={[
+                      styles.exportButtonText,
+                      {
+                        fontFamily: fontFamily.bodyBold,
+                        textAlign: "center",
+                        color: tokens.text2,
+                      },
+                    ]}
+                  />
+                </View>
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                  ]}
+                >
+                  Export
+                </Text>
+              )}
             </Pressable>
           </View>
           {atLimit ? (
@@ -260,63 +322,72 @@ export default function DataScreen() {
             </View>
           ) : null}
           {exportsData && exportsData.exports.length > 0 ? (
-            <View style={{ marginTop: 12, gap: 4 }}>
+            <Animated.View
+              layout={LIST_TRANSITION}
+              style={{ marginTop: 12, gap: 4 }}
+            >
               {exportsData.exports.map((row, i) => {
                 const meta = exportStatusMeta(row.status, tokens);
                 const isLast = i === exportsData.exports.length - 1;
                 return (
-                  <Pressable
+                  <Animated.View
                     key={row.id}
-                    onPress={() => void handleExportRowPress(row)}
-                    disabled={row.status === "pending"}
-                    style={styles.exportHistoryRow}
+                    entering={FadeIn.duration(150)}
+                    layout={LIST_TRANSITION}
                   >
-                    <View style={styles.exportHistoryIconCol}>
-                      <View
-                        style={[
-                          styles.exportHistoryIcon,
-                          { backgroundColor: meta.soft },
-                        ]}
-                      >
-                        <Icon icon={meta.icon} size={16} color={meta.color} />
-                      </View>
-                      {!isLast ? (
-                        <View
-                          style={[
-                            styles.exportHistoryLine,
-                            { backgroundColor: tokens.border },
-                          ]}
+                    <Pressable
+                      onPress={() => void handleExportRowPress(row)}
+                      disabled={row.status === "pending"}
+                      style={styles.exportHistoryRow}
+                    >
+                      <View style={styles.exportHistoryIconCol}>
+                        <ExportRowIcon
+                          status={row.status}
+                          color={meta.color}
+                          soft={meta.soft}
+                          icon={meta.icon}
                         />
-                      ) : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[
-                          styles.exportHistoryDate,
-                          {
-                            color: tokens.text,
-                            fontFamily: fontFamily.bodyMedium,
-                          },
-                        ]}
-                      >
-                        {formatDateTime(row.created_at)}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.exportHistoryStatus,
-                          {
-                            color: meta.color,
-                            fontFamily: fontFamily.bodyMedium,
-                          },
-                        ]}
-                      >
-                        {meta.label}
-                      </Text>
-                    </View>
-                  </Pressable>
+                        {!isLast ? (
+                          <View
+                            style={[
+                              styles.exportHistoryLine,
+                              { backgroundColor: tokens.border },
+                            ]}
+                          />
+                        ) : null}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.exportHistoryDate,
+                            {
+                              color: tokens.text,
+                              fontFamily: fontFamily.bodyMedium,
+                            },
+                          ]}
+                        >
+                          {formatDateTime(row.created_at)}
+                        </Text>
+                        <Animated.Text
+                          key={row.status}
+                          entering={FadeIn.duration(150)}
+                          exiting={FadeOut.duration(120)}
+                          style={[
+                            styles.exportHistoryStatus,
+                            {
+                              color: meta.color,
+                              fontFamily: fontFamily.bodyMedium,
+                            },
+                          ]}
+                        >
+                          {meta.label}
+                        </Animated.Text>
+                      </View>
+                    </Pressable>
+                  </Animated.View>
                 );
               })}
-            </View>
+            </Animated.View>
           ) : null}
         </View>
 
@@ -480,6 +551,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   exportButtonText: { fontSize: 13 },
+  exportButtonPhraseWrap: { alignSelf: "stretch" },
   exportHistoryRow: {
     flexDirection: "row",
     alignItems: "flex-start",
