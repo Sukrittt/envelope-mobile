@@ -15,6 +15,7 @@ import {
   computeEnvelopeState,
   currentMonthKey,
   monthLabel,
+  prevMonthKey,
   shiftMonthKey,
 } from "@/src/lib/envelope";
 import { formatCurrency } from "@/src/lib/format";
@@ -28,26 +29,15 @@ import {
   type TrendPoint,
 } from "@/src/components/charts/TrendChart";
 import { Heatmap, type HeatmapCell } from "@/src/components/charts/Heatmap";
+import { CategoryBreakdown } from "@/src/components/charts/CategoryBreakdown";
 import { SubscriptionsPanel } from "@/src/components/subscriptions/SubscriptionsPanel";
+import { monthRange, weekRange, categoryBreakdown, withDelta, leftoverFor } from "@/src/lib/monthly";
 
 function weekStartKey(dateStr: string): string {
   const d = new Date(dateStr);
   const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setDate(d.getDate() - day);
   return d.toISOString().slice(0, 10);
-}
-
-function monthRangeFromKey(key: string): { start: string; end: string } {
-  const [y, m] = key.split("-").map(Number);
-  const start = `${key}-01`;
-  const end = new Date(y, m, 0).toISOString().slice(0, 10);
-  return { start, end };
-}
-
-function weekRangeFromKey(startIso: string): { start: string; end: string } {
-  const d = new Date(startIso);
-  d.setDate(d.getDate() + 6);
-  return { start: startIso, end: d.toISOString().slice(0, 10) };
 }
 
 const SHORT_MONTHS = [
@@ -80,6 +70,50 @@ type DrillFilter = {
   end: string;
   parentView: "monthly" | "weekly";
 } | null;
+
+/** Month stepper shared by the Daily spend and Where it went cards below it. */
+function MonthStepper({
+  month,
+  currentMonth,
+  onShift,
+}: {
+  month: string;
+  currentMonth: string;
+  onShift: (delta: number) => void;
+}) {
+  const { tokens, space, radius, type } = useTheme();
+  const canGoNext = month < currentMonth;
+  return (
+    <View style={[styles.monthNav, { gap: space.md }]}>
+      <Pressable
+        onPress={() => onShift(-1)}
+        hitSlop={8}
+        accessibilityLabel="Previous month"
+        style={[styles.monthNavBtn, { backgroundColor: tokens.accentSoft, borderRadius: radius.full }]}
+      >
+        <Text style={[styles.monthNavGlyph, { color: tokens.text2, fontSize: type.body, lineHeight: type.body }]}>‹</Text>
+      </Pressable>
+      <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+        {monthLabel(month)}
+      </Text>
+      <Pressable
+        onPress={() => canGoNext && onShift(1)}
+        disabled={!canGoNext}
+        hitSlop={8}
+        accessibilityLabel="Next month"
+        style={[
+          styles.monthNavBtn,
+          { borderRadius: radius.full },
+          canGoNext ? { backgroundColor: tokens.accentSoft } : { backgroundColor: tokens.border },
+        ]}
+      >
+        <Text style={[styles.monthNavGlyph, { color: canGoNext ? tokens.text2 : tokens.text3, fontSize: type.body, lineHeight: type.body }]}>
+          ›
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 /**
  * Everything that used to sit below the fold on Home: the spending trend, the
@@ -120,6 +154,7 @@ export default function InsightsScreen() {
   >("weekly");
   const [drillFilter, setDrillFilter] = useState<DrillFilter>(null);
   const [insightMonth, setInsightMonth] = useState(() => currentMonthKey());
+  const [breakdownMode, setBreakdownMode] = useState<"category" | "group">("category");
 
   const month = currentMonthKey();
 
@@ -188,10 +223,10 @@ export default function InsightsScreen() {
     const key = trendData[index]?.date;
     if (!key) return;
     if (trendPeriod === "monthly") {
-      setDrillFilter({ ...monthRangeFromKey(key), parentView: "monthly" });
+      setDrillFilter({ ...monthRange(key), parentView: "monthly" });
       setTrendPeriod("weekly");
     } else if (trendPeriod === "weekly") {
-      setDrillFilter({ ...weekRangeFromKey(key), parentView: "weekly" });
+      setDrillFilter({ ...weekRange(key), parentView: "weekly" });
       setTrendPeriod("daily");
     }
   }
@@ -239,6 +274,26 @@ export default function InsightsScreen() {
     }
     return "No spending data yet this month.";
   }, [envelopeState, creditCardEnvelope, hideAmounts]);
+
+  const prevBreakdownRows = useMemo(
+    () => categoryBreakdown(budgets, expenses, categories, groups, prevMonthKey(insightMonth), breakdownMode),
+    [budgets, expenses, categories, groups, insightMonth, breakdownMode],
+  );
+  const breakdownRows = useMemo(() => {
+    const rows = categoryBreakdown(budgets, expenses, categories, groups, insightMonth, breakdownMode);
+    return withDelta(rows, prevBreakdownRows);
+  }, [budgets, expenses, categories, groups, insightMonth, breakdownMode, prevBreakdownRows]);
+
+  const breakdownTotalSpent = useMemo(() => breakdownRows.reduce((s, r) => s + r.spent, 0), [breakdownRows]);
+  const breakdownTotalDeltaPct = useMemo(() => {
+    const prevTotal = prevBreakdownRows.reduce((s, r) => s + r.spent, 0);
+    return prevTotal > 0 ? ((breakdownTotalSpent - prevTotal) / prevTotal) * 100 : null;
+  }, [prevBreakdownRows, breakdownTotalSpent]);
+
+  const insightMonthLeftover = useMemo(
+    () => leftoverFor(budgets, expenses, categories, groups, insightMonth),
+    [budgets, expenses, categories, groups, insightMonth],
+  );
 
   return (
     <Screen
@@ -370,86 +425,51 @@ export default function InsightsScreen() {
         />
       </Card>
 
+      <MonthStepper
+        month={insightMonth}
+        currentMonth={month}
+        onShift={(delta) => setInsightMonth((m) => shiftMonthKey(m, delta))}
+      />
+
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
-        <View style={styles.headRow}>
-          <Text
-            style={[
-              styles.cardTitle,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-              },
-            ]}
-          >
-            Daily spend
-          </Text>
-          <View style={[styles.monthNav, { gap: space.md }]}>
-            <Pressable
-              onPress={() => setInsightMonth((m) => shiftMonthKey(m, -1))}
-              hitSlop={8}
-              accessibilityLabel="Previous month"
-              style={[
-                styles.monthNavBtn,
-                {
-                  backgroundColor: tokens.accentSoft,
-                  borderRadius: radius.full,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.monthNavGlyph,
-                  {
-                    color: tokens.text2,
-                    fontSize: type.body,
-                    lineHeight: type.body,
-                  },
-                ]}
-              >
-                ‹
-              </Text>
-            </Pressable>
-            <Text
-              style={{
-                color: tokens.text,
-                fontSize: type.caption,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
-            >
-              {monthLabel(insightMonth)}
-            </Text>
-            <Pressable
-              onPress={() =>
-                insightMonth < month &&
-                setInsightMonth((m) => shiftMonthKey(m, 1))
-              }
-              disabled={insightMonth >= month}
-              hitSlop={8}
-              accessibilityLabel="Next month"
-              style={[
-                styles.monthNavBtn,
-                { borderRadius: radius.full },
-                insightMonth < month
-                  ? { backgroundColor: tokens.accentSoft }
-                  : { backgroundColor: tokens.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.monthNavGlyph,
-                  {
-                    color: insightMonth < month ? tokens.text2 : tokens.text3,
-                    fontSize: type.body,
-                    lineHeight: type.body,
-                  },
-                ]}
-              >
-                ›
-              </Text>
-            </Pressable>
-          </View>
+        <Text
+          style={[
+            styles.cardTitle,
+            {
+              color: tokens.text,
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+            },
+          ]}
+        >
+          Where it went
+        </Text>
+        <View style={{ marginTop: space.md }}>
+          <CategoryBreakdown
+            rows={breakdownRows}
+            totalSpent={breakdownTotalSpent}
+            totalDeltaPct={breakdownTotalDeltaPct}
+            mode={breakdownMode}
+            onModeChange={setBreakdownMode}
+            leftover={insightMonthLeftover}
+            monthLabel={monthLabel(insightMonth)}
+          />
         </View>
+      </Card>
+
+      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
+        <Text
+          style={[
+            styles.cardTitle,
+            {
+              color: tokens.text,
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+            },
+          ]}
+        >
+          Daily spend
+        </Text>
         <View style={{ marginTop: space.md }}>
           <Heatmap
             cells={heatmapCells}
@@ -526,7 +546,7 @@ const styles = StyleSheet.create({
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   periodToggle: { flexDirection: "row", gap: 2, padding: 3 },
   periodBtn: { flex: 1, paddingVertical: 8, alignItems: "center" },
-  monthNav: { flexDirection: "row", alignItems: "center" },
+  monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
   monthNavBtn: {
     width: 20,
     height: 20,

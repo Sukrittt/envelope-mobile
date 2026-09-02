@@ -21,6 +21,7 @@ import { Button, usePressSpring } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import type { ThemeTokens } from "@/src/theme/tokens";
+import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { SubscriptionRow } from "@/src/types";
 
 interface Props {
@@ -28,17 +29,6 @@ interface Props {
   loading?: boolean;
 }
 
-// Matches investments.tsx's colorForType cycle — a subscription's row tile and
-// its AllocationBar segment always share a color, so the bar's legend maps
-// straight onto the rows below it.
-const COLOR_CYCLE: (keyof ThemeTokens)[] = [
-  "blue",
-  "mint",
-  "violet",
-  "accent",
-  "coral",
-  "warn",
-];
 const CHEVRON_SPRING = { damping: 64, stiffness: 600 };
 
 const BRAND_COLORS: Record<string, { solid: string; soft: string }> = {
@@ -109,11 +99,11 @@ const SUBSCRIPTION_PHRASES = [
 ];
 
 function toneColor(i: number, tokens: ThemeTokens): string {
-  return tokens[COLOR_CYCLE[i % COLOR_CYCLE.length]];
+  return tokens[CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]];
 }
 
 function toneSoft(i: number, tokens: ThemeTokens): string {
-  const key = `${COLOR_CYCLE[i % COLOR_CYCLE.length]}Soft` as keyof ThemeTokens;
+  const key = `${CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]}Soft` as keyof ThemeTokens;
   return tokens[key];
 }
 

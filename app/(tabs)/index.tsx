@@ -197,9 +197,9 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* TODO: also surface last month's leftover in a dedicated Insights
-            section — this banner is just the one-time heads-up, not a
-            lasting record once it's dismissed. */}
+        {/* The lasting record lives in Insights' "Where it went" card (any
+            month, not just last), so this banner can stay a dismissable
+            one-time heads-up rather than growing into one. */}
         {showRolloverBanner && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>

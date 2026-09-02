@@ -11,6 +11,7 @@ import { formatCurrency, formatDateTime } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
+import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -30,7 +31,6 @@ const FIXED_TYPE_COLOR: Record<string, keyof ThemeTokens> = {
   Crypto: 'coral',
   Bonds: 'warn',
 }
-const COLOR_CYCLE: (keyof ThemeTokens)[] = ['blue', 'mint', 'violet', 'accent', 'coral', 'warn']
 
 const INVESTMENT_PHRASES = [
   'Waking up your portfolio…',
@@ -50,7 +50,7 @@ const INVESTMENT_PHRASES = [
 ]
 
 function colorForType(type: string, index: number, tokens: ThemeTokens): string {
-  const key = FIXED_TYPE_COLOR[type] ?? COLOR_CYCLE[index % COLOR_CYCLE.length]
+  const key = FIXED_TYPE_COLOR[type] ?? CHART_COLOR_CYCLE[index % CHART_COLOR_CYCLE.length]
   return tokens[key]
 }
 
