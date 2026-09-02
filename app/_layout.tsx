@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, StyleSheet } from 'react-native'
-import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router'
+import { Stack, useGlobalSearchParams, usePathname, useRouter, useSegments } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,6 +12,7 @@ import { accessMode, clearAccess, initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { initAnalytics, posthog } from '@/src/lib/analytics'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { TabBar } from '@/src/components/nav/TabBar'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
@@ -27,6 +28,7 @@ import {
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 configureNotificationHandler()
+initAnalytics()
 // Default playsInSilentMode is false — success/delete sound effects would be
 // silently muted whenever the iOS ring switch is off.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
@@ -62,6 +64,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { tokens } = useTheme()
   const router = useRouter()
   const segments = useSegments()
+  const pathname = usePathname()
   const { mode: authScreenMode } = useGlobalSearchParams<{ mode?: string }>()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
@@ -186,6 +189,18 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     if (resolving || !hasSession || !onboarded) return
     checkColdStartNotification().catch((err) => console.warn('Cold-start notification check failed', err))
   }, [resolving, hasSession, onboarded])
+
+  // Screen views, captured by hand: PostHog's screen autocapture needs
+  // react-navigation v6 or lower, and expo-router 57 is on v7. usePathname()
+  // has already stripped the group segments, so this reads as /envelopes,
+  // /insights, /modals/log-expense and so on. The route params are
+  // deliberately left off: that is where ids and amounts would leak in.
+  useEffect(() => {
+    // The synthetic splash route, held for MIN_SPLASH_MS on every cold boot.
+    // Nobody navigates to it, so counting it as a screen view is just noise.
+    if (pathname === '/loading') return
+    posthog.screen(pathname)
+  }, [pathname])
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.bg }]}>

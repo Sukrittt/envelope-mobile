@@ -19,6 +19,7 @@ jest.mock('@/src/theme/fonts', () => ({
 }))
 
 let mockSegments: string[] = []
+const mockPathname = '/'
 let mockGlobalParams: Record<string, string> = {}
 const mockReplace = jest.fn()
 jest.mock('expo-router', () => {
@@ -37,6 +38,7 @@ jest.mock('expo-router', () => {
     Stack,
     useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
     useSegments: () => mockSegments,
+    usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,
   }
 })

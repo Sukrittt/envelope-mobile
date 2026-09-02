@@ -11,6 +11,22 @@ jest.mock('react-native-safe-area-context', () => require('react-native-safe-are
 // set before that import happens, even in files that don't touch the API.
 process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000'
 
+// src/lib/analytics.ts has the same import-time throw, for the same reason.
+process.env.EXPO_PUBLIC_POSTHOG_KEY = 'phc_test'
+
+// Constructing a real PostHog client registers an AppState listener and a
+// flush timer that outlive the test, and it would try to reach the network.
+// Global rather than per-file: analytics.ts is imported by app/_layout.tsx.
+jest.mock('posthog-react-native', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    identify: jest.fn(),
+    reset: jest.fn(),
+    screen: jest.fn(),
+    capture: jest.fn(),
+  })),
+}))
+
 // src/api/workos.ts calls AuthSession.makeRedirectUri() at import time,
 // which needs expo-constants' native manifest (app.json's `scheme`) to
 // resolve a URI scheme — unavailable under Jest. This throws on import in

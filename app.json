@@ -96,7 +96,8 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "router": {},
