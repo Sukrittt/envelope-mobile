@@ -11,7 +11,9 @@ import Reanimated, {
   withSpring,
 } from "react-native-reanimated";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
+import { formatCurrency, formatDateShort } from "@/src/lib/format";
 import { AmountText } from "@/src/components/ui/AmountText";
 import {
   AllocationBar,
@@ -107,8 +109,16 @@ function toneSoft(i: number, tokens: ThemeTokens): string {
   return tokens[key];
 }
 
+function billedSuffix(cycle: string): string {
+  if (cycle === "yearly") return "/yr";
+  if (cycle === "quarterly") return "/qtr";
+  if (cycle === "weekly") return "/wk";
+  return "";
+}
+
 function monthlyEq(sub: SubscriptionRow): number {
   const amt = Number(sub.amount_inr) || 0;
+  if (/one-time/i.test(sub.billing_cycle)) return 0;
   if (/yearly|annual/i.test(sub.billing_cycle)) return amt / 12;
   if (/quarterly/i.test(sub.billing_cycle)) return amt / 3;
   if (/weekly/i.test(sub.billing_cycle)) return amt * 4.33;
@@ -149,17 +159,6 @@ function effectiveDueDate(sub: SubscriptionRow): string {
   return d.toISOString().slice(0, 10);
 }
 
-function daysUntil(dateStr: string): string {
-  if (!dateStr) return "";
-  const diff = Math.round(
-    (new Date(dateStr).getTime() - Date.now()) / 86400000,
-  );
-  if (diff < 0) return "";
-  if (diff === 0) return "renews today";
-  if (diff === 1) return "renews tomorrow";
-  return `renews in ${diff}d`;
-}
-
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
@@ -190,6 +189,7 @@ function SubscriptionRowItem({
   toneSolid,
   toneSoftColor,
   isActive,
+  sharePct,
   onPress,
   onViewTransactions,
 }: {
@@ -197,20 +197,33 @@ function SubscriptionRowItem({
   toneSolid: string;
   toneSoftColor: string;
   isActive: boolean;
+  /** This sub's share of the active-subscription monthly total, for the
+   *  amount column — what the deleted stacked bar + legend used to carry. */
+  sharePct?: number;
   onPress: () => void;
   onViewTransactions?: () => void;
 }) {
   const { tokens, space, radius, type: t } = useTheme();
+  const { hideAmounts } = usePrivacy();
   const press = usePressSpring(0.98);
 
   const cycle = cleanCycle(sub.billing_cycle);
+  const dueDate = isActive ? effectiveDueDate(sub) : "";
   const meta = capitalize(
     isActive
-      ? [cycle, daysUntil(effectiveDueDate(sub))].filter(Boolean).join(" · ")
+      ? [cycle, dueDate ? `next ${formatDateShort(dueDate)}` : ""].filter(Boolean).join(" · ")
       : sub.renewal_or_end_month || "n/a",
   );
+  // Yearly/quarterly/weekly subs lead with the ₹/mo figure — the number that
+  // actually sums into the hero total — with the as-billed amount secondary.
   const showMonthlyEquiv =
     isActive && cycle !== "monthly" && cycle !== "one-time";
+  const primaryAmount = showMonthlyEquiv ? monthlyEq(sub) : Number(sub.amount_inr) || 0;
+  const billedText = showMonthlyEquiv
+    ? `${formatCurrency(Number(sub.amount_inr) || 0, hideAmounts)}${billedSuffix(cycle)}`
+    : null;
+  const shareText = isActive && sharePct != null ? `${sharePct.toFixed(0)}%` : null;
+  const secondaryText = [billedText, shareText].filter(Boolean).join(" · ");
 
   return (
     <Reanimated.View style={press.style}>
@@ -296,45 +309,18 @@ function SubscriptionRowItem({
         </View>
 
         <View style={{ alignItems: "flex-end" }}>
-          <AmountText
-            value={Number(sub.amount_inr) || 0}
-            size={t.body}
-            weight="bodySemiBold"
-          />
-          {showMonthlyEquiv ? (
-            <View
+          <AmountText value={primaryAmount} size={t.body} weight="bodySemiBold" />
+          {secondaryText ? (
+            <Text
               style={{
-                flexDirection: "row",
-                alignItems: "baseline",
-                gap: 2,
+                color: tokens.text3,
+                fontSize: t.micro,
+                fontFamily: fontFamily.bodyMedium,
                 marginTop: 2,
               }}
             >
-              <Text
-                style={{
-                  color: tokens.text3,
-                  fontSize: t.micro,
-                  fontFamily: fontFamily.bodyMedium,
-                }}
-              >
-                ≈
-              </Text>
-              <AmountText
-                value={monthlyEq(sub)}
-                size={t.micro}
-                weight="bodyMedium"
-                color={tokens.text3}
-              />
-              <Text
-                style={{
-                  color: tokens.text3,
-                  fontSize: t.micro,
-                  fontFamily: fontFamily.bodyMedium,
-                }}
-              >
-                /mo
-              </Text>
-            </View>
+              {secondaryText}
+            </Text>
           ) : null}
         </View>
       </Pressable>
@@ -359,9 +345,8 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
     [subscriptions],
   );
 
-  const totalMonthly = Math.round(
-    active.reduce((s, sub) => s + monthlyEq(sub), 0),
-  );
+  const totalMonthlyRaw = active.reduce((s, sub) => s + monthlyEq(sub), 0);
+  const totalMonthly = Math.round(totalMonthlyRaw);
   const totalYearly = Math.round(totalMonthly * 12);
   const next = useMemo(() => nextCharge(active), [active]);
 
@@ -453,17 +438,6 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
       >
         RECURRING / MONTH
       </Text>
-      <Text
-        style={{
-          color: tokens.text3,
-          fontSize: t.micro,
-          fontFamily: fontFamily.bodyMedium,
-          marginTop: 2,
-        }}
-      >
-        Renews on its own cycle, not scoped to the month above. Charges land
-        in your expenses under each subscription&apos;s category.
-      </Text>
       <AmountText
         value={totalMonthly}
         size={t.title}
@@ -533,6 +507,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
                 toneSolid={brand ? brand.solid : toneColor(i, tokens)}
                 toneSoftColor={brand ? brand.soft : toneSoft(i, tokens)}
                 isActive
+                sharePct={totalMonthlyRaw > 0 ? (monthlyEq(sub) / totalMonthlyRaw) * 100 : 0}
                 onPress={() => openModal(sub.service)}
                 onViewTransactions={
                   sub.category

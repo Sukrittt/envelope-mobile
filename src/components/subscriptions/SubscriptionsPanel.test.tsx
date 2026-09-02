@@ -37,6 +37,17 @@ describe('monthly total across mixed billing cycles', () => {
     // 600 + 100 + 100 + 433 = 1233
     expect(getByText('₹1,233')).toBeTruthy()
   })
+
+  it('excludes one-time charges from the monthly total', () => {
+    const subs = [
+      sub({ service: 'Netflix', amount_inr: '733', billing_cycle: 'monthly' }),
+      sub({ service: 'Setup fee', amount_inr: '5000', billing_cycle: 'one-time' }),
+    ]
+    const { getAllByText, queryByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
+    // 733 alone, not 733 + 5000 — a one-time charge isn't a recurring monthly cost.
+    expect(getAllByText('₹733').length).toBeGreaterThan(0)
+    expect(queryByText('₹5,733')).toBeNull()
+  })
 })
 
 describe('active / cancelled split', () => {
