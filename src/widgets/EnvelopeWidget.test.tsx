@@ -70,8 +70,33 @@ describe("widget trees build", () => {
   it("EnvelopeMiniWidget", () => {
     expect(() =>
       buildWidgetTree(
-        <EnvelopeMiniWidget {...data} tokens={darkTokens} scheme="dark" />,
+        <EnvelopeMiniWidget
+          {...data}
+          tokens={darkTokens}
+          scheme="dark"
+          width={131}
+        />,
       ),
     ).not.toThrow();
+  });
+});
+
+// A 2x2 cell is taller than it is wide (~131x184dp on a Pixel-class grid), so
+// a match_parent card comes out stretched next to a square one. The card takes
+// its height from the cell width instead.
+describe("EnvelopeMiniWidget draws a square card", () => {
+  it.each([131, 110, 160])("at %idp wide", (width) => {
+    const tree = buildWidgetTree(
+      <EnvelopeMiniWidget
+        {...data}
+        tokens={darkTokens}
+        scheme="dark"
+        width={width}
+      />,
+    );
+    // buildWidgetTree flattens style onto props.
+    const root = tree.props as { width: unknown; height: unknown };
+    expect(root.height).toBe(width);
+    expect(root.width).toBe("match_parent");
   });
 });

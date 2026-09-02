@@ -1,5 +1,10 @@
 // The 2x2 "mini" widget — fixed size, no resize. Same snapshot as the others,
 // stripped to just the number and one button.
+//
+// A 2x2 cell is not square: the launcher hands out roughly 131dp by 184dp, so
+// a match_parent card comes out stretched next to a square one (slice's, say).
+// The card is drawn at `width` dp tall instead, which is the width Android
+// reports for the cell, so it lands as an actual square.
 import { FlexWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
@@ -12,8 +17,14 @@ const LOG_URI = "mobile://modals/log-expense";
 export function EnvelopeMiniWidget({
   tokens,
   scheme,
+  width,
   ...data
-}: WidgetData & { tokens: ThemeTokens; scheme: "light" | "dark" }) {
+}: WidgetData & {
+  tokens: ThemeTokens;
+  scheme: "light" | "dark";
+  /** Cell width in dp, from WidgetInfo. Doubles as the card's height. */
+  width: number;
+}) {
   const flat = !data.weeklyTrend || data.weeklyTrend.dir === "flat";
   const trendColor = flat
     ? null
@@ -28,7 +39,8 @@ export function EnvelopeMiniWidget({
     <WidgetSurface
       tokens={tokens}
       scheme={scheme}
-      style={{ padding: 12 }}
+      height={width}
+      style={{ paddingHorizontal: 12, paddingVertical: 10 }}
     >
       <FlexWidget
         style={{

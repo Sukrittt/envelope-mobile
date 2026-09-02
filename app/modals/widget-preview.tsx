@@ -123,16 +123,19 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini · 2x2">
+                <PreviewRow label="Envelope Mini · 2x2 cell">
+                  {/* The cell the launcher hands out, not the card: the card
+                      draws itself square inside it. */}
                   <WidgetPreview
-                    width={140}
-                    height={140}
+                    width={131}
+                    height={184}
                     highlightClickableAreas
-                    renderWidget={() => (
+                    renderWidget={({ width }) => (
                       <EnvelopeMiniWidget
                         {...data}
                         tokens={tokens}
                         scheme={scheme}
+                        width={width}
                       />
                     )}
                   />
@@ -140,13 +143,14 @@ export default function WidgetPreviewScreen() {
                 <PreviewRow label="Envelope Mini · 2x2 floor">
                   <WidgetPreview
                     width={110}
-                    height={110}
+                    height={140}
                     highlightClickableAreas
-                    renderWidget={() => (
+                    renderWidget={({ width }) => (
                       <EnvelopeMiniWidget
                         {...data}
                         tokens={tokens}
                         scheme={scheme}
+                        width={width}
                       />
                     )}
                   />
