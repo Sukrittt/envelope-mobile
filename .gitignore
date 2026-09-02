@@ -49,3 +49,6 @@ yarn-error.*
 
 # graphify local knowledge graph (machine-specific paths + volatile state)
 .graphify/
+
+# build logs
+build.log
