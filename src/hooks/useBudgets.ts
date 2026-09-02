@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addBudget, deleteBudget, getBudgets, updateBudget } from '@/src/api/budgets'
+import { addBudget, deleteBudget, getBudgets, transferBudget, updateBudget } from '@/src/api/budgets'
 import type { BudgetRow } from '@/src/types'
 
 export const budgetsKey = ['budgets'] as const
@@ -28,6 +28,18 @@ export function useUpdateBudget() {
   return useMutation({
     mutationFn: (params: { month: string; category: string; updates: Partial<BudgetRow & { newCategory?: string }> }) =>
       updateBudget(params.month, params.category, params.updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: briefKey })
+    },
+  })
+}
+
+export function useTransferBudget() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: { month: string; to: string; sources: { category: string; amount: number }[] }) =>
+      transferBudget(params.month, params.to, params.sources),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })

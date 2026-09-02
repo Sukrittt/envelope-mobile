@@ -32,6 +32,20 @@ export async function updateBudget(
   if (!resp.ok) throw new Error(`Failed to update budget: ${resp.status}`)
 }
 
+/** Moves money between envelopes (or from Ready to Assign) in one server-side transaction. */
+export async function transferBudget(
+  month: string,
+  to: string,
+  sources: { category: string; amount: number }[],
+): Promise<void> {
+  const resp = await apiFetch('/api/budgets/transfer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ month, to, sources }),
+  })
+  if (!resp.ok) throw new Error(`Failed to transfer budget: ${resp.status}`)
+}
+
 export async function deleteBudget(month: string, category: string): Promise<void> {
   const resp = await apiFetch('/api/budgets', {
     method: 'DELETE',

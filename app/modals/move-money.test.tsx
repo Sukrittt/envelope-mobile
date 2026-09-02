@@ -1,7 +1,7 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses } from '@/src/api/expenses'
-import { getBudgets, addBudget, updateBudget } from '@/src/api/budgets'
+import { getBudgets, transferBudget } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import MoveMoneyModal from './move-money'
@@ -13,6 +13,7 @@ jest.mock('@/src/api/budgets', () => ({
   addBudget: jest.fn(),
   updateBudget: jest.fn(),
   deleteBudget: jest.fn(),
+  transferBudget: jest.fn(),
 }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
@@ -108,8 +109,7 @@ it('auto-fill allocates from the safest sources until the amount is covered', as
 })
 
 it('splits a move across multiple sources on submit', async () => {
-  ;(addBudget as jest.Mock).mockResolvedValue({})
-  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  ;(transferBudget as jest.Mock).mockResolvedValue({})
   const { getByText, getByLabelText } = setup({}, SPENDING)
   // The screen gates on an ActivityIndicator until all four queries settle —
   // wait for real content (the numpad) rather than just the mock call.
@@ -122,12 +122,14 @@ it('splits a move across multiple sources on submit', async () => {
   await waitFor(() => expect(getByText('Move ₹1,000')).toBeTruthy())
   fireEvent.press(getByText('Move ₹1,000'))
 
-  // Electricity already has an explicit row this month (assigned: '0'), so
-  // its move is an update, not an add: +1000. Travel gives its full 900
-  // available; Cook covers the remaining 100.
-  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Electricity', { assigned: '1000' }))
-  expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Travel', { assigned: '100' })
-  expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Cook', { assigned: '900' })
+  // One server-side transaction: Travel gives its full 900 available, Cook
+  // covers the remaining 100, both credited to Electricity in one call.
+  await waitFor(() =>
+    expect(transferBudget).toHaveBeenCalledWith(MONTH, 'Electricity', [
+      { category: 'Travel', amount: 900 },
+      { category: 'Cook', amount: 100 },
+    ]),
+  )
 })
 
 it('filters the source list by search', async () => {

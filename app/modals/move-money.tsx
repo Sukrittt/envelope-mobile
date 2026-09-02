@@ -13,7 +13,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Numpad } from '@/src/components/ui/Numpad'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { StepDot } from '@/src/components/onboarding/StepDot'
-import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
+import { useBudgets, useTransferBudget } from '@/src/hooks/useBudgets'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
@@ -40,10 +40,6 @@ interface SourceItem {
   score: number
 }
 
-// There's no dedicated "move money" API endpoint (confirmed against Web's
-// ExpensePage.tsx onTransfer handler) — a move is just budget.assigned
-// mutations (one per source, plus one for the target; Ready to Assign needs
-// no mutation of its own since it's just income minus totalAssigned).
 export default function MoveMoneyModal() {
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
@@ -59,8 +55,7 @@ export default function MoveMoneyModal() {
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
-  const updateBudget = useUpdateBudget()
-  const addBudget = useAddBudget()
+  const transferBudget = useTransferBudget()
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
@@ -94,7 +89,7 @@ export default function MoveMoneyModal() {
   const allocated = Object.values(allocs).reduce((a, b) => a + b, 0)
   const remaining = Math.max(0, amount - allocated)
   const ready = amount > 0 && remaining === 0
-  const saving = updateBudget.isPending || addBudget.isPending
+  const saving = transferBudget.isPending
 
   const sources = useMemo<SourceItem[]>(() => {
     const items: SourceItem[] = []
@@ -194,27 +189,14 @@ export default function MoveMoneyModal() {
     setAllocs(next)
   }
 
-  async function setAssigned(category: string, newAssigned: number) {
-    const exists = budgets.some((b) => b.month === month && b.category === category)
-    if (exists) {
-      await updateBudget.mutateAsync({ month, category, updates: { assigned: String(newAssigned) } })
-    } else {
-      await addBudget.mutateAsync({ month, category, assigned: String(newAssigned) })
-    }
-  }
-
   async function handleSubmit() {
     if (!ready || !target) return
     setError('')
     try {
-      const updates: Promise<unknown>[] = [setAssigned(targetCategoryName, target.assigned + amount)]
-      for (const [key, alloc] of Object.entries(allocs)) {
-        if (key === RTA_SENTINEL || alloc <= 0) continue
-        const source = envelopeSources.find((e) => e.category === key)
-        if (!source) continue
-        updates.push(setAssigned(source.category, source.assigned - alloc))
-      }
-      await Promise.all(updates)
+      const sources = Object.entries(allocs)
+        .filter(([, alloc]) => alloc > 0)
+        .map(([category, alloc]) => ({ category, amount: alloc }))
+      await transferBudget.mutateAsync({ month, to: targetCategoryName, sources })
       setMoveSuccess(true)
     } catch {
       setError('Could not move money. Check your connection and try again.')
