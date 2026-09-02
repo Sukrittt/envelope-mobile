@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import { getUser, updateUser, changeEmail, startExport, getExports } from './account'
+import { getUser, updateUser, changeEmail, startExport, getExports, getArchive, restoreArchivedItem, restoreAccount } from './account'
 
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
@@ -44,6 +44,47 @@ describe('changeEmail', () => {
     mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ email: 'a@b.com', emailVerified: false }) })
     const result = await changeEmail('a@b.com')
     expect(result).toEqual({ email: 'a@b.com', emailVerified: false })
+  })
+})
+
+describe('getArchive / restoreArchivedItem / restoreAccount', () => {
+  it('getArchive returns the parsed item list', async () => {
+    const items = [{ id: '1', collection: 'expenses', label: 'Coffee', deletedAt: 'x', purgesAt: 'y' }]
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ items }) })
+    const result = await getArchive()
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/archive')
+    expect(result).toEqual(items)
+  })
+
+  it('restoreArchivedItem POSTs the collection and id', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true })
+    await restoreArchivedItem('categories', 'abc123')
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ collection: 'categories', id: 'abc123' }),
+    })
+  })
+
+  it('restoreArchivedItem surfaces a friendly message on a 409 collision', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 409 })
+    await expect(restoreArchivedItem('categories', 'abc123')).rejects.toThrow('A live item with this name already exists.')
+  })
+
+  it('restoreArchivedItem throws the generic status message for other failures', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
+    await expect(restoreArchivedItem('categories', 'abc123')).rejects.toThrow('Failed to restore item: 500')
+  })
+
+  it('restoreAccount POSTs with no body', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true })
+    await restoreAccount()
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/user/restore', { method: 'POST' })
+  })
+
+  it('restoreAccount throws on failure', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 404 })
+    await expect(restoreAccount()).rejects.toThrow('Failed to restore account: 404')
   })
 })
 

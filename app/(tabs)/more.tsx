@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -219,6 +219,8 @@ export default function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={Archive} label="Archive" onPress={() => router.push('/account/archive')} tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />

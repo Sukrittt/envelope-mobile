@@ -10,8 +10,9 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearAccess } from '@/src/api/accessMode'
 import { deleteAccount, resendEmailCode, revokeAllSessions, revokeSession } from '@/src/api/account'
-import { useUser, useUpdateUser, useSessions, useIdentities } from '@/src/hooks/useUser'
+import { useUser, useUpdateUser, useSessions, useIdentities, useRestoreAccount } from '@/src/hooks/useUser'
 import { useLinkGoogle } from '@/src/api/useLinkGoogle'
+import { daysUntil } from '@/src/lib/format'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -26,6 +27,7 @@ export default function SecurityScreen() {
 
   const userQuery = useUser()
   const updateUser = useUpdateUser()
+  const restoreAccountMutation = useRestoreAccount()
   const user = userQuery.data
   const sessionsQuery = useSessions()
   const identitiesQuery = useIdentities()
@@ -168,6 +170,30 @@ export default function SecurityScreen() {
           </Pressable>
         </View>
 
+        {user?.deletionScheduledFor ? (
+          <View style={[styles.warnBanner, { backgroundColor: tokens.coralSoft, borderColor: tokens.coral }]}>
+            <Text style={[styles.warnTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>
+              Account scheduled for deletion
+            </Text>
+            <Text style={[styles.warnCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              {daysUntil(user.deletionScheduledFor)} day{daysUntil(user.deletionScheduledFor) === 1 ? '' : 's'} left to restore it.
+            </Text>
+            <Pressable
+              onPress={() =>
+                restoreAccountMutation.mutate(undefined, {
+                  onError: () => Alert.alert('Could not restore account', 'Check your connection and try again.'),
+                })
+              }
+              disabled={restoreAccountMutation.isPending}
+              style={[styles.warnRestoreButton, { backgroundColor: tokens.coral, opacity: restoreAccountMutation.isPending ? 0.6 : 1 }]}
+            >
+              <Text style={[styles.warnRestoreButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                {restoreAccountMutation.isPending ? 'Restoring…' : 'Restore account'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <View style={styles.block}>
             <View style={styles.emailRow}>
@@ -292,7 +318,7 @@ export default function SecurityScreen() {
         <View style={[styles.dangerCard, { borderColor: tokens.coral }]}>
           <Text style={[styles.dangerTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>Delete account</Text>
           <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Removes envelopes, transactions and recaps. Export your data first. This can&apos;t be undone.
+            Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
           </Text>
           <Pressable
             onPress={confirmDelete}
@@ -300,7 +326,7 @@ export default function SecurityScreen() {
             style={[styles.dangerButton, { backgroundColor: tokens.coral, opacity: deleting ? 0.6 : 1 }]}
           >
             <Text style={[styles.dangerButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {deleting ? 'Deleting…' : 'Delete permanently'}
+              {deleting ? 'Deleting…' : 'Delete account'}
             </Text>
           </Pressable>
         </View>
@@ -316,7 +342,7 @@ export default function SecurityScreen() {
       >
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
         <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes envelopes, transactions and recaps. Export your data first. This can’t be undone. Type{' '}
+          Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
           <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
         </Text>
         <TextInput
@@ -354,7 +380,7 @@ export default function SecurityScreen() {
             ]}
           >
             <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {deleting ? 'Deleting…' : 'Delete permanently'}
+              {deleting ? 'Deleting…' : 'Delete account'}
             </Text>
           </Pressable>
         </View>
@@ -425,6 +451,8 @@ const styles = StyleSheet.create({
   warnCopy: { fontSize: 12, marginTop: 4, lineHeight: 17 },
   warnActions: { flexDirection: 'row', gap: 16, marginTop: 10 },
   warnAction: { fontSize: 12 },
+  warnRestoreButton: { marginTop: 12, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 100 },
+  warnRestoreButtonText: { fontSize: 13 },
   section: { gap: 10 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
   signOutEverywhere: { alignSelf: 'flex-start', paddingVertical: 6 },

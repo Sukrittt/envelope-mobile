@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getUser, getIdentityProviders, getSessions, updateUser, type UserProfile } from '@/src/api/account'
+import { getUser, getIdentityProviders, getSessions, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
 
 export const userKey = ['user'] as const
 const sessionsKey = ['user', 'sessions'] as const
@@ -29,6 +29,15 @@ export function useUpdateUser() {
       console.warn('[useUpdateUser] update failed:', err)
       if (context?.previous) qc.setQueryData(userKey, context.previous)
     },
+  })
+}
+
+/** Undoes a scheduled account deletion. Broad invalidate: every collection's data comes back too. */
+export function useRestoreAccount() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: restoreAccount,
+    onSuccess: () => qc.invalidateQueries(),
   })
 }
 

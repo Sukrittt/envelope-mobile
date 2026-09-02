@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
-import { getUser, updateUser, type UserProfile } from '@/src/api/account'
-import { useUser, useUpdateUser, userKey } from './useUser'
+import { getUser, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
+import { useUser, useUpdateUser, useRestoreAccount, userKey } from './useUser'
 
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(),
   updateUser: jest.fn(),
+  restoreAccount: jest.fn(),
   getSessions: jest.fn(),
   getIdentityProviders: jest.fn(),
 }))
@@ -72,4 +73,16 @@ it('rolls back the optimistic patch when the API call errors', async () => {
   await waitFor(() => expect(result.current.isError).toBe(true))
   const data = queryClient.getQueryData<UserProfile>(userKey)
   expect(data?.notifyCadence).toBe('off')
+})
+
+it('useRestoreAccount invalidates every query on success', async () => {
+  ;(restoreAccount as jest.Mock).mockResolvedValue(undefined)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  const { result } = renderHook(() => useRestoreAccount(), { wrapper: wrapper(queryClient) })
+
+  result.current.mutate()
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(invalidateSpy).toHaveBeenCalled()
 })

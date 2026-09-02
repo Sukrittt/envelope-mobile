@@ -59,6 +59,13 @@ export function formatDateShort(dateStr: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`
 }
 
+/** Whole days from now until `ts`, floored at 0 — used for "purges in N days" archive countdowns. */
+export function daysUntil(ts: string): number {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return 0
+  return Math.max(0, Math.ceil((d.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+}
+
 /** e.g. "27 Aug '26, 1:24 am" — the full stamp shown on the post-log confirmation,
  *  where the year matters because the date can be back-dated by the entry screen. */
 export function formatDateTimeLong(ts: string): string {

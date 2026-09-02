@@ -15,6 +15,8 @@ export interface UserProfile {
   notifyBillLeadDays?: number
   notifyCoach?: boolean
   notifyWrapped?: boolean
+  /** Set while the account is within its post-delete grace window — null once active or purged. */
+  deletionScheduledFor?: string | null
 }
 
 export interface SessionRow {
@@ -48,6 +50,40 @@ export async function deleteAccount(email: string): Promise<void> {
     body: JSON.stringify({ email }),
   })
   if (!resp.ok) throw new Error(`Failed to delete account: ${resp.status}`)
+}
+
+/** Undoes a deleteAccount() within its grace window — 404s once the GC cron has purged it. */
+export async function restoreAccount(): Promise<void> {
+  const resp = await apiFetch('/api/user/restore', { method: 'POST' })
+  if (!resp.ok) throw new Error(`Failed to restore account: ${resp.status}`)
+}
+
+export type ArchivableCollection = 'expenses' | 'budgets' | 'categories' | 'groups' | 'subscriptions' | 'holdings'
+
+export interface ArchivedItem {
+  id: string
+  collection: ArchivableCollection
+  label: string
+  deletedAt: string
+  purgesAt: string
+}
+
+/** Every soft-deleted row still within its 7-day grace window, across all collections. */
+export async function getArchive(): Promise<ArchivedItem[]> {
+  const resp = await apiFetch('/api/archive')
+  if (!resp.ok) throw new Error(`Failed to load archive: ${resp.status}`)
+  const body: { items: ArchivedItem[] } = await resp.json()
+  return body.items
+}
+
+export async function restoreArchivedItem(collection: ArchivableCollection, id: string): Promise<void> {
+  const resp = await apiFetch('/api/archive', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection, id }),
+  })
+  if (resp.status === 409) throw new Error('A live item with this name already exists.')
+  if (!resp.ok) throw new Error(`Failed to restore item: ${resp.status}`)
 }
 
 export interface ExportRow {
