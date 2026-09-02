@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
+import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses, deleteExpense } from '@/src/api/expenses'
 import { getBudgets } from '@/src/api/budgets'
@@ -35,6 +36,13 @@ jest.mock('@/src/api/groups', () => ({
   moveGroup: jest.fn(),
 }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
+
+// React Query's default notifyManager defers subscriber notifications to a
+// `setTimeout(0)` scheduler, which can fire after a test's own assertions
+// are done and land outside `act`. Running the scheduler synchronously keeps
+// every render a query settling causes inside the same act scope as the
+// code (a promise resolving) that triggered it.
+notifyManager.setScheduler((callback) => callback())
 
 // `mock`-prefixed so Jest's out-of-scope guard allows the factory to close over them.
 const mockReplace = jest.fn()
