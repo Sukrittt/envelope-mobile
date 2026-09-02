@@ -4,7 +4,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Alert,
   StyleSheet,
 } from "react-native";
 import Animated, {
@@ -28,6 +27,7 @@ import {
   TrendingUp,
   type LucideIcon,
 } from "lucide-react-native";
+import { Alert } from "@/src/components/ui/AlertHost";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";

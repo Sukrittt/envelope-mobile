@@ -12,6 +12,7 @@ import { accessMode, clearAccess, initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { AlertHost } from '@/src/components/ui/AlertHost'
 import { TabBar } from '@/src/components/nav/TabBar'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
 import { WidgetSync } from '@/src/widgets/WidgetSync'
@@ -233,6 +234,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
       </Stack>
       <TabBar />
+      <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
           run once they're reachable — not on every cold boot regardless of

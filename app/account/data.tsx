@@ -4,7 +4,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Alert,
   Linking,
   StyleSheet,
 } from "react-native";
@@ -26,6 +25,7 @@ import {
   CircleAlert,
   Clock,
 } from "lucide-react-native";
+import { Alert } from "@/src/components/ui/AlertHost";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";

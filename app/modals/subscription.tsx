@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable, Alert, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import {
