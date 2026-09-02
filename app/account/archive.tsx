@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from "react-native";
+import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -85,6 +86,7 @@ function urgencyColor(days: number, tokens: { coral: string; warn: string; text2
 
 const archiveKey = ["archive"] as const;
 const LOADING_PHRASES = ["Loading your archive…"];
+const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
 
 export default function ArchiveScreen() {
   const { tokens } = useTheme();
@@ -150,25 +152,32 @@ export default function ArchiveScreen() {
   const handleRestoreAll = async () => {
     setConfirmRestoreAll(false);
     setRestoringAll(true);
-    let restored = 0;
+    const succeededIds: string[] = [];
     let skipped = 0;
     for (const item of sorted) {
       try {
         await restoreArchivedItem(item.collection, item.id);
-        restored++;
+        succeededIds.push(item.id);
       } catch {
         skipped++;
       }
     }
-    setRestoringAll(false);
-    qc.invalidateQueries();
+    // Removed in one commit; each row's staggered `exiting` delay (see the
+    // list below) is what makes the removal cascade rather than pop at once.
+    qc.setQueryData<ArchivedItem[]>(archiveKey, (old) => (old ?? []).filter((i) => !succeededIds.includes(i.id)));
+    if (succeededIds.length > 0) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    setTimeout(
+      () => {
+        setRestoringAll(false);
+        qc.invalidateQueries();
+      },
+      120 + succeededIds.length * 55,
+    );
     if (skipped > 0) {
       Alert.alert(
         "Some items couldn't be restored",
-        `${restored} restored, ${skipped} skipped because a live item with the same name already exists.`,
+        `${succeededIds.length} restored, ${skipped} skipped because a live item with the same name already exists.`,
       );
-    } else if (restored > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
   };
 
@@ -299,7 +308,7 @@ export default function ArchiveScreen() {
           </Text>
         ) : null}
 
-        {shown.map((item) => {
+        {shown.map((item, idx) => {
           const days = daysUntil(item.purgesAt);
           const band = bandFor(days);
           const showBand = band !== lastBand;
@@ -310,7 +319,13 @@ export default function ArchiveScreen() {
           const isSuccess = success?.id === item.id;
 
           return (
-            <View key={item.id} style={styles.rowWrap}>
+            <Animated.View
+              key={item.id}
+              entering={FadeIn.duration(150)}
+              exiting={restoringAll ? FadeOut.duration(180).delay(idx * 55) : FadeOut.duration(120)}
+              layout={LIST_TRANSITION}
+              style={styles.rowWrap}
+            >
               {showBand ? (
                 <Text style={[styles.bandLabel, { color: days <= 1 ? tokens.coral : tokens.text3, fontFamily: fontFamily.bodyBold }]}>
                   {band.toUpperCase()}
@@ -376,7 +391,7 @@ export default function ArchiveScreen() {
                   </Pressable>
                 </View>
               </View>
-            </View>
+            </Animated.View>
           );
         })}
 
@@ -435,7 +450,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
@@ -443,8 +459,8 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 11.5, marginTop: 1 },
   restoreAllButton: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
   restoreAllText: { fontSize: 12.5 },
-  chipRow: { paddingTop: 4 },
-  chipScroll: { flexDirection: "row", gap: 7, paddingHorizontal: 16, paddingBottom: 12 },
+  chipRow: { paddingTop: 0 },
+  chipScroll: { flexDirection: "row", gap: 7, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1 },
   chipText: { fontSize: 12.5 },
   chipCount: { fontSize: 11 },
@@ -454,9 +470,9 @@ const styles = StyleSheet.create({
   nextLabel: { fontSize: 10.5, letterSpacing: 0.9 },
   nextName: { fontSize: 20, marginTop: 3 },
   nextNote: { fontSize: 11.5, marginTop: 2 },
-  nextClock: { width: 62, height: 62, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  nextClock: { minWidth: 68, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 10, paddingVertical: 10 },
   nextClockNum: { fontSize: 20 },
-  nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 1 },
+  nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6 },
   emptyState: { alignItems: "center", justifyContent: "center", gap: 14, paddingVertical: 60, paddingHorizontal: 26 },
   emptyIcon: { width: 74, height: 74, borderRadius: 22, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontSize: 19 },
