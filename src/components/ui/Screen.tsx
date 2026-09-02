@@ -18,6 +18,7 @@ import { NAV_HEIGHT } from '@/src/theme/scale'
 export function Screen({
   title,
   actions,
+  subheader,
   children,
   scroll = true,
   refreshControl,
@@ -27,6 +28,10 @@ export function Screen({
 }: {
   title?: string
   actions?: ReactNode
+  /** Rendered between the header and the scrolling content, outside the
+   *  ScrollView — so it stays pinned while the rest of the screen scrolls,
+   *  with no scroll listener or animation needed. */
+  subheader?: ReactNode
   children: ReactNode
   scroll?: boolean
   refreshControl?: React.ComponentProps<typeof ScrollView>['refreshControl']
@@ -55,6 +60,9 @@ export function Screen({
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }, style]}>
       {header}
+      {subheader ? (
+        <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>{subheader}</View>
+      ) : null}
       {scroll ? (
         <ScrollView
           style={styles.flex}

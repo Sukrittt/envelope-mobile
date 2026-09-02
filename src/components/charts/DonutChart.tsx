@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import Svg, { Path, Circle, G } from 'react-native-svg'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -96,6 +96,7 @@ export function DonutChart({
               fill="none"
               stroke={singleSegment.color}
               strokeWidth={thickness}
+              onPress={() => toggle(singleSegment.key)}
             />
           ) : (
             arcs.map(({ seg, startDeg, endDeg }) => {
@@ -110,6 +111,7 @@ export function DonutChart({
                   strokeWidth={isSelected ? thickness + 4 : thickness}
                   strokeOpacity={dimmed ? 0.35 : 1}
                   strokeLinecap="butt"
+                  onPress={() => toggle(seg.key)}
                 />
               )
             })
@@ -119,27 +121,6 @@ export function DonutChart({
       <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="box-none">
         {children}
       </View>
-      <View style={[StyleSheet.absoluteFill, styles.hitLayer]} pointerEvents="box-none">
-        {arcs.map(({ seg, startDeg, endDeg }) => {
-          const mid = (startDeg + endDeg) / 2
-          const point = pointOnCircle(cx, cy, r, mid)
-          const hitSize = 36
-          return (
-            <Pressable
-              key={seg.key}
-              accessibilityLabel={seg.label}
-              onPress={() => toggle(seg.key)}
-              style={{
-                position: 'absolute',
-                left: point.x - hitSize / 2,
-                top: point.y - hitSize / 2,
-                width: hitSize,
-                height: hitSize,
-              }}
-            />
-          )
-        })}
-      </View>
     </Animated.View>
   )
 }
@@ -147,5 +128,4 @@ export function DonutChart({
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center' },
   center: { alignItems: 'center', justifyContent: 'center' },
-  hitLayer: { alignItems: 'flex-start', justifyContent: 'flex-start' },
 })

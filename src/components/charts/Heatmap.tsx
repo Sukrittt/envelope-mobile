@@ -9,12 +9,34 @@ import Reanimated, {
   withSpring,
 } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 const MOUNT_START_DELAY_MS = 150
 const COLUMN_STAGGER_MS = 70
 const ROW_STAGGER_MS = 15
+const CELL_SIZE = 30
+
+const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+// One hue (accent), four clearly separated opacities — the old heatA/heatB
+// pair read as near-identical browns in dark mode.
+const LEVEL_OPACITY = [0.16, 0.4, 0.65, 0.9]
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.replace('#', '')
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  }
+}
+
+function accentAt(hex: string, opacity: number): string {
+  const { r, g, b } = hexToRgb(hex)
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`
+}
 
 export interface HeatmapCell {
   date: string
@@ -37,6 +59,7 @@ interface DayCellProps {
   bg: string
   textColor: string
   borderColor: string
+  bold: boolean
   disabled: boolean
   onPress?: () => void
   playMountStagger: boolean
@@ -50,7 +73,7 @@ interface DayCellProps {
  * month-change boundary cells swapping in/out. So the mount stagger is
  * driven explicitly via a shared value instead of relying on `entering`.
  */
-function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor, disabled, onPress, playMountStagger }: DayCellProps) {
+function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor, bold, disabled, onPress, playMountStagger }: DayCellProps) {
   const scale = useSharedValue(playMountStagger ? 0 : 1)
 
   useEffect(() => {
@@ -84,12 +107,13 @@ function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor,
         mountStyle,
       ]}
     >
-      <Text style={{ color: textColor, fontSize: 11 }}>{day}</Text>
+      <Text style={{ color: textColor, fontSize: 11, fontFamily: bold ? fontFamily.bodyBold : undefined }}>{day}</Text>
     </AnimatedPressable>
   )
 }
 
-/** Calendar heatmap of daily spend — 7-column grid, 5 shading levels, matching dc.html's Insights panel. */
+/** Calendar heatmap of daily spend — 7-column grid, weekday header, a
+ *  less/more legend anchoring the scale, and 4 shading levels on one hue. */
 export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
   const { tokens } = useTheme()
 
@@ -126,6 +150,13 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
 
   return (
     <View>
+      <View style={styles.row}>
+        {WEEKDAY_LABELS.map((label, i) => (
+          <Text key={i} style={[styles.weekdayLabel, { color: tokens.text3 }]}>
+            {label}
+          </Text>
+        ))}
+      </View>
       {rows.map((row, i) => (
         <View key={i} style={styles.row}>
           {row.map((c, j) => {
@@ -134,16 +165,8 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
             const isToday = c.date === todayDate
             const isFuture = !!todayDate && c.date > todayDate
             const level = levels.get(c.date) ?? 0
-            const bg = isFuture
-              ? tokens.card
-              : level <= 1
-                ? tokens.chipActiveBg
-                : level === 2
-                  ? tokens.heatA
-                  : level === 3
-                    ? tokens.heatB
-                    : tokens.accent
-            const textColor = isFuture ? tokens.text3 : level <= 1 ? tokens.text2 : tokens.onAccent
+            const bg = isFuture ? tokens.card : level === 0 ? tokens.chipActiveBg : accentAt(tokens.accent, LEVEL_OPACITY[level - 1])
+            const textColor = isFuture ? tokens.text3 : level >= 3 ? tokens.onAccent : tokens.text2
             const borderColor = isToday ? tokens.mint : isFuture ? tokens.borderStrong : 'transparent'
             return (
               <DayCell
@@ -156,6 +179,7 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
                 bg={bg}
                 textColor={textColor}
                 borderColor={borderColor}
+                bold={c.day === 1}
                 disabled={isFuture || !onSelectDate}
                 onPress={() => onSelectDate?.(c.date)}
                 playMountStagger={isMountingRef.current}
@@ -164,12 +188,24 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
           })}
         </View>
       ))}
+      <View style={styles.legendRow}>
+        <Text style={[styles.legendLabel, { color: tokens.text3 }]}>Less</Text>
+        <View style={[styles.legendSwatch, { backgroundColor: tokens.chipActiveBg }]} />
+        {LEVEL_OPACITY.map((op, i) => (
+          <View key={i} style={[styles.legendSwatch, { backgroundColor: accentAt(tokens.accent, op) }]} />
+        ))}
+        <Text style={[styles.legendLabel, { color: tokens.text3 }]}>More</Text>
+      </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  cell: { flex: 1, aspectRatio: 1 },
-  filledCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  row: { flexDirection: 'row', gap: 6, marginTop: 6, justifyContent: 'center' },
+  cell: { width: CELL_SIZE, height: CELL_SIZE },
+  filledCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  weekdayLabel: { width: CELL_SIZE, textAlign: 'center', fontSize: 10 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12 },
+  legendLabel: { fontSize: 10 },
+  legendSwatch: { width: 10, height: 10, borderRadius: 3 },
 })

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import { useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { ArrowLeft, Plus } from "lucide-react-native";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
@@ -12,13 +12,12 @@ import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
 import { useSubscriptions } from "@/src/hooks/useSubscriptions";
 import {
-  computeEnvelopeState,
   currentMonthKey,
   monthLabel,
   prevMonthKey,
   shiftMonthKey,
 } from "@/src/lib/envelope";
-import { formatCurrency } from "@/src/lib/format";
+import { formatDateShort } from "@/src/lib/format";
 import { todayIST } from "@/src/lib/date";
 import { EMPTY } from "@/src/lib/constants";
 import { Screen } from "@/src/components/ui/Screen";
@@ -30,88 +29,104 @@ import {
 } from "@/src/components/charts/TrendChart";
 import { Heatmap, type HeatmapCell } from "@/src/components/charts/Heatmap";
 import { CategoryBreakdown } from "@/src/components/charts/CategoryBreakdown";
+import { ComparisonLine } from "@/src/components/insights/ComparisonLine";
 import { SubscriptionsPanel } from "@/src/components/subscriptions/SubscriptionsPanel";
-import { monthRange, weekRange, categoryBreakdown, withDelta, leftoverFor } from "@/src/lib/monthly";
+import {
+  categoryBreakdown,
+  withDelta,
+  leftoverFor,
+  monthTotals,
+  monthComparison,
+  fixedCategories,
+} from "@/src/lib/monthly";
 
-function weekStartKey(dateStr: string): string {
-  const d = new Date(dateStr);
-  const day = (d.getDay() + 6) % 7; // Monday = 0
-  d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
-}
+const TREND_MONTHS = 12;
+const HEATMAP_WEEKS = 12;
 
-const SHORT_MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-function formatDrillRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  const fmt = (d: Date) => `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
-  if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
-    return `${s.getDate()}–${e.getDate()} ${SHORT_MONTHS[e.getMonth()]}`;
-  }
-  return `${fmt(s)} – ${fmt(e)}`;
-}
-
-type DrillFilter = {
-  start: string;
-  end: string;
-  parentView: "monthly" | "weekly";
-} | null;
-
-/** Month stepper shared by the Daily spend and Where it went cards below it. */
+/** Month control for the whole screen: bounded stepper, a partial-month
+ *  chip, a reset to the current month, and a horizontal swipe. Rendered as
+ *  the Screen's sticky subheader, outside the ScrollView, so it never
+ *  scrolls out of view — every card below reads off this one control. */
 function MonthStepper({
   month,
   currentMonth,
+  earliestMonth,
   onShift,
+  onReset,
 }: {
   month: string;
   currentMonth: string;
+  earliestMonth: string;
   onShift: (delta: number) => void;
+  onReset: () => void;
 }) {
   const { tokens, space, radius, type } = useTheme();
+  const canGoPrev = month > earliestMonth;
   const canGoNext = month < currentMonth;
+  const isCurrent = month === currentMonth;
+
+  const swipe = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-12, 12])
+    .onEnd((e) => {
+      if (e.translationX < -20 && canGoNext) onShift(1);
+      else if (e.translationX > 20 && canGoPrev) onShift(-1);
+    });
+
   return (
-    <View style={[styles.monthNav, { gap: space.md }]}>
-      <Pressable
-        onPress={() => onShift(-1)}
-        hitSlop={8}
-        accessibilityLabel="Previous month"
-        style={[styles.monthNavBtn, { backgroundColor: tokens.accentSoft, borderRadius: radius.full }]}
-      >
-        <Text style={[styles.monthNavGlyph, { color: tokens.text2, fontSize: type.body, lineHeight: type.body }]}>‹</Text>
-      </Pressable>
-      <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-        {monthLabel(month)}
-      </Text>
-      <Pressable
-        onPress={() => canGoNext && onShift(1)}
-        disabled={!canGoNext}
-        hitSlop={8}
-        accessibilityLabel="Next month"
-        style={[
-          styles.monthNavBtn,
-          { borderRadius: radius.full },
-          canGoNext ? { backgroundColor: tokens.accentSoft } : { backgroundColor: tokens.border },
-        ]}
-      >
-        <Text style={[styles.monthNavGlyph, { color: canGoNext ? tokens.text2 : tokens.text3, fontSize: type.body, lineHeight: type.body }]}>
-          ›
-        </Text>
-      </Pressable>
-    </View>
+    <GestureDetector gesture={swipe}>
+      <View style={[styles.monthNav, { gap: space.md }]}>
+        <Pressable
+          onPress={() => canGoPrev && onShift(-1)}
+          disabled={!canGoPrev}
+          hitSlop={8}
+          accessibilityLabel="Previous month"
+          style={[
+            styles.monthNavBtn,
+            { borderRadius: radius.full },
+            canGoPrev ? { backgroundColor: tokens.accentSoft } : { backgroundColor: tokens.border },
+          ]}
+        >
+          <Text style={[styles.monthNavGlyph, { color: canGoPrev ? tokens.text2 : tokens.text3, fontSize: type.bodyLg, lineHeight: type.bodyLg }]}>
+            ‹
+          </Text>
+        </Pressable>
+
+        <View style={styles.monthNavCenter}>
+          <View style={styles.monthNavLabelRow}>
+            <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+              {monthLabel(month)}
+            </Text>
+            {isCurrent && (
+              <View style={[styles.soFarChip, { backgroundColor: tokens.chipActiveBg, borderRadius: radius.full }]}>
+                <Text style={{ color: tokens.text2, fontSize: 10, fontFamily: fontFamily.bodySemiBold }}>so far</Text>
+              </View>
+            )}
+          </View>
+          {!isCurrent && (
+            <Pressable onPress={onReset} hitSlop={6}>
+              <Text style={{ color: tokens.accentInk, fontSize: 11, fontFamily: fontFamily.bodySemiBold }}>This month</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <Pressable
+          onPress={() => canGoNext && onShift(1)}
+          disabled={!canGoNext}
+          hitSlop={8}
+          accessibilityLabel="Next month"
+          style={[
+            styles.monthNavBtn,
+            { borderRadius: radius.full },
+            canGoNext ? { backgroundColor: tokens.accentSoft } : { backgroundColor: tokens.border },
+          ]}
+        >
+          <Text style={[styles.monthNavGlyph, { color: canGoNext ? tokens.text2 : tokens.text3, fontSize: type.bodyLg, lineHeight: type.bodyLg }]}>
+            ›
+          </Text>
+        </Pressable>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -132,148 +147,68 @@ export default function InsightsScreen() {
   const { data: subscriptions = [], isLoading: subscriptionsLoading } =
     useSubscriptions();
 
-  const [chartVariant, setChartVariant] = useState<"area" | "bar">("area");
-  const chartVariantKey = "mc-insights-chart-variant";
-  const chartVariantHydrated = useRef(false);
-  useEffect(() => {
-    SecureStore.getItemAsync(chartVariantKey)
-      .then((raw) => {
-        if (raw === "area" || raw === "bar") setChartVariant(raw);
-      })
-      .catch(() => {})
-      .finally(() => {
-        chartVariantHydrated.current = true;
-      });
-  }, []);
-  useEffect(() => {
-    if (!chartVariantHydrated.current) return;
-    SecureStore.setItemAsync(chartVariantKey, chartVariant).catch(() => {});
-  }, [chartVariant]);
-  const [trendPeriod, setTrendPeriod] = useState<
-    "daily" | "weekly" | "monthly"
-  >("weekly");
-  const [drillFilter, setDrillFilter] = useState<DrillFilter>(null);
-  const [insightMonth, setInsightMonth] = useState(() => currentMonthKey());
-  const [breakdownMode, setBreakdownMode] = useState<"category" | "group">("category");
-
   const month = currentMonthKey();
-
-  const envelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, month, categories, groups),
-    [budgets, expenses, month, categories, groups],
-  );
-  const creditCardEnvelope = envelopeState.envelopes.find(
-    (e) => e.isCreditCardPayment,
-  );
-
-  const trendData: TrendPoint[] = useMemo(() => {
-    const source = drillFilter
-      ? expenses.filter(
-          (e) => e.date >= drillFilter.start && e.date <= drillFilter.end,
-        )
-      : expenses;
-
-    if (trendPeriod === "weekly") {
-      const totals = new Map<string, number>();
-      for (const e of source) {
-        const key = weekStartKey(e.date);
-        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0));
-      }
-      const weeks = [...totals.keys()].sort();
-      const trimmed = drillFilter ? weeks : weeks.slice(-10);
-      return trimmed.map((date) => ({ date, value: totals.get(date) ?? 0 }));
-    }
-    if (trendPeriod === "monthly") {
-      const totals = new Map<string, number>();
-      for (const e of source) {
-        const key = e.date.slice(0, 7);
-        totals.set(key, (totals.get(key) ?? 0) + (Number(e.amount_inr) || 0));
-      }
-      const months = [...totals.keys()].sort().slice(-6);
-      return months.map((date) => ({ date, value: totals.get(date) ?? 0 }));
-    }
-    const totals = new Map<string, number>();
-    for (const e of source) {
-      totals.set(
-        e.date,
-        (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0),
-      );
-    }
-    if (drillFilter) {
-      // Fill every day in the drilled week, including zero-spend days, so the chart isn't sparse.
-      const dates: string[] = [];
-      const cursor = new Date(drillFilter.start);
-      const end = new Date(drillFilter.end);
-      while (cursor <= end) {
-        dates.push(cursor.toISOString().slice(0, 10));
-        cursor.setDate(cursor.getDate() + 1);
-      }
-      return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }));
-    }
-    const dates = [...totals.keys()].sort().slice(-14);
-    return dates.map((date) => ({ date, value: totals.get(date) ?? 0 }));
-  }, [expenses, trendPeriod, drillFilter]);
-
-  function selectTrendPeriod(p: "daily" | "weekly" | "monthly") {
-    setTrendPeriod(p);
-    setDrillFilter(null);
-  }
-
-  function handleTrendDrill(index: number) {
-    const key = trendData[index]?.date;
-    if (!key) return;
-    if (trendPeriod === "monthly") {
-      setDrillFilter({ ...monthRange(key), parentView: "monthly" });
-      setTrendPeriod("weekly");
-    } else if (trendPeriod === "weekly") {
-      setDrillFilter({ ...weekRange(key), parentView: "weekly" });
-      setTrendPeriod("daily");
-    }
-  }
-
-  const heatmapCells: HeatmapCell[] = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const e of expenses) {
-      if (!e.date.startsWith(insightMonth)) continue;
-      totals.set(
-        e.date,
-        (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0),
-      );
-    }
-    const [y, m] = insightMonth.split("-").map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const firstWeekday = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday = 0
-    const cells: HeatmapCell[] = [];
-    for (let i = 0; i < firstWeekday; i++)
-      cells.push({ date: `pad-${i}`, day: 0, value: 0 });
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${insightMonth}-${String(d).padStart(2, "0")}`;
-      cells.push({ date, day: d, value: totals.get(date) ?? 0 });
-    }
-    return cells;
-  }, [expenses, insightMonth]);
-
   const todayIso = todayIST();
 
-  const insightText = useMemo(() => {
-    const overspent = envelopeState.envelopes
-      .filter((e) => e.isOverspent && !e.isCreditCardPayment)
-      .sort((a, b) => a.available - b.available);
-    if (overspent.length > 0) {
-      return `${overspent[0].category} is overspent by ${formatCurrency(Math.abs(overspent[0].available), hideAmounts)}, the biggest drag this month.`;
-    }
-    if (creditCardEnvelope && creditCardEnvelope.available > 0) {
-      return `Credit card payment of ${formatCurrency(creditCardEnvelope.available, hideAmounts)} is set aside and ready to pay.`;
-    }
-    const withBudget = envelopeState.envelopes.filter(
-      (e) => !e.isCreditCardPayment && e.assigned > 0,
-    );
-    if (withBudget.length > 0) {
-      const low = [...withBudget].sort((a, b) => a.available - b.available)[0];
-      return `${low.category} has ${formatCurrency(low.available, hideAmounts)} left. Keep an eye on it.`;
-    }
-    return "No spending data yet this month.";
-  }, [envelopeState, creditCardEnvelope, hideAmounts]);
+  const [insightMonth, setInsightMonth] = useState(() => currentMonthKey());
+  const [breakdownMode, setBreakdownMode] = useState<"category" | "group">("category");
+  const [variableOnly, setVariableOnly] = useState(false);
+  const [selectedBreakdownKey, setSelectedBreakdownKey] = useState<string | null>(null);
+  const [heatmapView, setHeatmapView] = useState<"month" | "weeks">("month");
+
+  // Reset the breakdown selection whenever what it points into changes shape,
+  // rather than pointing at a row that no longer exists. Same render-time
+  // ref-compare pattern the app already uses (e.g. Home's ready-to-assign sync).
+  const breakdownScope = `${insightMonth}|${breakdownMode}|${variableOnly}`;
+  const prevBreakdownScope = useRef(breakdownScope);
+  if (prevBreakdownScope.current !== breakdownScope) {
+    prevBreakdownScope.current = breakdownScope;
+    if (selectedBreakdownKey != null) setSelectedBreakdownKey(null);
+  }
+
+  function handleModeChange(nextMode: "category" | "group") {
+    setBreakdownMode(nextMode);
+    if (nextMode === "group") setVariableOnly(false);
+  }
+
+  const earliestMonth = useMemo(() => {
+    if (expenses.length === 0) return month;
+    return expenses.reduce((min, e) => {
+      const key = e.date.slice(0, 7);
+      return key < min ? key : min;
+    }, month);
+  }, [expenses, month]);
+
+  const categoryGroupMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of categories) map.set(c.name, c.group || "");
+    return map;
+  }, [categories]);
+
+  function matchesSelection(category: string): boolean {
+    if (!selectedBreakdownKey) return true;
+    if (breakdownMode === "category") return category === selectedBreakdownKey;
+    return (categoryGroupMap.get(category) || "Other") === selectedBreakdownKey;
+  }
+
+  const trendMonths = useMemo(
+    () => Array.from({ length: TREND_MONTHS }, (_, i) => shiftMonthKey(month, i - (TREND_MONTHS - 1))),
+    [month],
+  );
+  const trendData: TrendPoint[] = useMemo(() => {
+    const totals = monthTotals(expenses, trendMonths);
+    return trendMonths.map((m) => ({ date: m, value: totals.get(m) ?? 0 }));
+  }, [expenses, trendMonths]);
+
+  const comparison = useMemo(
+    () => monthComparison(expenses, insightMonth, todayIso),
+    [expenses, insightMonth, todayIso],
+  );
+
+  const fixedCategorySet = useMemo(
+    () => fixedCategories(expenses, insightMonth),
+    [expenses, insightMonth],
+  );
 
   const prevBreakdownRows = useMemo(
     () => categoryBreakdown(budgets, expenses, categories, groups, prevMonthKey(insightMonth), breakdownMode),
@@ -284,16 +219,60 @@ export default function InsightsScreen() {
     return withDelta(rows, prevBreakdownRows);
   }, [budgets, expenses, categories, groups, insightMonth, breakdownMode, prevBreakdownRows]);
 
-  const breakdownTotalSpent = useMemo(() => breakdownRows.reduce((s, r) => s + r.spent, 0), [breakdownRows]);
-  const breakdownTotalDeltaPct = useMemo(() => {
-    const prevTotal = prevBreakdownRows.reduce((s, r) => s + r.spent, 0);
-    return prevTotal > 0 ? ((breakdownTotalSpent - prevTotal) / prevTotal) * 100 : null;
-  }, [prevBreakdownRows, breakdownTotalSpent]);
-
   const insightMonthLeftover = useMemo(
     () => leftoverFor(budgets, expenses, categories, groups, insightMonth),
     [budgets, expenses, categories, groups, insightMonth],
   );
+
+  const heatmap = useMemo(() => {
+    const totals = new Map<string, number>();
+    if (heatmapView === "month") {
+      for (const e of expenses) {
+        if (!e.date.startsWith(insightMonth)) continue;
+        if (!matchesSelection(e.category)) continue;
+        totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0));
+      }
+      const [y, m] = insightMonth.split("-").map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const firstWeekday = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday = 0
+      const cells: HeatmapCell[] = [];
+      for (let i = 0; i < firstWeekday; i++) cells.push({ date: `pad-${i}`, day: 0, value: 0 });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = `${insightMonth}-${String(d).padStart(2, "0")}`;
+        cells.push({ date, day: d, value: totals.get(date) ?? 0 });
+      }
+      return { cells, caption: null as string | null };
+    }
+
+    const [ty, tm, td] = todayIso.split("-").map(Number);
+    const end = new Date(ty, tm - 1, td);
+    const start = new Date(end);
+    start.setDate(start.getDate() - (HEATMAP_WEEKS * 7 - 1));
+    const days: { date: string; day: number }[] = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const y = cursor.getFullYear();
+      const m = cursor.getMonth() + 1;
+      const d = cursor.getDate();
+      days.push({ date: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`, day: d });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    const startDate = days[0]?.date ?? todayIso;
+    for (const e of expenses) {
+      if (e.date < startDate || e.date > todayIso) continue;
+      if (!matchesSelection(e.category)) continue;
+      totals.set(e.date, (totals.get(e.date) ?? 0) + (Number(e.amount_inr) || 0));
+    }
+    const firstWeekday = (start.getDay() + 6) % 7;
+    const cells: HeatmapCell[] = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push({ date: `pad-${i}`, day: 0, value: 0 });
+    for (const day of days) cells.push({ date: day.date, day: day.day, value: totals.get(day.date) ?? 0 });
+    return { cells, caption: `${formatDateShort(startDate)} – ${formatDateShort(todayIso)}` };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- matchesSelection closes over selectedBreakdownKey/breakdownMode/categoryGroupMap, already deps below
+  }, [expenses, insightMonth, heatmapView, todayIso, selectedBreakdownKey, breakdownMode, categoryGroupMap]);
+
+  const selectedBreakdownRow = breakdownRows.find((r) => r.key === selectedBreakdownKey) ?? null;
+  const heatmapTitle = selectedBreakdownRow ? `Daily spend · ${selectedBreakdownRow.label}` : "Daily spend";
 
   return (
     <Screen
@@ -306,140 +285,44 @@ export default function InsightsScreen() {
           onPress={() => router.back()}
         />
       }
+      subheader={
+        <MonthStepper
+          month={insightMonth}
+          currentMonth={month}
+          earliestMonth={earliestMonth}
+          onShift={(delta) => setInsightMonth((m) => shiftMonthKey(m, delta))}
+          onReset={() => setInsightMonth(month)}
+        />
+      }
       contentContainerStyle={{ gap: space.lg }}
     >
-      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
-        <View style={styles.headRow}>
-          <Text
-            style={[
-              styles.cardTitle,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-              },
-            ]}
-          >
-            Spending trend
-          </Text>
-          <View
-            style={[
-              styles.toggleGroup,
-              { backgroundColor: tokens.inputBg, borderRadius: radius.full },
-            ]}
-          >
-            <Pressable
-              accessibilityLabel="Area chart"
-              onPress={() => setChartVariant("area")}
-              style={[
-                styles.toggleBtn,
-                { borderRadius: radius.full },
-                chartVariant === "area" && {
-                  backgroundColor: tokens.chipActiveBg,
-                },
-              ]}
-            >
-              <Text style={{ color: tokens.text, fontSize: type.caption }}>
-                〜
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Bar chart"
-              onPress={() => setChartVariant("bar")}
-              style={[
-                styles.toggleBtn,
-                { borderRadius: radius.full },
-                chartVariant === "bar" && {
-                  backgroundColor: tokens.chipActiveBg,
-                },
-              ]}
-            >
-              <Text style={{ color: tokens.text, fontSize: type.caption }}>
-                ▊▍
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.periodToggle,
-            {
-              backgroundColor: tokens.inputBg,
-              borderRadius: radius.full,
-              marginTop: space.md,
-            },
-          ]}
-        >
-          {(["daily", "weekly", "monthly"] as const).map((p) => (
-            <Pressable
-              key={p}
-              onPress={() => selectTrendPeriod(p)}
-              style={[
-                styles.periodBtn,
-                { borderRadius: radius.full },
-                trendPeriod === p && { backgroundColor: tokens.chipActiveBg },
-              ]}
-            >
-              <Text
-                style={{
-                  color: tokens.text,
-                  fontSize: type.caption,
-                  fontFamily:
-                    trendPeriod === p
-                      ? fontFamily.bodyBold
-                      : fontFamily.bodyMedium,
-                }}
-              >
-                {p[0].toUpperCase() + p.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {drillFilter && (
-          <Pressable
-            style={{ marginTop: space.sm, alignSelf: "flex-start" }}
-            onPress={() => {
-              setTrendPeriod(drillFilter.parentView);
-              setDrillFilter(null);
-            }}
-          >
-            <Text
-              style={{
-                color: tokens.accentInk,
-                fontSize: type.caption,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
-            >
-              ‹ {formatDrillRange(drillFilter.start, drillFilter.end)}
-            </Text>
-          </Pressable>
-        )}
-
-        <TrendChart
-          data={trendData}
-          variant={chartVariant}
-          hideAmounts={hideAmounts}
-          onSelectIndex={trendPeriod !== "daily" ? handleTrendDrill : undefined}
-        />
-      </Card>
-
-      <MonthStepper
-        month={insightMonth}
-        currentMonth={month}
-        onShift={(delta) => setInsightMonth((m) => shiftMonthKey(m, delta))}
-      />
+      <ComparisonLine comparison={comparison} monthLabel={monthLabel(insightMonth)} hideAmounts={hideAmounts} />
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <Text
           style={[
             styles.cardTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.bodyLg,
-            },
+            { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg },
+          ]}
+        >
+          Spending trend
+        </Text>
+        <View style={{ marginTop: space.md }}>
+          <TrendChart
+            data={trendData}
+            baseline={comparison.baseline ?? undefined}
+            selectedKey={insightMonth}
+            hideAmounts={hideAmounts}
+            onSelect={(key) => setInsightMonth(key)}
+          />
+        </View>
+      </Card>
+
+      <Card elevated={false} style={{ backgroundColor: tokens.card }}>
+        <Text
+          style={[
+            styles.cardTitle,
+            { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg },
           ]}
         >
           Where it went
@@ -447,10 +330,14 @@ export default function InsightsScreen() {
         <View style={{ marginTop: space.md }}>
           <CategoryBreakdown
             rows={breakdownRows}
-            totalSpent={breakdownTotalSpent}
-            totalDeltaPct={breakdownTotalDeltaPct}
             mode={breakdownMode}
-            onModeChange={setBreakdownMode}
+            onModeChange={handleModeChange}
+            fixedCategories={fixedCategorySet}
+            variableOnly={variableOnly}
+            onToggleVariableOnly={() => setVariableOnly((v) => !v)}
+            selectedKey={selectedBreakdownKey}
+            onSelectKey={setSelectedBreakdownKey}
+            comparison={comparison}
             leftover={insightMonthLeftover}
             monthLabel={monthLabel(insightMonth)}
           />
@@ -458,37 +345,46 @@ export default function InsightsScreen() {
       </Card>
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
-        <Text
-          style={[
-            styles.cardTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.bodyLg,
-            },
-          ]}
-        >
-          Daily spend
-        </Text>
+        <View style={styles.headRow}>
+          <Text
+            style={[
+              styles.cardTitle,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg },
+            ]}
+          >
+            {heatmapTitle}
+          </Text>
+          <View style={[styles.toggleGroup, { backgroundColor: tokens.inputBg, borderRadius: radius.full }]}>
+            <Pressable
+              accessibilityLabel="This month"
+              onPress={() => setHeatmapView("month")}
+              style={[styles.toggleBtn, { borderRadius: radius.full }, heatmapView === "month" && { backgroundColor: tokens.chipActiveBg }]}
+            >
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>Month</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="12 weeks"
+              onPress={() => setHeatmapView("weeks")}
+              style={[styles.toggleBtn, { borderRadius: radius.full }, heatmapView === "weeks" && { backgroundColor: tokens.chipActiveBg }]}
+            >
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>12 weeks</Text>
+            </Pressable>
+          </View>
+        </View>
+        {heatmap.caption && (
+          <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium, marginTop: 2 }}>
+            {heatmap.caption}
+          </Text>
+        )}
         <View style={{ marginTop: space.md }}>
           <Heatmap
-            cells={heatmapCells}
+            cells={heatmap.cells}
             todayDate={todayIso}
             onSelectDate={(date) =>
               router.push({ pathname: "/(tabs)/activity", params: { date } })
             }
           />
         </View>
-        <Text
-          style={{
-            color: tokens.text2,
-            fontSize: type.caption,
-            marginTop: space.md,
-            fontFamily: fontFamily.bodyMedium,
-          }}
-        >
-          {insightText}
-        </Text>
       </Card>
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
@@ -496,32 +392,18 @@ export default function InsightsScreen() {
           <Text
             style={[
               styles.cardTitle,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-              },
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg },
             ]}
           >
             Subscriptions
           </Text>
           <Pressable
             onPress={() => router.push("/modals/subscription")}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: space.xs,
-            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}
             accessibilityLabel="Add subscription"
           >
             <Plus size={14} color={tokens.accentInk} />
-            <Text
-              style={{
-                color: tokens.accentInk,
-                fontSize: type.caption,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
-            >
+            <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Add
             </Text>
           </Pressable>
@@ -544,12 +426,13 @@ const styles = StyleSheet.create({
   cardTitle: {},
   toggleGroup: { flexDirection: "row", gap: 2, padding: 3 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  periodToggle: { flexDirection: "row", gap: 2, padding: 3 },
-  periodBtn: { flex: 1, paddingVertical: 8, alignItems: "center" },
-  monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
+  monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  monthNavCenter: { flex: 1, alignItems: "center", gap: 2 },
+  monthNavLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  soFarChip: { paddingHorizontal: 8, paddingVertical: 2 },
   monthNavBtn: {
-    width: 20,
-    height: 20,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
   },

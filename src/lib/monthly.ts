@@ -1,7 +1,7 @@
 // Per-month category analytics for Insights. Kept separate from envelope.ts
 // (the current-envelope math) since this is read-only history over an
 // arbitrary past month, not the live assign/spend engine.
-import { computeEnvelopeState, CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
+import { computeEnvelopeState, shiftMonthKey, CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
 import { splitEmoji } from './emoji'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
@@ -13,26 +13,47 @@ export function monthRange(key: string): { start: string; end: string } {
   return { start: `${key}-01`, end: `${key}-${String(lastDay).padStart(2, '0')}` }
 }
 
-/** 7-day range starting at `startIso`, built by string date-math (no toISOString). */
-export function weekRange(startIso: string): { start: string; end: string } {
-  const [y, m, d] = startIso.split('-').map(Number)
-  const end = new Date(y, m - 1, d + 6)
-  const end_ = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
-  return { start: startIso, end: end_ }
-}
-
 export interface BreakdownRow {
   key: string
   label: string
   emoji: string
   spent: number
   assigned: number
+  /** True when `assigned` was carried forward from a prior month's budget row
+   *  rather than set for this month (see carriedAssigned() in envelope.ts). A
+   *  past month with no row of its own never had this budget; say so instead
+   *  of presenting the carried figure as a fact for that month. */
+  assignedIsCarried: boolean
   pct: number
   deltaPct?: number | null
 }
 
 function isExcluded(category: string): boolean {
   return category === CREDIT_CARD_CATEGORY || category === INCOME_CATEGORY
+}
+
+/** Total spend for `month`, per category, excluding CC/income. Optionally
+ *  truncated to the first `cutoffDay` days, for comparing an in-progress
+ *  month against prior months on equal footing. */
+function categorySpendInMonth(
+  expenseRows: ExpenseRow[],
+  month: string,
+  cutoffDay: number | null,
+): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const e of expenseRows) {
+    if (!e.date.startsWith(month)) continue
+    if (isExcluded(e.category)) continue
+    if (cutoffDay != null && Number(e.date.slice(8, 10)) > cutoffDay) continue
+    totals.set(e.category, (totals.get(e.category) ?? 0) + (Number(e.amount_inr) || 0))
+  }
+  return totals
+}
+
+function totalSpendInMonth(expenseRows: ExpenseRow[], month: string, cutoffDay: number | null): number {
+  let sum = 0
+  for (const v of categorySpendInMonth(expenseRows, month, cutoffDay).values()) sum += v
+  return sum
 }
 
 /** Per-category or per-group spend for `month`, joined with that month's assigned amounts.
@@ -60,6 +81,10 @@ export function categoryBreakdown(
     assignedByCategory.set(env.category, env.assigned)
   }
 
+  const hasOwnBudgetRow = new Set(
+    budgetRows.filter((b) => b.month === month).map((b) => b.category),
+  )
+
   const groupByCategory = new Map<string, string>()
   for (const c of categoryRows) groupByCategory.set(c.name, c.group ?? '')
 
@@ -75,6 +100,7 @@ export function categoryBreakdown(
         emoji: icon,
         spent,
         assigned: assignedByCategory.get(category) ?? 0,
+        assignedIsCarried: !hasOwnBudgetRow.has(category),
         pct: (spent / total) * 100,
       }
     })
@@ -83,10 +109,12 @@ export function categoryBreakdown(
 
   const spentByGroup = new Map<string, number>()
   const assignedByGroup = new Map<string, number>()
+  const carriedByGroup = new Map<string, boolean>()
   for (const [category, spent] of spentByCategory) {
     const group = groupByCategory.get(category) || 'Other'
     spentByGroup.set(group, (spentByGroup.get(group) ?? 0) + spent)
     assignedByGroup.set(group, (assignedByGroup.get(group) ?? 0) + (assignedByCategory.get(category) ?? 0))
+    carriedByGroup.set(group, (carriedByGroup.get(group) ?? true) && !hasOwnBudgetRow.has(category))
   }
   const rows: BreakdownRow[] = [...spentByGroup.keys()].map((group) => {
     const spent = spentByGroup.get(group) ?? 0
@@ -96,6 +124,7 @@ export function categoryBreakdown(
       emoji: '',
       spent,
       assigned: assignedByGroup.get(group) ?? 0,
+      assignedIsCarried: carriedByGroup.get(group) ?? true,
       pct: (spent / total) * 100,
     }
   })
@@ -125,4 +154,115 @@ export function leftoverFor(
 ): number {
   const state = computeEnvelopeState(budgetRows, expenseRows, month, categoryRows, groupNames)
   return state.income - state.totalSpent
+}
+
+/** Total spend per month key (CC/income excluded), for the trend chart and
+ *  monthComparison's baseline — the one place both read from, so they can't
+ *  disagree on what a month's total was. */
+export function monthTotals(expenseRows: ExpenseRow[], months: string[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const m of months) map.set(m, totalSpendInMonth(expenseRows, m, null))
+  return map
+}
+
+export interface MonthComparison {
+  spent: number
+  /** Mean of the trailing 3 months that have any recorded data. Null when
+   *  fewer than 2 qualify — comparing against a month that never happened
+   *  would be worse than no comparison. */
+  baseline: number | null
+  deltaPct: number | null
+  inProgress: boolean
+  /** Run-rate projection to month end. Only set when `inProgress`. */
+  projected: number | null
+  /** The category responsible for most of the move away from baseline, only
+   *  when it accounts for at least 40% of the total delta — otherwise the
+   *  move is spread across categories and naming one would be misleading. */
+  driver: { category: string; emoji: string; delta: number } | null
+}
+
+const DRIVER_SHARE_THRESHOLD = 0.4
+
+/** "Is this a normal month?" — the screen's headline. Compares `month` against
+ *  the mean of its 3 preceding months, day-truncated to `today`'s day-of-month
+ *  when `month` is still in progress so a 10-day-old month isn't compared
+ *  against full prior months. */
+export function monthComparison(expenseRows: ExpenseRow[], month: string, today: string): MonthComparison {
+  const inProgress = today.startsWith(month)
+  const cutoffDay = inProgress ? Number(today.slice(8, 10)) : null
+
+  const spent = totalSpendInMonth(expenseRows, month, cutoffDay)
+
+  const priorMonths = [1, 2, 3]
+    .map((n) => shiftMonthKey(month, -n))
+    .filter((m) => expenseRows.some((e) => e.date.startsWith(m)))
+
+  const baseline =
+    priorMonths.length >= 2
+      ? priorMonths.reduce((s, m) => s + totalSpendInMonth(expenseRows, m, cutoffDay), 0) / priorMonths.length
+      : null
+
+  const deltaPct = baseline != null && baseline > 0 ? ((spent - baseline) / baseline) * 100 : null
+
+  let projected: number | null = null
+  if (inProgress && cutoffDay) {
+    const [y, m] = month.split('-').map(Number)
+    const daysInMonth = new Date(y, m, 0).getDate()
+    projected = (spent / cutoffDay) * daysInMonth
+  }
+
+  let driver: MonthComparison['driver'] = null
+  const totalDelta = baseline != null ? spent - baseline : 0
+  if (baseline != null && totalDelta !== 0) {
+    const currByCategory = categorySpendInMonth(expenseRows, month, cutoffDay)
+    const baselineByCategory = new Map<string, number>()
+    for (const m of priorMonths) {
+      for (const [category, amount] of categorySpendInMonth(expenseRows, m, cutoffDay)) {
+        baselineByCategory.set(category, (baselineByCategory.get(category) ?? 0) + amount)
+      }
+    }
+    let best: { category: string; delta: number } | null = null
+    for (const category of new Set([...currByCategory.keys(), ...baselineByCategory.keys()])) {
+      const curr = currByCategory.get(category) ?? 0
+      const avg = (baselineByCategory.get(category) ?? 0) / priorMonths.length
+      const delta = curr - avg
+      if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { category, delta }
+    }
+    if (best && Math.abs(best.delta) / Math.abs(totalDelta) >= DRIVER_SHARE_THRESHOLD) {
+      const { icon, text } = splitEmoji(best.category)
+      driver = { category: text, emoji: icon, delta: best.delta }
+    }
+  }
+
+  return { spent, baseline, deltaPct, inProgress, projected, driver }
+}
+
+const FIXED_CV_THRESHOLD = 0.1
+
+/** Categories whose spend has stayed within ~10% of its own mean across the
+ *  trailing `lookback` months (Rent: 8200/8200/8200) — as close to "fixed
+ *  cost" as can be derived without a schema change, since CategoryRow carries
+ *  no such flag. Requires spend in every one of those months; a category with
+ *  a gap hasn't proven it recurs. */
+export function fixedCategories(expenseRows: ExpenseRow[], month: string, lookback = 3): Set<string> {
+  const months = Array.from({ length: lookback }, (_, i) => shiftMonthKey(month, -i))
+  const amountsByCategory = new Map<string, number[]>()
+  for (const m of months) {
+    const monthTotals_ = categorySpendInMonth(expenseRows, m, null)
+    for (const [category, amount] of monthTotals_) {
+      const arr = amountsByCategory.get(category) ?? []
+      arr.push(amount)
+      amountsByCategory.set(category, arr)
+    }
+  }
+  const fixed = new Set<string>()
+  for (const [category, amounts] of amountsByCategory) {
+    if (amounts.length < lookback) continue
+    const mean = amounts.reduce((s, v) => s + v, 0) / amounts.length
+    if (mean <= 0) continue
+    const variance = amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length
+    const cv = Math.sqrt(variance) / mean
+    if (cv < FIXED_CV_THRESHOLD) fixed.add(category)
+  }
+  return fixed
 }

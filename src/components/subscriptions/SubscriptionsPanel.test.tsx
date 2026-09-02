@@ -79,13 +79,11 @@ describe('empty state', () => {
 
 describe('row navigation', () => {
   it('tapping a row pushes the edit modal with that service', () => {
+    // A single active sub: no AllocationBar (needs 3+ to say anything), so
+    // "Netflix" renders exactly once, as the row's own name.
     const subs = [sub({ service: 'Netflix' })]
-    const { getAllByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
-    // "Netflix" renders twice with a single active sub: once in the
-    // AllocationBar legend, once as the row's own name — the row is second.
-    const matches = getAllByText('Netflix')
-    expect(matches).toHaveLength(2)
-    fireEvent.press(matches[1])
+    const { getByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
+    fireEvent.press(getByText('Netflix'))
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/subscription', params: { service: 'Netflix' } })
   })
 })

@@ -453,6 +453,17 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
       >
         RECURRING / MONTH
       </Text>
+      <Text
+        style={{
+          color: tokens.text3,
+          fontSize: t.micro,
+          fontFamily: fontFamily.bodyMedium,
+          marginTop: 2,
+        }}
+      >
+        Renews on its own cycle, not scoped to the month above. Charges land
+        in your expenses under each subscription&apos;s category.
+      </Text>
       <AmountText
         value={totalMonthly}
         size={t.title}
@@ -495,7 +506,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
         </Text>
       </View>
 
-      {segments.length > 0 && (
+      {segments.length >= 3 && (
         <View style={{ marginTop: space.lg }}>
           <AllocationBar segments={segments} />
         </View>
@@ -534,33 +545,33 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
         )}
       </View>
 
-      <Reanimated.View
-        layout={LinearTransition}
-        style={{
-          marginTop: space.md,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: tokens.border,
-          paddingTop: space.sm,
-        }}
-      >
-        <Pressable
-          style={styles.sectionHead}
-          onPress={() => setCancelledExpanded((e) => !e)}
+      {cancelled.length > 0 && (
+        <Reanimated.View
+          layout={LinearTransition}
+          style={{
+            marginTop: space.md,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: tokens.border,
+            paddingTop: space.sm,
+          }}
         >
-          <Reanimated.View style={chevronStyle}>
-            <Icon icon={ChevronRight} size={14} color={tokens.text3} />
-          </Reanimated.View>
-          <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>
-            CANCELLED ({cancelled.length})
-          </Text>
-        </Pressable>
-        {cancelledExpanded && (
-          <Reanimated.View
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(120)}
+          <Pressable
+            style={styles.sectionHead}
+            onPress={() => setCancelledExpanded((e) => !e)}
           >
-            {cancelled.length > 0 ? (
-              cancelled.map((sub) => (
+            <Reanimated.View style={chevronStyle}>
+              <Icon icon={ChevronRight} size={14} color={tokens.text3} />
+            </Reanimated.View>
+            <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>
+              CANCELLED ({cancelled.length})
+            </Text>
+          </Pressable>
+          {cancelledExpanded && (
+            <Reanimated.View
+              entering={FadeIn.duration(150)}
+              exiting={FadeOut.duration(120)}
+            >
+              {cancelled.map((sub) => (
                 <SubscriptionRowItem
                   key={sub.service}
                   sub={sub}
@@ -574,22 +585,11 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
                       : undefined
                   }
                 />
-              ))
-            ) : (
-              <Text
-                style={{
-                  color: tokens.text3,
-                  fontSize: t.caption,
-                  fontFamily: fontFamily.bodyMedium,
-                  marginTop: space.sm,
-                }}
-              >
-                No cancelled subscriptions.
-              </Text>
-            )}
-          </Reanimated.View>
-        )}
-      </Reanimated.View>
+              ))}
+            </Reanimated.View>
+          )}
+        </Reanimated.View>
+      )}
     </View>
   );
 }

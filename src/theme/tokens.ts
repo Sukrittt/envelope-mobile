@@ -28,8 +28,6 @@ export interface ThemeTokens {
   border: string
   borderStrong: string
   chipActiveBg: string
-  heatA: string
-  heatB: string
   accent: string
   accentInk: string
   accentSoft: string
@@ -68,8 +66,6 @@ export const darkTokens: ThemeTokens = {
   border: 'rgba(255, 255, 255, 0.1)',
   borderStrong: 'rgba(255, 255, 255, 0.16)',
   chipActiveBg: '#161616',
-  heatA: '#5c2f1a',
-  heatB: '#a8511f',
   accent: '#ff7043',
   accentInk: '#ff8f66',
   accentSoft: 'rgba(255, 112, 67, 0.22)',
@@ -108,8 +104,6 @@ export const lightTokens: ThemeTokens = {
   border: 'rgba(0, 0, 0, 0.09)',
   borderStrong: 'rgba(0, 0, 0, 0.16)',
   chipActiveBg: '#dedede',
-  heatA: '#ffd9c7',
-  heatB: '#e2622c',
   accent: '#f4511e',
   accentInk: '#c2410c',
   accentSoft: 'rgba(244, 81, 30, 0.18)',
