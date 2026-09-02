@@ -123,10 +123,24 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini · 1x1">
+                <PreviewRow label="Envelope Mini · 2x2">
                   <WidgetPreview
-                    width={60}
-                    height={60}
+                    width={140}
+                    height={140}
+                    highlightClickableAreas
+                    renderWidget={() => (
+                      <EnvelopeMiniWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                      />
+                    )}
+                  />
+                </PreviewRow>
+                <PreviewRow label="Envelope Mini · 2x2 floor">
+                  <WidgetPreview
+                    width={110}
+                    height={110}
                     highlightClickableAreas
                     renderWidget={() => (
                       <EnvelopeMiniWidget

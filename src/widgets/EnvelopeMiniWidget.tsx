@@ -28,7 +28,7 @@ export function EnvelopeMiniWidget({
     <WidgetSurface
       tokens={tokens}
       scheme={scheme}
-      style={{ paddingHorizontal: 10, paddingVertical: 14 }}
+      style={{ padding: 12 }}
     >
       <FlexWidget
         style={{
@@ -44,7 +44,7 @@ export function EnvelopeMiniWidget({
           maxLines={1}
           style={{
             width: "match_parent",
-            fontSize: 22,
+            fontSize: 24,
             fontFamily: fontFamily.displayBold,
             color: color(tokens.text),
           }}
@@ -59,7 +59,7 @@ export function EnvelopeMiniWidget({
           <TextWidget
             text={headerRightLabel(data.daysLeft, data.updatedAt)}
             style={{
-              fontSize: 10,
+              fontSize: 11,
               fontFamily: fontFamily.bodyMedium,
               color: color(tokens.text2),
             }}
@@ -74,12 +74,12 @@ export function EnvelopeMiniWidget({
             >
               <SvgWidget
                 svg={trendingSvg(trendDir, trendColor)}
-                style={{ width: 10, height: 10, marginRight: 3 }}
+                style={{ width: 11, height: 11, marginRight: 3 }}
               />
               <TextWidget
                 text={`${data.weeklyTrend!.pct}%`}
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   fontFamily: fontFamily.bodySemiBold,
                   color: color(trendColor),
                 }}
@@ -94,7 +94,8 @@ export function EnvelopeMiniWidget({
         accessibilityLabel="Log an expense"
         style={{
           width: "match_parent",
-          height: 32,
+          height: 36,
+          marginTop: 8,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
@@ -104,12 +105,12 @@ export function EnvelopeMiniWidget({
       >
         <SvgWidget
           svg={plusSvg(tokens.onAccent)}
-          style={{ width: 14, height: 14, marginRight: 6 }}
+          style={{ width: 15, height: 15, marginRight: 6 }}
         />
         <TextWidget
           text="Log"
           style={{
-            fontSize: 12,
+            fontSize: 13,
             fontFamily: fontFamily.bodySemiBold,
             color: color(tokens.onAccent),
           }}
