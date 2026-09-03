@@ -19,8 +19,6 @@ const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
   useIsFocused: () => true,
-  // AnimatedTabContent derives the swipe's current slot from the pathname.
-  usePathname: () => '/',
 }))
 
 function renderHome() {

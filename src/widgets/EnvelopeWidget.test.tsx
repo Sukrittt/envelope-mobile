@@ -94,9 +94,16 @@ describe("EnvelopeMiniWidget draws a square card", () => {
         width={width}
       />,
     );
-    // buildWidgetTree flattens style onto props.
-    const root = tree.props as { width: unknown; height: unknown };
-    expect(root.height).toBe(width);
-    expect(root.width).toBe("match_parent");
+    // buildWidgetTree flattens style onto props. The root fills the cell and
+    // centres the card; the card itself is the square one.
+    const root = tree.props as { height: unknown; gravity: unknown };
+    expect(root.height).toBe("match_parent");
+
+    const card = tree.children![0].props as {
+      width: unknown;
+      height: unknown;
+    };
+    expect(card.height).toBe(width);
+    expect(card.width).toBe("match_parent");
   });
 });

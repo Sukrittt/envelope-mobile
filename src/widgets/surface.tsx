@@ -31,8 +31,13 @@ export function WidgetSurface({
   scheme: "light" | "dark";
   /** Fixed card height in dp. Without it the card fills whatever cell the
    *  launcher hands out, and a "2x2" cell is not square — on a Pixel-class
-   *  grid it is ~131dp wide by ~184dp tall, which is what made the mini
-   *  widget look stretched next to a square one. */
+   *  grid it is ~132dp wide by ~188dp tall, which is what made the mini
+   *  widget look stretched next to a square one.
+   *
+   *  The cell keeps its full height either way (a 132dp-tall card cannot
+   *  occupy fewer than two ~94dp rows), so the card is centred in it rather
+   *  than left sitting at the top with all the slack below — which is what
+   *  slice does, and why its widget lines up with its neighbours. */
   height?: number;
   style?: FlexWidgetStyle;
   children?: React.ReactNode;
@@ -42,7 +47,7 @@ export function WidgetSurface({
     scheme === "dark" ? "rgba(0, 0, 0, 0)" : "rgba(255, 255, 255, 0)",
   );
 
-  return (
+  const card = (
     <FlexWidget
       clickAction="OPEN_APP"
       style={{
@@ -79,6 +84,21 @@ export function WidgetSurface({
           {children}
         </FlexWidget>
       </OverlapWidget>
+    </FlexWidget>
+  );
+
+  if (height === undefined) return card;
+
+  return (
+    <FlexWidget
+      style={{
+        width: "match_parent",
+        height: "match_parent",
+        flexDirection: "column",
+        justifyContent: "center",
+      }}
+    >
+      {card}
     </FlexWidget>
   );
 }

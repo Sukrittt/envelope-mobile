@@ -57,10 +57,6 @@ jest.mock('@/src/lib/notifications', () => ({
 }))
 // Pulls in reanimated + the user/expenses queries; irrelevant to route gating.
 jest.mock('@/src/components/nav/TabBar', () => ({ TabBar: () => null }))
-// Statically imports all four real tab screens (to preview them mid-drag) —
-// pulls in ReanimatedSwipeable's native worklets binding, which this test's
-// Jest environment can't construct; irrelevant to route gating anyway.
-jest.mock('@/src/components/nav/TabSwipeOverlay', () => ({ TabSwipeOverlay: () => null }))
 
 jest.mock('@/src/api/accessMode', () => ({
   accessMode: { subscribe: () => () => {}, subscribeLogout: () => () => {} },

@@ -126,63 +126,6 @@ export function addSlotShift(active: NavRoute | null): number {
   return (ADD_INDEX - (routeIndex === -1 ? 0 : routeIndex)) * SLOT
 }
 
-export type SwipeNeighbours = {
-  /** Real screen one step right in slot order (a leftward drag), or null at the end. */
-  next: NavRoute | null
-  /** Real screen one step left in slot order (a rightward drag), or null at the end. */
-  prev: NavRoute | null
-  /** Whether the Add slot sits between here and `next`/`prev`. Add has no visual
-   *  stop, so the pager skips straight to the real screen past it, but a short
-   *  drag that stops inside the Add band still opens the log-expense card. */
-  nextIsAdd: boolean
-  prevIsAdd: boolean
-  /** True on the log-expense card, which occupies the Add slot itself. */
-  fromAdd: boolean
-}
-
-const NO_NEIGHBOURS: SwipeNeighbours = {
-  next: null,
-  prev: null,
-  nextIsAdd: false,
-  prevIsAdd: false,
-  fromAdd: false,
-}
-
-/**
- * Everything the horizontal screen drag needs to know about where it can go
- * from `pathname`, in the same slot order the nav carousel lays out (so Add
- * sits between activity and envelopes, and the log-expense card is a slot of
- * its own rather than "off the tabs").
- *
- * Resolved on the JS thread and handed to AnimatedTabContent's gesture as plain
- * values: those callbacks are worklets and can't call back into this module.
- * Null at either end and off the nav entirely, so a drag past the edge does
- * nothing rather than wrapping, matching indexFromOffset's clamp.
- */
-export function swipeNeighbours(pathname: string): SwipeNeighbours {
-  const { active, addActive } = navStateFor(pathname)
-  const from = addActive ? ADD_INDEX : indexOfRoute(active)
-  if (from === -1) return NO_NEIGHBOURS
-
-  const step = (dir: 1 | -1) => {
-    const slot = NAV_SLOTS[from + dir]
-    if (!slot) return { route: null, isAdd: false }
-    if (slot.kind !== 'add') return { route: slot.name, isAdd: false }
-    const past = NAV_SLOTS[from + dir * 2]
-    return { route: past?.kind === 'route' ? past.name : null, isAdd: true }
-  }
-
-  const next = step(1)
-  const prev = step(-1)
-  return {
-    next: next.route,
-    prev: prev.route,
-    nextIsAdd: next.isAdd,
-    prevIsAdd: prev.isAdd,
-    fromAdd: addActive,
-  }
-}
-
 const tickHaptic = () => {
   Haptics.selectionAsync().catch(() => {})
 }
