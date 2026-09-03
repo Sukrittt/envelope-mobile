@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ArrowLeft, Plus } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -85,6 +87,7 @@ export default function InvestmentsScreen() {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const { refreshing, onRefresh } = useRefresh()
+  const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const holdingsQuery = useHoldings()
@@ -137,6 +140,8 @@ export default function InvestmentsScreen() {
       { text: 'Delete', style: 'destructive', onPress: () => deleteHolding.mutate(name) },
     ])
   }
+
+  if (!online) return <OfflineScreen />
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>

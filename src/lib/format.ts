@@ -30,6 +30,17 @@ export function formatAmountInput(raw: string): string {
   return decPart === undefined ? `₹${grouped}` : `₹${grouped}.${decPart}`
 }
 
+/** e.g. "2 hours ago" — used by OfflineScreen's "last synced" caption. */
+export function formatRelativeTime(ms: number): string {
+  const minutes = Math.floor((Date.now() - ms) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** e.g. "12 Aug, 3:45 PM" — used by Investments' holding rows and event history. */

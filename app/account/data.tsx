@@ -26,6 +26,8 @@ import {
   Clock,
 } from "lucide-react-native";
 import { Alert } from "@/src/components/ui/AlertHost";
+import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
+import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
@@ -110,6 +112,7 @@ function ExportRowIcon({
 
 export default function DataScreen() {
   const { tokens } = useTheme();
+  const online = useOnline();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
@@ -191,6 +194,8 @@ export default function DataScreen() {
       setClearing(false);
     }
   };
+
+  if (!online) return <OfflineScreen />;
 
   return (
     <View

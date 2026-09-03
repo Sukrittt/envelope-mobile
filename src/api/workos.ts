@@ -65,6 +65,14 @@ export function tokenUserId(accessToken: string): string | null {
   }
 }
 
+/** Thrown on a real WorkOS HTTP response (as opposed to a transport failure),
+ * so callers can tell "token rejected" apart from "no network". */
+export class WorkOSHttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message)
+  }
+}
+
 async function post(body: Record<string, string>): Promise<WorkOSTokens> {
   const resp = await fetch(DISCOVERY.tokenEndpoint as string, {
     method: 'POST',
@@ -72,7 +80,10 @@ async function post(body: Record<string, string>): Promise<WorkOSTokens> {
     body: JSON.stringify({ client_id: CLIENT_ID, user_agent: deviceLabel(), ...body }),
   })
   if (!resp.ok) {
-    throw new Error(`WorkOS ${body.grant_type} failed: ${resp.status} ${await resp.text()}`)
+    throw new WorkOSHttpError(
+      resp.status,
+      `WorkOS ${body.grant_type} failed: ${resp.status} ${await resp.text()}`,
+    )
   }
   const data = (await resp.json()) as { access_token: string; refresh_token: string }
   return {

@@ -5,7 +5,7 @@
 // but token access is async: `getValidToken()` may need a network round-trip to
 // refresh, so every caller must await it.
 import * as SecureStore from 'expo-secure-store'
-import { refreshTokens, tokenExpiry, tokenUserId, type WorkOSTokens } from './workos'
+import { WorkOSHttpError, refreshTokens, tokenExpiry, tokenUserId, type WorkOSTokens } from './workos'
 
 export type AccessMode = 'real' | 'guest'
 
@@ -54,10 +54,14 @@ export function persistSession(tokens: WorkOSTokens): Promise<void> {
 }
 
 /**
- * Call once at app boot. Restores a stored session, refreshing it when the
- * access token has already expired. Returns the restored mode, or null when
- * there is no session at all — so the caller can tell "never signed in" apart
- * from the in-memory default.
+ * Call once at app boot. Restores a stored session and returns 'real'
+ * immediately from the blob alone — a device holding a session is signed in
+ * regardless of whether the network is up to prove it to WorkOS right now.
+ * A long-backgrounded app comes back with a dead access token, so a refresh
+ * is still kicked off in the background to renew it before the first data
+ * request; a transport failure there must not clear the session (getValidToken
+ * already only clears on a real 4xx). Returns null only when there is no
+ * stored session at all, or it's malformed.
  */
 export async function initAccessMode(): Promise<AccessMode | null> {
   try {
@@ -68,10 +72,8 @@ export async function initAccessMode(): Promise<AccessMode | null> {
     session = parsed
     mode = 'real'
     notify()
-    // A long-backgrounded app comes back with a dead access token; renew it now
-    // rather than letting the first data request fail.
-    if (await getValidToken()) return 'real'
-    return null
+    void getValidToken()
+    return 'real'
   } catch {
     return null
   }
@@ -83,8 +85,10 @@ let refreshing: Promise<string | null> | null = null
 
 /**
  * A usable access token, refreshing first if it is expired or about to be.
- * Returns null when there is no session or the refresh failed (in which case
- * the session is cleared and subscribers are logged out).
+ * Returns null when there is no session, or the refresh failed. Only a real
+ * 4xx from WorkOS (the token itself rejected) clears the session — a
+ * transport failure (offline) leaves it intact and just returns null, so an
+ * offline device stays signed in instead of losing its credential.
  */
 export async function getValidToken(): Promise<string | null> {
   if (!session) return null
@@ -97,8 +101,10 @@ export async function getValidToken(): Promise<string | null> {
         // WorkOS rotates refresh tokens; storing the new pair is mandatory.
         await store({ ...next, expiresAt: next.expiresAt || tokenExpiry(next.accessToken) })
         return next.accessToken
-      } catch {
-        await clearAccess()
+      } catch (err) {
+        if (err instanceof WorkOSHttpError && err.status >= 400 && err.status < 500) {
+          await clearAccess()
+        }
         return null
       } finally {
         refreshing = null

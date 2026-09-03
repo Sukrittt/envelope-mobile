@@ -11,3 +11,15 @@ export function toISTDateString(d: Date = new Date()): string {
 export function todayIST(): string {
   return toISTDateString()
 }
+
+/**
+ * IST date + full timestamp for right now, minted on the device. Mirrors
+ * Web's `lib/http.ts::nowIST()` exactly (same slice points, same `+05:30`
+ * suffix) so a client-minted timestamp is indistinguishable from a
+ * server-minted one. Used so an offline expense is stamped with the day it
+ * was actually logged, not the day the queue happens to flush.
+ */
+export function nowIST(): { date: string; timestamp: string } {
+  const iso = new Date(Date.now() + IST_OFFSET_MS).toISOString()
+  return { date: iso.slice(0, 10), timestamp: `${iso.slice(0, 19)}+05:30` }
+}

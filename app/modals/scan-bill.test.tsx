@@ -1,7 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
-import { addExpense, getExpenses } from '@/src/api/expenses'
+import { getExpenses, mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
 import { scanBill } from '@/src/api/scan'
 import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
 import ScanBillScreen from './scan-bill'
@@ -15,11 +15,13 @@ jest.mock('@/src/api/categories', () => ({
 }))
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
-  addExpense: jest.fn(),
+  mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1' })),
+  postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
 }))
 jest.mock('@/src/api/scan', () => ({ scanBill: jest.fn() }))
+jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn() }))
 
 const mockBack = jest.fn()
 const mockReplace = jest.fn()
@@ -71,7 +73,7 @@ describe('ScanBillScreen', () => {
 
   it('scans, reviews the fee-adjusted share, and confirms through the breakdown screen', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    ;(addExpense as jest.Mock).mockResolvedValue({ id: 'e1', timestamp: '2026-08-29T10:00:00' })
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'e1', timestamp: '2026-08-29T10:00:00' })
 
     const { getByText, getByDisplayValue, getByLabelText } = renderWithProviders(<ScanBillScreen />)
 
@@ -99,7 +101,7 @@ describe('ScanBillScreen', () => {
     fireEvent.press(getByText('Log ₹880 to Groceries'))
 
     await waitFor(() =>
-      expect(addExpense).toHaveBeenCalledWith({
+      expect(mintExpensePayload).toHaveBeenCalledWith({
         item: 'Blinkit',
         amount_inr: '880',
         category: 'Groceries',

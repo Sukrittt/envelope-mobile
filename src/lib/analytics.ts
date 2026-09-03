@@ -14,6 +14,7 @@
 // or merchant strings, no route params.
 import PostHog from 'posthog-react-native'
 import { accessMode, currentUserId } from '../api/accessMode'
+import { isOnline } from './netStatus'
 
 // Same fail-loud guard as src/api/client.ts: a silently-defaulted key would
 // look like working analytics while sending every event nowhere.
@@ -50,6 +51,11 @@ export type AppEvent =
  * already tagged with where it happened.
  */
 export function track(event: AppEvent, properties?: Record<string, string | number | boolean>): void {
+  // Offline: skip rather than queue. PostHog would otherwise still enqueue
+  // the event and arm its own flush timer, which retries against the network
+  // every ~10s regardless of connectivity — a real event once in a while is
+  // not worth the repeated failed requests while the device has no signal.
+  if (!isOnline()) return
   // Telemetry never takes down the thing it is measuring. These calls sit in
   // mutation success handlers and inside the onboarding chain, where a throw
   // would be caught by app-level error handling and misread as the operation
@@ -58,6 +64,17 @@ export function track(event: AppEvent, properties?: Record<string, string | numb
     posthog.capture(event, properties)
   } catch {
     // Losing an event is not worth a broken screen.
+  }
+}
+
+/** Manual screen-view capture (see initAnalytics's comment on why this isn't
+ * autocaptured). Same offline guard as track(). */
+export function trackScreen(pathname: string): void {
+  if (!isOnline()) return
+  try {
+    posthog.screen(pathname)
+  } catch {
+    // Losing a screen view is not worth a broken screen.
   }
 }
 
@@ -70,6 +87,10 @@ export function track(event: AppEvent, properties?: Record<string, string | numb
  * not copied onto every event.
  */
 export function identifyUser(profile: { email?: string; name?: string | null }): void {
+  // Same offline guard as track(): the profile fetch this is called from
+  // only succeeds while online anyway, but this can also run against a
+  // stale cached profile — skip rather than queue another doomed request.
+  if (!isOnline()) return
   // Same reasoning as track(): this is called from inside the root layout's
   // getUser() promise chain, whose .catch decides whether the user is treated
   // as onboarded. A throw here would send someone back through setup.

@@ -2,6 +2,8 @@ import { View, Text, Pressable, Switch, ScrollView, StyleSheet } from 'react-nat
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -18,6 +20,7 @@ const LEAD_DAY_OPTIONS = [1, 3, 7] as const
 
 export default function NotificationsScreen() {
   const { tokens } = useTheme()
+  const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
@@ -31,6 +34,8 @@ export default function NotificationsScreen() {
   const billLeadDays = user?.notifyBillLeadDays ?? 3
   const coach = user?.notifyCoach ?? true
   const wrapped = user?.notifyWrapped ?? true
+
+  if (!online) return <OfflineScreen />
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>

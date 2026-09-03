@@ -1,14 +1,31 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
-import { getExpenses, addExpense, updateExpense } from '@/src/api/expenses'
+import { getExpenses, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { HttpError } from '@/src/api/client'
+import { enqueue } from '@/src/lib/pendingExpenses'
 import { useExpenses, useAddExpense, useUpdateExpense } from './useExpenses'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
-  addExpense: jest.fn(),
+  mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1', date: '2026-01-01', timestamp: '2026-01-01T10:00:00+05:30' })),
+  postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
+}))
+
+jest.mock('@/src/api/client', () => ({
+  HttpError: class HttpError extends Error {
+    status: number
+    constructor(status: number, message: string) {
+      super(message)
+      this.status = status
+    }
+  },
+}))
+
+jest.mock('@/src/lib/pendingExpenses', () => ({
+  enqueue: jest.fn(),
 }))
 
 function wrapper(queryClient: QueryClient) {
@@ -27,7 +44,7 @@ it('useExpenses resolves the query with the API result', async () => {
 })
 
 it('useAddExpense invalidates both the expenses and ai-brief queries on success', async () => {
-  ;(addExpense as jest.Mock).mockResolvedValue(undefined)
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' })
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
   const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
@@ -37,6 +54,43 @@ it('useAddExpense invalidates both the expenses and ai-brief queries on success'
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expenses'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-brief'] })
+})
+
+describe('useAddExpense offline (offline sync §5/§7)', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('resolves successfully and enqueues on a transport failure', async () => {
+    ;(mintExpensePayload as jest.Mock).mockReturnValue({
+      item: 'Coffee',
+      amount_inr: '150',
+      category: 'Food',
+      date: '2026-01-01',
+      timestamp: '2026-01-01T10:00:00+05:30',
+      client_id: 'client-offline-1',
+    })
+    ;(postExpensePayload as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+    result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food' })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toMatchObject({ clientId: 'client-offline-1', pending: true })
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ client_id: 'client-offline-1' }),
+    )
+  })
+
+  it('a 4xx still rejects', async () => {
+    ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(400, 'item, amount_inr, category required'))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+    result.current.mutate({ item: '', amount_inr: '150', category: 'Food' })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(enqueue).not.toHaveBeenCalled()
+  })
 })
 
 // An edit can flip payment_method or move month, which rebalances the

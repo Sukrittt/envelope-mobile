@@ -8,8 +8,23 @@ import {
 } from '@/src/api/categories'
 import type { CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
+import { writeCategoryCache } from '@/src/lib/categoryCache'
 
 const key = ['categories'] as const
+
+/**
+ * Write-through cache point for the category list. Every fetch that lands
+ * here — the initial mount, and the refetch `invalidateQueries` triggers
+ * after any category mutation's `onSuccess` below — persists the fresh list,
+ * so log-expense's offline picker is never more than one successful fetch
+ * stale. One write site instead of one per mutation, since invalidate already
+ * routes every write back through this queryFn.
+ */
+async function getCategoriesAndCache(): Promise<CategoryRow[]> {
+  const categories = await getCategories()
+  await writeCategoryCache(categories)
+  return categories
+}
 
 // Categories sharing a group are stored contiguously; toIndex is the target position
 // within that group's slice, matching how moveCategory/the backend interpret it.
@@ -40,7 +55,7 @@ function reorderWithinGroup(categories: CategoryRow[], name: string, toIndex: nu
 }
 
 export function useCategories() {
-  return useQuery({ queryKey: key, queryFn: getCategories, staleTime: 30_000 })
+  return useQuery({ queryKey: key, queryFn: getCategoriesAndCache, staleTime: 30_000 })
 }
 
 export function useAddCategory() {

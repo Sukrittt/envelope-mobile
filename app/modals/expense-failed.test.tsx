@@ -1,14 +1,18 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { addExpense } from '@/src/api/expenses'
+import { mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
+import { HttpError } from '@/src/api/client'
 import ExpenseFailedScreen from './expense-failed'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
-  addExpense: jest.fn(),
+  mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1' })),
+  postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
 }))
+
+jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn() }))
 
 // `mock`-prefixed so Jest's out-of-scope guard allows the factory to close over them.
 const mockReplace = jest.fn()
@@ -61,14 +65,14 @@ it('shows no raw error text', () => {
 })
 
 it('retries with the payload it was handed, so nothing is retyped', async () => {
-  ;(addExpense as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
   const { getByText } = setup()
   fireEvent.press(getByText('Retry'))
-  await waitFor(() => expect(addExpense).toHaveBeenCalledWith(PAYLOAD))
+  await waitFor(() => expect(mintExpensePayload).toHaveBeenCalledWith(PAYLOAD))
 })
 
 it('lands on the success screen when the retry works', async () => {
-  ;(addExpense as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
   const { getByText } = setup()
   fireEvent.press(getByText('Retry'))
   await waitFor(() => expect(mockReplace).toHaveBeenCalled())
@@ -85,10 +89,12 @@ it('lands on the success screen when the retry works', async () => {
 })
 
 it('stays put when the retry fails too', async () => {
-  ;(addExpense as jest.Mock).mockRejectedValue(new Error('Failed to add expense: 503'))
+  // A real 4xx (HttpError), not a transport failure — a transport failure is
+  // queued and resolves successfully instead of rejecting (see useExpenses.ts).
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(503, 'Failed to add expense: 503'))
   const { getByText } = setup()
   fireEvent.press(getByText('Retry'))
-  await waitFor(() => expect(addExpense).toHaveBeenCalled())
+  await waitFor(() => expect(postExpensePayload).toHaveBeenCalled())
   await waitFor(() => expect(getByText('Retry')).toBeTruthy())
   expect(mockReplace).not.toHaveBeenCalled()
 })

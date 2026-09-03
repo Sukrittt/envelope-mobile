@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, Check } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -23,6 +25,7 @@ function sessionLabel(userAgent: string | null, authMethod: string): string {
 
 export default function SecurityScreen() {
   const { tokens } = useTheme()
+  const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
@@ -134,6 +137,8 @@ export default function SecurityScreen() {
       Alert.alert('Could not delete account', 'Check your connection and try again.')
     }
   }
+
+  if (!online) return <OfflineScreen />
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>

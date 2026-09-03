@@ -3,6 +3,13 @@ import { getExpenses, addExpense, updateExpense, deleteExpense } from './expense
 
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
+  HttpError: class HttpError extends Error {
+    status: number
+    constructor(status: number, message: string) {
+      super(message)
+      this.status = status
+    }
+  },
 }))
 
 const mockedApiFetch = apiFetch as jest.Mock
@@ -26,13 +33,26 @@ describe('getExpenses', () => {
 })
 
 describe('addExpense', () => {
-  it('POSTs the row as JSON', async () => {
+  it('POSTs the row with a minted client_id, date and timestamp', async () => {
     mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) })
     await addExpense({ item: 'Coffee', amount_inr: '150', category: 'Food' })
-    expect(mockedApiFetch).toHaveBeenCalledWith('/api/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item: 'Coffee', amount_inr: '150', category: 'Food' }),
+
+    expect(mockedApiFetch).toHaveBeenCalledTimes(1)
+    const [path, init] = mockedApiFetch.mock.calls[0]
+    expect(path).toBe('/api/expenses')
+    expect(init.method).toBe('POST')
+    const body = JSON.parse(init.body)
+    expect(body).toMatchObject({ item: 'Coffee', amount_inr: '150', category: 'Food' })
+    expect(typeof body.client_id).toBe('string')
+    expect(body.client_id.length).toBeGreaterThan(0)
+    expect(body.date).toEqual(expect.any(String))
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+05:30$/)
+  })
+
+  it('throws an HttpError carrying the status on a failed response', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
+    await expect(addExpense({ item: 'Coffee', amount_inr: '150', category: 'Food' })).rejects.toMatchObject({
+      status: 500,
     })
   })
 })

@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addExpense, deleteExpense, getExpenses, updateExpense } from '@/src/api/expenses'
+import {
+  deleteExpense,
+  getExpenses,
+  mintExpensePayload,
+  postExpensePayload,
+  updateExpense,
+  type NewExpenseRow,
+} from '@/src/api/expenses'
+import { HttpError } from '@/src/api/client'
+import { enqueue } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track } from '@/src/lib/analytics'
 
@@ -12,10 +21,24 @@ export function useExpenses() {
   return useQuery({ queryKey: key, queryFn: getExpenses, staleTime: 30_000 })
 }
 
+export type AddExpenseResult = { id?: string; timestamp?: string; clientId: string; pending: boolean }
+
 export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (row: Parameters<typeof addExpense>[0]) => addExpense(row),
+    mutationFn: async (row: NewExpenseRow): Promise<AddExpenseResult> => {
+      const payload = mintExpensePayload(row)
+      try {
+        const result = await postExpensePayload(payload)
+        return { id: result.id, timestamp: result.timestamp, clientId: payload.client_id, pending: false }
+      } catch (err) {
+        // A real rejection (bad request, auth) must still fail loudly — only a
+        // transport failure (offline) gets queued for later.
+        if (err instanceof HttpError) throw err
+        await enqueue(payload)
+        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+      }
+    },
     onSuccess: (_data, row) => {
       // Both the manual screen and scan-bill's confirm land here, which is the
       // point: one event for "an expense got saved". $screen_name splits them

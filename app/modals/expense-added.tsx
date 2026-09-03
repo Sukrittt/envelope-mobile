@@ -13,6 +13,7 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useDeleteExpense, useExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
+import { remove as removePendingExpense } from '@/src/lib/pendingExpenses'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { formatDateTimeLong } from '@/src/lib/format'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -62,6 +63,12 @@ export default function ExpenseAddedScreen() {
   const params = useLocalSearchParams()
 
   const id = str(params.id)
+  const clientId = str(params.clientId)
+  // Set by log-expense when useAddExpense caught a transport failure and
+  // queued this create instead of a real POST — no server row exists yet, so
+  // the envelope phase (computed from server data) and the id-addressed Undo
+  // both stand down in favor of the offline-specific versions below.
+  const pending = str(params.pending) === '1'
   const timestamp = str(params.timestamp)
   const item = str(params.item)
   const category = str(params.category)
@@ -116,8 +123,10 @@ export default function ExpenseAddedScreen() {
   const spent = (envelope?.spent ?? 0) + (counted ? 0 : amount)
   const left = (envelope?.available ?? 0) - (counted ? 0 : amount)
   const funded = (envelope?.assigned ?? 0) + (envelope?.rolledOver ?? 0)
-  // Nothing to show for a category with no money in it this month.
-  const showEnvelope = envelope != null && funded > 0
+  // Nothing to show for a category with no money in it this month — and
+  // nothing to show at all offline, since the envelope balance is computed
+  // from server data this screen doesn't have yet.
+  const showEnvelope = !pending && envelope != null && funded > 0
   const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 0
   // Where the bar stood before this expense — the bar tweens from here to
   // spentPct, so the fill *is* the charge.
@@ -163,9 +172,24 @@ export default function ExpenseAddedScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealEnvelope])
 
+  const [undoingPending, setUndoingPending] = useState(false)
+
   function handleUndo() {
-    if (deleteExpense.isPending) return
     setUndoError('')
+    // A queued create has no server row to DELETE — dropping it from the
+    // local queue is the entire undo.
+    if (pending) {
+      if (undoingPending) return
+      setUndoingPending(true)
+      removePendingExpense(clientId).then(() =>
+        router.replace({
+          pathname: LOG_EXPENSE_PATH,
+          params: { item, amountInr: String(amount), category, date, notes, paymentMethod },
+        }),
+      )
+      return
+    }
+    if (deleteExpense.isPending) return
     deleteExpense.mutate(
       { id: id || undefined, timestamp, item, amountInr: amount },
       {
@@ -245,6 +269,18 @@ export default function ExpenseAddedScreen() {
           )}
         </Reanimated.View>
 
+        {pending && (
+          <Reanimated.Text
+            entering={FadeIn.delay(STAGGER.stamp).duration(350)}
+            style={[
+              styles.line,
+              { color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.body, marginTop: space.xl },
+            ]}
+          >
+            Logged offline. It&apos;ll sync when you&apos;re back online.
+          </Reanimated.Text>
+        )}
+
         {revealEnvelope && (
           <Reanimated.View
             entering={FadeInDown.duration(motion.slow)}
@@ -280,12 +316,14 @@ export default function ExpenseAddedScreen() {
         <Button label="Done" onPress={() => router.replace('/(tabs)')} />
         {/* Without an id we can only address the row by a timestamp/item/amount
             triple — and no id means an older server, whose delete may match the
-            wrong row. Better no Undo than the wrong expense deleted. */}
-        {id !== '' && (
+            wrong row. Better no Undo than the wrong expense deleted. A pending
+            (offline-queued) row has no id yet but is always safely addressable
+            by its own client_id, so it gets Undo too. */}
+        {(id !== '' || pending) && (
           <Button
-            label={deleteExpense.isPending ? 'Undoing…' : 'Undo'}
+            label={deleteExpense.isPending || undoingPending ? 'Undoing…' : 'Undo'}
             variant="ghost"
-            disabled={deleteExpense.isPending}
+            disabled={deleteExpense.isPending || undoingPending}
             onPress={handleUndo}
           />
         )}

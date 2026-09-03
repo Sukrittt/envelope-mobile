@@ -28,6 +28,8 @@ import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib/alerts'
 import type { CategoryRow } from '@/src/types'
 import { EMPTY } from '@/src/lib/constants'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 
 function sortedPcts(pcts: number[]): number[] {
   return [...pcts].sort((a, b) => a - b)
@@ -226,6 +228,7 @@ export default function EnvelopesScreen() {
   const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
   const navPadding = useNavPadding()
+  const online = useOnline()
 
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
@@ -425,6 +428,8 @@ export default function EnvelopesScreen() {
 
   const isLoading = categoriesQ.isLoading || groupsQ.isLoading
   const hasError = categoriesQ.error || groupsQ.error
+
+  if (!online) return <OfflineScreen />
 
   if (isLoading) {
     return (

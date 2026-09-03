@@ -1,4 +1,6 @@
-import { apiFetch } from './client'
+import * as Crypto from 'expo-crypto'
+import { apiFetch, HttpError } from './client'
+import { nowIST } from '@/src/lib/date'
 import type { CsvResponse, ExpenseRow } from '@/src/types'
 
 export async function getExpenses(): Promise<ExpenseRow[]> {
@@ -8,28 +10,53 @@ export async function getExpenses(): Promise<ExpenseRow[]> {
   return data.rows
 }
 
-/**
- * Resolves with the created row's identity. Both fields are optional because the
- * server only started returning them alongside this change — against an older
- * deployment they come back undefined, and callers must degrade (hide Undo)
- * rather than address the wrong row.
- */
-export async function addExpense(row: {
+export type NewExpenseRow = {
   item: string
   amount_inr: string
   category: string
   date?: string
   notes?: string
   payment_method?: string
-}): Promise<{ id?: string; timestamp?: string }> {
+}
+
+/** The exact body a POST /api/expenses create sends, `client_id` included. */
+export type ExpensePayload = NewExpenseRow & { client_id: string; date: string; timestamp: string }
+
+/**
+ * Mints the parts of a create that must be decided once, at capture time, and
+ * never again: `client_id` names this create so a retry (offline queue, or a
+ * lost response) is recognized as the same intent instead of inserting a
+ * second row. `timestamp` is minted from the device's clock the same way the
+ * server derives it (`date` + current IST time-of-day) so an expense logged
+ * offline is dated the day it was actually logged, not the day the queue
+ * happens to flush.
+ */
+export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
+  const ist = nowIST()
+  const date = row.date || ist.date
+  return { ...row, date, timestamp: `${date}T${ist.timestamp.slice(11)}`, client_id: Crypto.randomUUID() }
+}
+
+/** Resolves with the created (or, on a client_id replay, already-existing) row's identity. */
+export async function postExpensePayload(payload: ExpensePayload): Promise<{ id?: string; timestamp?: string }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(row),
+    body: JSON.stringify(payload),
   })
-  if (!resp.ok) throw new Error(`Failed to add expense: ${resp.status}`)
+  if (!resp.ok) throw new HttpError(resp.status, `Failed to add expense: ${resp.status}`)
   const data: { id?: string; timestamp?: string } = await resp.json().catch(() => ({}))
   return { id: data.id, timestamp: data.timestamp }
+}
+
+/**
+ * Resolves with the created row's identity. `id`/`timestamp` are optional
+ * because an offline caller (useAddExpense) never gets this far — it mints
+ * its own payload via `mintExpensePayload` up front so it has something to
+ * enqueue if the POST itself never happens.
+ */
+export async function addExpense(row: NewExpenseRow): Promise<{ id?: string; timestamp?: string }> {
+  return postExpensePayload(mintExpensePayload(row))
 }
 
 /**

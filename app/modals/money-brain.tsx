@@ -31,6 +31,8 @@ import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 import { track } from '@/src/lib/analytics'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 
 const CHAT_PHRASES = [
   'Thinking it through…',
@@ -52,6 +54,7 @@ export default function MoneyBrainModal() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const { hideAmounts } = usePrivacy()
+  const online = useOnline()
 
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
@@ -191,6 +194,8 @@ export default function MoneyBrainModal() {
 
   const lastMessage = messages[messages.length - 1]
   const awaitingFirstDelta = sending && lastMessage?.role === 'model' && lastMessage.text === ''
+
+  if (!online) return <OfflineScreen />
 
   if (view === 'history') {
     return (

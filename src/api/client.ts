@@ -1,6 +1,7 @@
 // Ported from Web/src/services/api.ts's apiFetch, aimed at the deployed API
 // instead of Next.js's own relative-path routes.
 import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
+import { setOnline, markSynced } from '@/src/lib/netStatus'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -21,22 +22,43 @@ const REQUEST_TIMEOUT_MS = 15_000
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = await getValidToken()
-  const resp = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    // RN's fetch has no default timeout — without this, a hung connection
-    // pins a screen's loading state forever. Callers already surface a
-    // thrown error as a generic "check your connection" state, so a timeout
-    // (which throws an AbortError, same as any other network failure) needs
-    // no special handling here.
-    signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  })
+  let resp: Response
+  try {
+    resp = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      // RN's fetch has no default timeout — without this, a hung connection
+      // pins a screen's loading state forever. Callers already surface a
+      // thrown error as a generic "check your connection" state, so a timeout
+      // (which throws an AbortError, same as any other network failure) needs
+      // no special handling here.
+      signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    })
+  } catch (err) {
+    // fetch() itself threw (TypeError, or AbortError from the timeout above)
+    // — no response at all, so this is a transport failure, not a rejection.
+    setOnline(false)
+    throw err
+  }
 
+  // A response of any status means the request reached the server and came
+  // back — the network is up, whatever the status says.
+  setOnline(true)
+  void markSynced()
   await handleUnauthorized(resp, token)
   return resp
+}
+
+/** Thrown by an API wrapper on a non-ok response, carrying the HTTP status so
+ * a caller can tell "the server rejected this" apart from a transport failure
+ * (which apiFetch above lets propagate as the original thrown error). */
+export class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message)
+  }
 }
 
 /**

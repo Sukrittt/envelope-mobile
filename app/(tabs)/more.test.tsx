@@ -14,10 +14,13 @@ const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
   useIsFocused: () => true,
+  // AnimatedTabContent derives the swipe's current slot from the pathname.
+  usePathname: () => '/more',
 }))
 jest.mock('@/src/api/accessMode', () => ({
   clearAccess: jest.fn(() => Promise.resolve()),
   sessionId: jest.fn(() => 'session_1'),
+  currentUserId: jest.fn(() => 'user_test'),
   accessMode: { subscribe: () => () => {}, subscribeLogout: () => () => {} },
 }))
 jest.mock('@/src/api/account', () => ({ revokeSession: jest.fn(() => Promise.resolve()) }))

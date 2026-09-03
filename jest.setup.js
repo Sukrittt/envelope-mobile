@@ -37,3 +37,32 @@ jest.mock('expo-auth-session', () => ({
   ...jest.requireActual('expo-auth-session'),
   makeRedirectUri: jest.fn(() => 'https://example.com/callback'),
 }))
+
+// expo-crypto's native module resolves to a no-op proxy under Jest (no real
+// device), so randomUUID() silently returns undefined instead of a uuid.
+// Global rather than per-file: offline sync mints a client_id from this in
+// several places (src/api/expenses.ts, the pending-expense queue).
+jest.mock('expo-crypto', () => {
+  let counter = 0
+  return { randomUUID: jest.fn(() => `test-uuid-${++counter}`) }
+})
+
+// @react-native-async-storage/async-storage's native module is unavailable
+// under Jest — this is the package's own documented in-memory mock. Global
+// rather than per-file: offline sync (src/lib/pendingExpenses.ts,
+// src/lib/categoryCache.ts) pulls it into most of the app's screens now.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+)
+
+// GestureDetector's internals reach for reanimated APIs (useEvent) that the
+// hand-written reanimated mock in __mocks__ deliberately doesn't implement,
+// and it also demands a GestureHandlerRootView ancestor that unit tests have
+// no reason to mount. RNTL can't simulate a drag anyway (see
+// FloatingNav.test.tsx), so gesture behaviour is verified by hand and the
+// detector is a pass-through here. Global because AnimatedTabContent puts one
+// around every tab body for the horizontal screen swipe.
+jest.mock('react-native-gesture-handler', () => ({
+  ...jest.requireActual('react-native-gesture-handler'),
+  GestureDetector: ({ children }) => children,
+}))

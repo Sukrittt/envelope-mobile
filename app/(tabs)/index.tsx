@@ -32,6 +32,8 @@ import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
 import { IconButton } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { useOnline } from '@/src/lib/netStatus'
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and
@@ -43,6 +45,7 @@ export default function HomeScreen() {
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
   const isFocused = useIsFocused()
+  const online = useOnline()
 
   const budgetsQ = useBudgets()
   const expensesQ = useExpenses()
@@ -156,6 +159,10 @@ export default function HomeScreen() {
       </View>
     )
   }
+
+  // Offline blocks the whole screen, not just this one query error — a single
+  // gate instead of six per-screen error branches (see OfflineScreen).
+  if (!online) return <OfflineScreen />
 
   if (hasError) {
     return (

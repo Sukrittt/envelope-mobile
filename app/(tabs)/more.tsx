@@ -21,6 +21,8 @@ import { setPendingScanImage } from '@/src/lib/pendingScanImage'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import { useCategories } from '@/src/hooks/useCategories'
+import { useOnline } from '@/src/lib/netStatus'
+import { count as pendingCount } from '@/src/lib/pendingExpenses'
 import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
@@ -44,11 +46,47 @@ export default function MoreScreen() {
 
   const [signingOut, setSigningOut] = useState(false)
   const [scanPickerOpen, setScanPickerOpen] = useState(false)
+  const online = useOnline()
 
   const userQuery = useUser()
   const user = userQuery.data
   const wrappedStatus = useWrappedStatus().data
   const categoriesQ = useCategories()
+
+  async function doSignOut() {
+    // The revoke is a network round-trip (up to apiFetch's 15s timeout),
+    // so the button has to say it's working — and refuse a second tap.
+    setSigningOut(true)
+    // Revoke server-side first, while the bearer token is still live —
+    // clearAccess() below drops it. A failure here only means the WorkOS
+    // session outlives this device; sign out locally either way.
+    const sid = sessionId()
+    let revoked = true
+    if (sid) {
+      try {
+        await revokeSession(sid)
+      } catch {
+        revoked = false
+      }
+    }
+    await clearAccess()
+    // No setSigningOut(false): clearAccess unmounts this screen via the
+    // root navigator's session guard. Resetting it would only flash
+    // "Sign out" back on a screen that is already leaving.
+    if (!revoked) {
+      Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
+    }
+  }
+
+  // Scan is a server write (uploads to Gemini, then a manual-entry POST) —
+  // it must stand down offline rather than fail partway through a picked photo.
+  function openScanPicker() {
+    if (!online) {
+      Alert.alert("You're offline", "Scan a bill once you're back online, or log this expense manually.")
+      return
+    }
+    setScanPickerOpen(true)
+  }
 
   async function pickBillFrom(source: 'camera' | 'library') {
     Haptics.selectionAsync().catch(() => {})
@@ -158,7 +196,7 @@ export default function MoreScreen() {
                 blurb="Split a cart or receipt"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
-                onPress={() => setScanPickerOpen(true)}
+                onPress={openScanPicker}
               />
 
             </View>
@@ -257,28 +295,24 @@ export default function MoreScreen() {
 
           <Pressable
             onPress={async () => {
-              // The revoke is a network round-trip (up to apiFetch's 15s timeout),
-              // so the button has to say it's working — and refuse a second tap.
-              setSigningOut(true)
-              // Revoke server-side first, while the bearer token is still live —
-              // clearAccess() below drops it. A failure here only means the WorkOS
-              // session outlives this device; sign out locally either way.
-              const sid = sessionId()
-              let revoked = true
-              if (sid) {
-                try {
-                  await revokeSession(sid)
-                } catch {
-                  revoked = false
-                }
+              // A queued offline expense lives only in this device's AsyncStorage,
+              // namespaced by user id — signing out doesn't delete it (so signing
+              // back in as the same person recovers it), but signing out and back
+              // in as someone *else* would leave it stranded with nobody flushing
+              // it. Confirm rather than silently letting that happen.
+              const waiting = await pendingCount()
+              if (waiting > 0) {
+                Alert.alert(
+                  waiting === 1 ? "1 expense hasn't synced yet" : `${waiting} expenses haven't synced yet`,
+                  "Signing out now is fine if you're signing back in as you. Otherwise, reconnect first so they can sync.",
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Sign out anyway', style: 'destructive', onPress: doSignOut },
+                  ],
+                )
+                return
               }
-              await clearAccess()
-              // No setSigningOut(false): clearAccess unmounts this screen via the
-              // root navigator's session guard. Resetting it would only flash
-              // "Sign out" back on a screen that is already leaving.
-              if (!revoked) {
-                Alert.alert('Signed out', "This device is signed out, but we couldn't reach the server to end the session there too.")
-              }
+              await doSignOut()
             }}
             disabled={signingOut}
             style={[styles.card, styles.logoutButton, { backgroundColor: 'transparent', borderColor: tokens.coral, opacity: signingOut ? 0.6 : 1 }]}

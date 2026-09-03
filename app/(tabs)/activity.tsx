@@ -22,8 +22,10 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { SwipeableRow } from '@/src/components/activity/SwipeableRow'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { toISTDateString } from '@/src/lib/date'
+import { useOnline } from '@/src/lib/netStatus'
 import { EMPTY } from '@/src/lib/constants'
 
 type PeriodKey = 'week' | 'month' | 'custom'
@@ -88,6 +90,7 @@ export default function ActivityScreen() {
   const { refreshing, onRefresh } = useRefresh()
   const { hideAmounts } = usePrivacy()
   const router = useRouter()
+  const online = useOnline()
 
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
@@ -247,6 +250,8 @@ export default function ActivityScreen() {
 
   const isLoading = expensesQ.isLoading || categoriesQ.isLoading
   const hasError = expensesQ.error || categoriesQ.error
+
+  if (!online) return <OfflineScreen />
 
   if (isLoading) {
     return (

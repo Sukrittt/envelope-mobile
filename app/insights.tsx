@@ -22,6 +22,8 @@ import {
 import { formatCurrency, formatDateShort } from "@/src/lib/format";
 import { todayIST } from "@/src/lib/date";
 import { EMPTY } from "@/src/lib/constants";
+import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
+import { useOnline } from "@/src/lib/netStatus";
 import { Screen } from "@/src/components/ui/Screen";
 import { Card } from "@/src/components/ui/Card";
 import { IconButton } from "@/src/components/ui/Button";
@@ -222,6 +224,7 @@ export default function InsightsScreen() {
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
 
+  const online = useOnline();
   const budgets = useBudgets().data ?? EMPTY;
   const expenses = useExpenses().data ?? EMPTY;
   const categories = useCategories().data ?? EMPTY;
@@ -433,6 +436,8 @@ export default function InsightsScreen() {
   const heatmapTitle = selectedBreakdownRow
     ? `Daily spend · ${selectedBreakdownRow.label}`
     : "Daily spend";
+
+  if (!online) return <OfflineScreen />;
 
   return (
     <Screen
