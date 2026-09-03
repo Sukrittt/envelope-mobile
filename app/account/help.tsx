@@ -13,7 +13,7 @@ const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
   'Move it into envelopes like Rent, Food or Football.',
   'Log an expense against an envelope and only that envelope drops.',
-  'Next month starts clean: the leftover is gone, but your plan carries over so you are not budgeting from zero.',
+  "Next month starts clean: the leftover is gone, but your plan carries over so you're not budgeting from zero.",
   'Watch one number: Ready to Assign. At zero, every rupee has a job.',
 ]
 

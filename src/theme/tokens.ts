@@ -66,7 +66,7 @@ export const darkTokens: ThemeTokens = {
   border: 'rgba(255, 255, 255, 0.1)',
   borderStrong: 'rgba(255, 255, 255, 0.16)',
   chipActiveBg: '#161616',
-  accent: '#ff7043',
+  accent: '#f4511e',
   accentInk: '#ff8f66',
   accentSoft: 'rgba(255, 112, 67, 0.22)',
   accentHover: '#ff855a',

@@ -13,10 +13,15 @@ const set = SecureStore.setItemAsync as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
+it('starts unknown (null) before the stored value has loaded, so callers do not flash the banner', () => {
+  get.mockReturnValueOnce(new Promise(() => {}))
+  const { result } = renderHook(() => useDismissedRolloverBanner('2026-08'))
+  expect(result.current[0]).toBe(null)
+})
+
 it('starts undismissed when nothing is stored for the month', async () => {
   const { result } = renderHook(() => useDismissedRolloverBanner('2026-08'))
-  await waitFor(() => expect(get).toHaveBeenCalledWith('mc-rollover-dismissed-2026-08'))
-  expect(result.current[0]).toBe(false)
+  await waitFor(() => expect(result.current[0]).toBe(false))
 })
 
 it('restores a stored dismissal on mount', async () => {

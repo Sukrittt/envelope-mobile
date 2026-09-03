@@ -91,6 +91,15 @@ describe('computeEnvelopeState', () => {
     expect(overState.isOverAssigned).toBe(true)
   })
 
+  it('keeps readyToAssign to paise instead of rounding off to whole rupees', () => {
+    const budgets = [
+      budget('2026-08', '__income__', '5000.75'),
+      budget('2026-08', 'Rent', '4000.25'),
+    ]
+    const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])
+    expect(state.readyToAssign).toBe(1000.5)
+  })
+
   it('does not carry the credit-card payment envelope forward into a new month', () => {
     const budgets = [budget('2026-07', CREDIT_CARD_CATEGORY, '432.25')]
     const state = computeEnvelopeState(budgets, [], '2026-08', categories, ['Home'])

@@ -68,6 +68,10 @@ a user reads: second person, sentence case, short.
   tell, and a reader notices before they read a word. Split the sentence instead: two
   short sentences beat one long clause joined by a dash. Enforced by an eslint rule in
   `eslint.config.js`, so a stray em dash in a string fails `npm run lint`.
+- Use contractions: "you're", "there's", "don't", "can't". Expanded forms ("you are not",
+  "there is no", "you have assigned") are the second-loudest AI tell after the em dash, and
+  every other screen already contracts, so a formal string sticks out. No lint rule catches
+  this, so it's a review item.
 - Never show raw server or exception text (`e.message`, `String(e)`) in an alert or
   inline error. "Failed to add expense: 503" gives the user nothing to act on. Write
   the message instead; match a known, already-written error case if there is one (see

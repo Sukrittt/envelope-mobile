@@ -325,7 +325,12 @@ export default function MoveMoneyModal() {
           </ScrollView>
 
           <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }}>
-            <Numpad extraKey="." onDigit={pushDigit} onBackspace={handleBackspace} />
+            <Numpad
+              extraKey="."
+              onDigit={pushDigit}
+              onBackspace={handleBackspace}
+              onClear={() => setAmountStr('')}
+            />
             <Pressable
               onPress={() => amount > 0 && setStep('sources')}
               disabled={amount === 0}

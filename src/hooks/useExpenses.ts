@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addExpense, deleteExpense, getExpenses, updateExpense } from '@/src/api/expenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
+import { track } from '@/src/lib/analytics'
 
 const key = ['expenses'] as const
 // Money Brain's brief is computed from expenses too, but keyed separately —
@@ -15,7 +16,15 @@ export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (row: Parameters<typeof addExpense>[0]) => addExpense(row),
-    onSuccess: () => {
+    onSuccess: (_data, row) => {
+      // Both the manual screen and scan-bill's confirm land here, which is the
+      // point: one event for "an expense got saved". $screen_name splits them
+      // after the fact. No amount and no item name, only the two fields worth
+      // segmenting on.
+      track('expense_logged', {
+        category: row.category,
+        payment_method: row.payment_method ?? 'unknown',
+      })
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
       // A credit-card expense add/edit/delete also rebalances the Credit

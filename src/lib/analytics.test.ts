@@ -1,5 +1,5 @@
 import { accessMode, currentUserId, type AccessMode } from '../api/accessMode'
-import { initAnalytics, posthog } from './analytics'
+import { identifyUser, initAnalytics, posthog, track } from './analytics'
 
 jest.mock('../api/accessMode', () => ({
   accessMode: { subscribe: jest.fn(), subscribeLogout: jest.fn() },
@@ -57,5 +57,37 @@ describe('initAnalytics', () => {
   it('resets on logout, so the next account on the device starts clean', () => {
     notifyLogout()
     expect(posthog.reset).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('identifyUser', () => {
+  it('attaches name and email to the person under the same distinct id', () => {
+    mockCurrentUserId.mockReturnValue('user_01ABC')
+    identifyUser({ email: 'a@b.com', name: 'Ada' })
+    expect(posthog.identify).toHaveBeenCalledWith('user_01ABC', { email: 'a@b.com', name: 'Ada' })
+  })
+
+  // A null name is what the API returns for an account that never set one.
+  // Sending null would write a literal null onto the person record.
+  it('drops a null name rather than writing it to the person', () => {
+    mockCurrentUserId.mockReturnValue('user_01ABC')
+    identifyUser({ email: 'a@b.com', name: null })
+    expect(posthog.identify).toHaveBeenCalledWith('user_01ABC', { email: 'a@b.com' })
+  })
+
+  it('does nothing when there is no session to attach the profile to', () => {
+    mockCurrentUserId.mockReturnValue(null)
+    identifyUser({ email: 'a@b.com', name: 'Ada' })
+    expect(posthog.identify).not.toHaveBeenCalled()
+  })
+})
+
+describe('track', () => {
+  it('forwards the event and its properties to capture', () => {
+    track('expense_logged', { category: 'Groceries', payment_method: 'bank' })
+    expect(posthog.capture).toHaveBeenCalledWith('expense_logged', {
+      category: 'Groceries',
+      payment_method: 'bank',
+    })
   })
 })

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addBudget, deleteBudget, getBudgets, transferBudget, updateBudget } from '@/src/api/budgets'
 import type { BudgetRow } from '@/src/types'
+import { track } from '@/src/lib/analytics'
 
 export const budgetsKey = ['budgets'] as const
 const key = budgetsKey
@@ -40,7 +41,10 @@ export function useTransferBudget() {
   return useMutation({
     mutationFn: (params: { month: string; to: string; sources: { category: string; amount: number }[] }) =>
       transferBudget(params.month, params.to, params.sources),
-    onSuccess: () => {
+    onSuccess: (_data, params) => {
+      // How many envelopes people raid to cover one is the interesting shape
+      // here. The amounts themselves stay out.
+      track('money_moved', { sources_count: params.sources.length })
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
     },

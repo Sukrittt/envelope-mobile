@@ -242,6 +242,12 @@ export default function SetupScreen() {
     setAmounts((prev) => ({ ...prev, [activeKey]: Number(nextBuf || 0) }))
   }
 
+  const clearAmt = () => {
+    if (!activeKey) return
+    setBuf('')
+    setAmounts((prev) => ({ ...prev, [activeKey]: 0 }))
+  }
+
   const fillRemainder = () => {
     if (!activeKey) return
     const cur = amounts[activeKey] ?? 0
@@ -380,7 +386,12 @@ export default function SetupScreen() {
             ))}
           </View>
           <View style={{ flex: 1, minHeight: 10 }} />
-          <Numpad extraKey="00" onDigit={pressIncomeDigit} onBackspace={pressIncomeBackspace} />
+          <Numpad
+            extraKey="00"
+            onDigit={pressIncomeDigit}
+            onBackspace={pressIncomeBackspace}
+            onClear={() => setIncome('')}
+          />
         </View>
       )}
 
@@ -550,7 +561,7 @@ export default function SetupScreen() {
                 <Text style={[styles.fillButtonLabel, { color: tokens.accentInk }]}>Give this the leftover</Text>
               </Pressable>
             )}
-            <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} />
+            <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} onClear={clearAmt} />
             <Pressable onPress={closeRow} style={[styles.sheetDone, { backgroundColor: tokens.accent }]}>
               <Text style={[styles.sheetDoneLabel, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Done</Text>
             </Pressable>

@@ -62,6 +62,9 @@ jest.mock('@/src/api/accessMode', () => ({
   accessMode: { subscribe: () => () => {}, subscribeLogout: () => () => {} },
   initAccessMode: jest.fn(),
   clearAccess: jest.fn(),
+  // Read by src/lib/analytics.ts, which this layout calls from inside the
+  // getUser() chain that decides onboarding routing.
+  currentUserId: jest.fn(() => 'user_test'),
 }))
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn() }))
 

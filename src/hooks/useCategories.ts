@@ -7,6 +7,7 @@ import {
   updateCategory,
 } from '@/src/api/categories'
 import type { CategoryRow } from '@/src/types'
+import { track } from '@/src/lib/analytics'
 
 const key = ['categories'] as const
 
@@ -46,7 +47,13 @@ export function useAddCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (params: { name: string; group?: string }) => addCategory(params.name, params.group),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: (_data, params) => {
+      // Envelopes get created from two places: the setup wizard and the
+      // inline "new category" row inside log-expense. $screen_name tells them
+      // apart, and `grouped` says whether people use groups at all.
+      track('envelope_created', { grouped: !!params.group })
+      qc.invalidateQueries({ queryKey: key })
+    },
   })
 }
 

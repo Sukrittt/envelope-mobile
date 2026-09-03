@@ -17,12 +17,15 @@ const BASE_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'del'] as c
 export function Numpad({
   onDigit,
   onBackspace,
+  onClear,
   disabled = false,
   extraKey,
   onAccent = false,
 }: {
   onDigit: (digit: string) => void
   onBackspace: () => void
+  /** Long-pressing the delete key clears the whole field. Omit to disable. */
+  onClear?: () => void
   disabled?: boolean
   /** Fills the blank slot before '0' (e.g. '00' for an amount pad). Omit for a blank slot. */
   extraKey?: string
@@ -53,6 +56,14 @@ export function Numpad({
               if (k === 'del') onBackspace()
               else onDigit(k)
             }}
+            onLongPress={
+              k === 'del' && onClear
+                ? () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
+                    onClear()
+                  }
+                : undefined
+            }
             style={({ pressed }) => [
               styles.key,
               {

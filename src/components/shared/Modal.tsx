@@ -23,7 +23,17 @@ export function BottomSheet({ visible, onClose, children }: Props) {
   const handleBackdrop = () => (Keyboard.isVisible() ? Keyboard.dismiss() : onClose())
 
   return (
-    <RNModal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <RNModal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      // Android edge-to-edge: RN's Modal opens as its own Dialog window, which by
+      // default stops short of the status/nav bars, exposing the screen behind it
+      // there. These make the Dialog draw full-bleed like the rest of the app.
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.backdrop} onPress={handleBackdrop}>
           <Pressable

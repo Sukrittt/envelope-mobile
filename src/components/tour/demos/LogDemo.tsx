@@ -31,6 +31,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
       {SPEND_ROWS.map((row) => {
         const spent = row.spent + (extra[row.id] ?? 0)
         const pct = Math.min(100, Math.round((spent / row.plan) * 100))
+        const basePct = Math.min(100, Math.round((row.spent / row.plan) * 100))
         const hot = row.id === lastCategory
         return (
           <View
@@ -66,7 +67,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
                 {formatCurrency(Math.max(0, row.plan - spent))} left
               </Text>
             </View>
-            <ProgressBar pct={pct} />
+            <ProgressBar pct={pct} from={hot ? basePct : undefined} />
           </View>
         )
       })}
@@ -120,7 +121,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
                   fontSize: type.micro,
                 }}
               >
-                {chip.emoji}  {formatCurrency(chip.amount)} · {chip.what}
+                {chip.emoji} <Text style={styles.amount}>{formatCurrency(chip.amount)}</Text> · {chip.what}
               </Text>
             </Pressable>
           )
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0, gap: 2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: { height: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  amount: { fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   kicker: { letterSpacing: 1 },
   tip: { flexDirection: 'row', borderWidth: 1, borderStyle: 'dashed' },
 })

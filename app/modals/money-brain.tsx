@@ -30,6 +30,7 @@ import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
+import { track } from '@/src/lib/analytics'
 
 const CHAT_PHRASES = [
   'Thinking it through…',
@@ -117,9 +118,19 @@ export default function MoneyBrainModal() {
     return () => abortRef.current?.abort()
   }, [])
 
-  function send(text: string) {
+  /**
+   * `source` separates the two ways a question gets asked: tapping one of the
+   * brief's suggested chips, or typing one. Whether people compose their own
+   * questions or only take what's offered is the thing worth knowing here.
+   */
+  function send(text: string, source: 'chip' | 'typed') {
     const trimmed = text.trim()
     if (!trimmed || sending) return
+
+    // After the guard, so this counts questions that actually went out rather
+    // than empty taps on the send button. The question text itself stays out:
+    // people ask their money app things they would not want logged.
+    track('money_brain_query', { source })
 
     const history = [...messages, { role: 'user' as const, text: trimmed }]
     setMessages([...history, { role: 'model', text: '' }])
@@ -335,7 +346,7 @@ export default function MoneyBrainModal() {
                   delay={MOUNT_START_DELAY_MS + 2 * BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
                 >
                   <Pressable
-                    onPress={() => send(q)}
+                    onPress={() => send(q, 'chip')}
                     disabled={sending}
                     style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border, opacity: sending ? 0.5 : 1 }]}
                   >
@@ -387,11 +398,11 @@ export default function MoneyBrainModal() {
           placeholder="Ask about your money…"
           placeholderTextColor={tokens.text3}
           style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
-          onSubmitEditing={() => send(input)}
+          onSubmitEditing={() => send(input, 'typed')}
           editable={!sending}
         />
         <Pressable
-          onPress={() => send(input)}
+          onPress={() => send(input, 'typed')}
           disabled={sending || input.trim() === ''}
           style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: sending || input.trim() === '' ? 0.5 : 1 }]}
         >

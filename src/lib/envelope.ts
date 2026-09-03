@@ -192,7 +192,10 @@ export function computeEnvelopeState(
     })
   }
 
-  const readyToAssign = Math.round(income - totalAssigned) || 0
+  // Rounded to paise (2dp), not whole rupees — assigned amounts can carry
+  // decimals, and a coarser round here silently dropped them from the one
+  // number the envelope method is about.
+  const readyToAssign = Math.round((income - totalAssigned) * 100) / 100 || 0
 
   return {
     month: currentMonth,

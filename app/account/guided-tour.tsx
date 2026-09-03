@@ -3,13 +3,14 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
-import { ArrowLeft, X, ChevronRight, ArrowUpRight } from 'lucide-react-native'
+import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useTourProgress } from '@/src/hooks/useTourProgress'
+import { StepDot } from '@/src/components/onboarding/StepDot'
 import { CHAPTERS } from '@/src/components/tour/content'
 import { AssignDemo } from '@/src/components/tour/demos/AssignDemo'
 import { LogDemo } from '@/src/components/tour/demos/LogDemo'
@@ -134,26 +135,28 @@ export default function GuidedTourScreen() {
               <ChapterDemo index={chapter} onComplete={() => complete(chapter)} />
             </Reanimated.View>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => openReal(current.href)}
-              style={[
-                styles.tryReal,
-                { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.md },
-              ]}
-            >
-              <View style={[styles.tile, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
-                <Icon icon={ArrowUpRight} size={16} color={tokens.accentInk} />
-              </View>
-              <View style={styles.headerText}>
-                <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>
-                  Try it for real · {current.linkLabel}
-                </Text>
-                <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-                  Opens the real screen · your progress is saved
-                </Text>
-              </View>
-            </Pressable>
+            {!isLast && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => openReal(current.href)}
+                style={[
+                  styles.tryReal,
+                  { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.md },
+                ]}
+              >
+                <View style={[styles.tile, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
+                  <Icon icon={ArrowUpRight} size={16} color={tokens.accentInk} />
+                </View>
+                <View style={styles.headerText}>
+                  <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>
+                    Try it for real · {current.linkLabel}
+                  </Text>
+                  <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
+                    {current.linkNote ?? 'Opens the real screen · your progress is saved'}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
           </ScrollView>
 
           <View
@@ -164,24 +167,24 @@ export default function GuidedTourScreen() {
           >
             <View style={[styles.rail, { gap: space.sm }]}>
               {CHAPTERS.map((c, i) => (
-                <Pressable
+                <StepDot
                   key={c.title}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Chapter ${i + 1}`}
+                  active={chapter === i}
+                  activeColor={tokens.accent}
+                  inactiveColor={done.has(i) ? tokens.accentSoft : tokens.borderStrong}
                   onPress={() => setChapter(i)}
-                  hitSlop={8}
-                  style={{
-                    width: chapter === i ? 22 : 7,
-                    height: 7,
-                    borderRadius: radius.full,
-                    backgroundColor: chapter === i ? tokens.accent : done.has(i) ? tokens.accentSoft : tokens.borderStrong,
-                  }}
+                  accessibilityLabel={`Chapter ${i + 1}`}
                 />
               ))}
             </View>
             <Button
               label={isLast ? 'Finish the tour' : `Next · ${CHAPTERS[chapter + 1].title.toLowerCase()}`}
-              onPress={() => (isLast ? setView('done') : setChapter(chapter + 1))}
+              onPress={() => {
+                if (isLast) {
+                  complete(chapter)
+                  setView('done')
+                } else setChapter(chapter + 1)
+              }}
             />
             <Pressable accessibilityRole="button" onPress={() => setView('hub')} hitSlop={8} style={styles.centerLink}>
               <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>All chapters</Text>
@@ -197,7 +200,12 @@ export default function GuidedTourScreen() {
             setChapter(i)
             setView('chapter')
           }}
-          onFinish={() => setView('hub')}
+          onFinish={() => router.back()}
+          onStartOver={() => {
+            setDone(new Set())
+            setChapter(0)
+            setView('chapter')
+          }}
         />
       )}
     </View>
@@ -329,7 +337,17 @@ function Hub({
   )
 }
 
-function Done({ done, onOpen, onFinish }: { done: Set<number>; onOpen: (index: number) => void; onFinish: () => void }) {
+function Done({
+  done,
+  onOpen,
+  onFinish,
+  onStartOver,
+}: {
+  done: Set<number>
+  onOpen: (index: number) => void
+  onFinish: () => void
+  onStartOver: () => void
+}) {
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const doneCount = done.size
@@ -343,41 +361,49 @@ function Done({ done, onOpen, onFinish }: { done: Set<number>; onOpen: (index: n
           <Text style={{ fontSize: 40 }}>🏅</Text>
         </View>
       </PopIn>
-      <View style={{ gap: space.xs, alignItems: 'center' }}>
+      <PopIn play delay={80} style={{ gap: space.xs, alignItems: 'center' }}>
         <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title, textAlign: 'center' }}>
           {doneCount === CHAPTERS.length ? 'You know the whole app.' : `Tour done · ${doneCount} of ${CHAPTERS.length} poked.`}
         </Text>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
           Fund the envelopes, log as you go, move money when life happens, start clean on the 1st. That is the entire loop.
         </Text>
-      </View>
+      </PopIn>
 
       <View style={[styles.recap, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md }]}>
         {CHAPTERS.map((c, i) => (
-          <View
-            key={c.title}
-            style={[styles.recapRow, { borderBottomColor: tokens.border, paddingHorizontal: space.md, paddingVertical: space.md, gap: space.sm }]}
-          >
-            <View style={[styles.tick, { backgroundColor: done.has(i) ? tokens.accentSoft : tokens.inputBg }]}>
-              <Text style={{ color: done.has(i) ? tokens.accentInk : tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: 11 }}>
-                {done.has(i) ? '✓' : '·'}
+          <PopIn key={c.title} play delay={160 + i * 60}>
+            <View
+              style={[styles.recapRow, { borderBottomColor: tokens.border, paddingHorizontal: space.md, paddingVertical: space.md, gap: space.sm }]}
+            >
+              <View style={[styles.tick, { backgroundColor: done.has(i) ? tokens.accentSoft : tokens.inputBg }]}>
+                {done.has(i) ? (
+                  <PopIn play delay={160 + i * 60 + 120}>
+                    <Icon icon={Check} size={12} color={tokens.accentInk} strokeWidth={3} />
+                  </PopIn>
+                ) : (
+                  <Icon icon={Circle} size={10} color={tokens.text3} strokeWidth={2.5} />
+                )}
+              </View>
+              <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
+                {c.title}
               </Text>
+              <Pressable accessibilityRole="button" onPress={() => onOpen(i)} hitSlop={8}>
+                <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.micro }}>
+                  {done.has(i) ? 'Revisit' : 'Try it'}
+                </Text>
+              </Pressable>
             </View>
-            <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
-              {c.title}
-            </Text>
-            <Pressable accessibilityRole="button" onPress={() => onOpen(i)} hitSlop={8}>
-              <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.micro }}>
-                {done.has(i) ? 'Revisit' : 'Try it'}
-              </Text>
-            </Pressable>
-          </View>
+          </PopIn>
         ))}
       </View>
 
-      <View style={{ width: '100%', gap: space.sm }}>
+      <PopIn play delay={160 + CHAPTERS.length * 60} style={{ width: '100%', gap: space.sm }}>
         <Button label="Back to my money" onPress={onFinish} />
-      </View>
+        <Pressable accessibilityRole="button" onPress={onStartOver} hitSlop={8} style={styles.centerLink}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>Start over</Text>
+        </Pressable>
+      </PopIn>
     </ScrollView>
   )
 }

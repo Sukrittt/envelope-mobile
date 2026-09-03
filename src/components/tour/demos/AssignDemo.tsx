@@ -29,7 +29,7 @@ export function AssignDemo({ onComplete }: { onComplete: () => void }) {
     readyToAssign === 0
       ? 'Every rupee has a job ✓'
       : readyToAssign < 0
-        ? 'You have assigned more than you earn'
+        ? "You've assigned more than you earn"
         : `${formatCurrency(readyToAssign)} of your ${formatCurrency(TOUR_INCOME)} income has no job yet`
 
   return (

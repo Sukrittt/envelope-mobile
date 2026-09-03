@@ -13,6 +13,9 @@ export interface Chapter {
   /** "Try it for real" row: label plus the real route it opens. */
   linkLabel: string
   href: string
+  /** Overrides the row's default subtitle — for a chapter whose real screen
+   * needs an extra step spelled out (e.g. tapping into it from elsewhere). */
+  linkNote?: string
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -20,10 +23,11 @@ export const CHAPTERS: Chapter[] = [
     title: 'Envelopes & Ready to Assign',
     blurb: 'Money gets a job before it gets spent.',
     kicker: 'CHAPTER 1 OF 6',
-    lede: 'Every category is an envelope. Your income shows up as one number, Ready to Assign, and you hand it out until there is nothing left to hand out.',
+    lede: "Every category is an envelope. Your income shows up as one number, Ready to Assign, and you hand it out until there's nothing left to hand out.",
     nudge: 'Fund all four. Get Ready to Assign to zero.',
-    linkLabel: 'Open Envelopes',
-    href: '/(tabs)/envelopes',
+    linkLabel: 'Open Home',
+    href: '/(tabs)',
+    linkNote: 'Tap a category, then "Edit assigned amount"',
   },
   {
     title: 'Logging money',
@@ -40,8 +44,9 @@ export const CHAPTERS: Chapter[] = [
     kicker: 'CHAPTER 3 OF 6',
     lede: "An envelope can't cover a bill. Pull the difference from one that can. Sources are ranked by how much room they actually have.",
     nudge: 'Cover the ₹1,400 shortfall. Pick a source.',
-    linkLabel: 'Open Move money',
-    href: '/modals/move-money',
+    linkLabel: 'Open Home',
+    href: '/(tabs)',
+    linkNote: 'Tap a category, then "Move money between envelopes"',
   },
   {
     title: 'The new month',
@@ -65,7 +70,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Everything else',
     blurb: 'Seven smaller things, one line each.',
     kicker: 'CHAPTER 6 OF 6',
-    lede: 'The rest of the app on one screen. Tap whatever you are curious about.',
+    lede: "The rest of the app on one screen. Tap whatever you're curious about.",
     nudge: 'Open a couple.',
     linkLabel: 'Open Archive',
     href: '/account/archive',
@@ -125,14 +130,14 @@ export const QUIZ_OPTIONS = [
     label: 'It is gone. October starts fresh, with the same ₹5,000 plan',
     correct: true,
     feedback:
-      'Exactly. Clean slate on the 1st: the leftover disappears, but your ₹5,000 plan is already sitting there waiting, so you are not budgeting from zero.',
+      "Exactly. Clean slate on the 1st: the leftover disappears, but your ₹5,000 plan is already sitting there waiting, so you're not budgeting from zero.",
   },
   {
     id: 'c',
     label: 'It goes back to Ready to Assign to redistribute',
     correct: false,
     feedback:
-      'Close, but no. A month simply starts fresh. Nothing gets handed back, and there is no "start new month" button to press.',
+      'Close, but no. A month just starts fresh. Nothing gets handed back, and there\'s no "start new month" button to press.',
   },
 ] as const
 
@@ -162,12 +167,12 @@ export const EXTRAS = [
   {
     name: 'Expense Wrapped',
     emoji: '🎧',
-    desc: 'A monthly story of your spending: total, top category, biggest buy, streaks, badges and a spending archetype, with music and a card worth sharing. It unlocks on the 1st once you have logged enough, and the You tab counts the dots for you.',
+    desc: 'A monthly story of your spending: total, top category, biggest buy, streaks, badges and a spending archetype, with music and a card worth sharing. It unlocks on the 1st once you\'ve logged enough, and the You tab counts the dots for you.',
   },
   {
     name: 'Subscriptions',
     emoji: '📺',
-    desc: 'Every recurring service with its cycle and next due date, an allocation bar in Insights with brand colours, and a nudge before it renews.',
+    desc: 'Every recurring service with its cycle and next due date, an allocation bar in Insights with brand colors, and a nudge before it renews.',
   },
   {
     name: 'Activity & Archive',

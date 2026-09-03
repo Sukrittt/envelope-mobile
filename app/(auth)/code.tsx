@@ -193,6 +193,7 @@ export default function CodeScreen() {
             if (next.length === 6) runVerify(next)
           }}
           onBackspace={() => setCode((c) => c.slice(0, -1))}
+          onClear={() => setCode('')}
         />
       )}
 

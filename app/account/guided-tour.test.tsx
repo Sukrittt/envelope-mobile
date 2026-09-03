@@ -76,8 +76,8 @@ it('walks hub to chapter to done, and deep links to the real screen', async () =
   fireEvent.press(getByText('Start the tour'))
   expect(getByText('CHAPTER 1 OF 6')).toBeTruthy()
 
-  fireEvent.press(getByText('Try it for real · Open Envelopes'))
-  expect(mockNavigate).toHaveBeenCalledWith('/(tabs)/envelopes')
+  fireEvent.press(getByText('Try it for real · Open Home'))
+  expect(mockNavigate).toHaveBeenCalledWith('/(tabs)')
 
   fireEvent.press(getByText('Skip'))
   await waitFor(() => expect(getByText('Tour complete')).toBeTruthy())

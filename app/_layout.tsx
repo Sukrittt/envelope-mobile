@@ -12,7 +12,7 @@ import { accessMode, clearAccess, initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
-import { initAnalytics, posthog } from '@/src/lib/analytics'
+import { identifyUser, initAnalytics, posthog, track } from '@/src/lib/analytics'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { TabBar } from '@/src/components/nav/TabBar'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
@@ -128,7 +128,13 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     let cancelled = false
     getUser()
       .then((u) => {
-        if (!cancelled) setOnboarded(!!u.onboardedAt)
+        if (cancelled) return
+        setOnboarded(!!u.onboardedAt)
+        // Piggybacks on the fetch this effect already makes, rather than
+        // costing analytics its own request. Best effort: the id was already
+        // attached the moment the session appeared, so a failure here just
+        // leaves the person un-named.
+        identifyUser(u)
       })
       .catch(() => {
         if (!cancelled) setOnboarded(true)
@@ -138,7 +144,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     }
   }, [hasSession])
 
-  useEffect(() => onOnboarded(() => setOnboarded(true)), [])
+  useEffect(
+    () =>
+      onOnboarded(() => {
+        setOnboarded(true)
+        // signalOnboarded() fires once, on the setup wizard's finish CTA, so
+        // this counts completions rather than per-step progress.
+        track('onboarding_completed')
+      }),
+    []
+  )
 
   // Minimum splash duration, independent of auth/font latency. Not cleared by
   // the timeout (the state is just set true once and the layout moves on).
@@ -242,6 +257,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/scan-bill" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/edit-assigned-amount" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />

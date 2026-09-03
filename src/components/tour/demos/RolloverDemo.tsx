@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
@@ -39,42 +40,21 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
           const good = revealed && option.correct
           const bad = answer === option.id && !option.correct
           return (
-            <Pressable
+            <QuizOption
               key={option.id}
-              accessibilityRole="button"
+              label={option.label}
+              good={good}
+              bad={bad}
               onPress={() => {
                 setAnswer(option.id)
                 if (option.correct) onComplete()
               }}
-              style={[
-                styles.option,
-                {
-                  backgroundColor: good ? tokens.mintSoft : bad ? tokens.coralSoft : tokens.inputBg,
-                  borderColor: good ? tokens.mint : bad ? tokens.coral : tokens.border,
-                  borderRadius: radius.md,
-                  padding: space.md,
-                  gap: space.sm,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  { borderColor: good ? tokens.mint : bad ? tokens.coral : tokens.borderStrong },
-                ]}
-              >
-                <Text style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 11 }}>
-                  {good ? '✓' : bad ? '✕' : ''}
-                </Text>
-              </View>
-              <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption, lineHeight: 19 }}>
-                {option.label}
-              </Text>
-            </Pressable>
+            />
           )
         })}
         {picked && (
-          <Text
+          <Reanimated.Text
+            entering={FadeIn.duration(200)}
             style={{
               color: picked.correct ? tokens.mint : tokens.warnInk,
               fontFamily: fontFamily.bodyBold,
@@ -83,7 +63,7 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
             }}
           >
             {picked.feedback}
-          </Text>
+          </Reanimated.Text>
         )}
       </View>
 
@@ -160,10 +140,68 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
 
       <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 19, paddingHorizontal: 4 }}>
         {isOctober
-          ? 'Two exceptions: Credit Card Payment always restarts at 0, and nothing needs triggering by hand. The new month simply is.'
-          : 'On the 1st, Home shows a one time note of what you left unspent. The permanent record lives in Insights.'}
+          ? 'Two exceptions: Credit Card Payment always restarts at 0, and nothing needs triggering by hand. The new month just is.'
+          : 'On the 1st, Home shows a one-time note of what you left unspent. The permanent record lives in Insights.'}
       </Text>
     </View>
+  )
+}
+
+/** Bounces on the right pick, wobbles on the wrong one — same shape as CodeBoxes.tsx's outcome animation. */
+function QuizOption({ label, good, bad, onPress }: { label: string; good: boolean; bad: boolean; onPress: () => void }) {
+  const { tokens, radius, space, type } = useTheme()
+  const scale = useSharedValue(1)
+  const translateX = useSharedValue(0)
+
+  useEffect(() => {
+    if (good) {
+      const bounce = Easing.bezier(0.34, 1.56, 0.64, 1)
+      scale.value = withSequence(withTiming(1.04, { duration: 152, easing: bounce }), withTiming(1, { duration: 228, easing: bounce }))
+    } else if (bad) {
+      translateX.value = withSequence(
+        withTiming(-5, { duration: 60, easing: Easing.out(Easing.ease) }),
+        withTiming(5, { duration: 60, easing: Easing.out(Easing.ease) }),
+        withTiming(-3, { duration: 60, easing: Easing.out(Easing.ease) }),
+        withTiming(0, { duration: 60, easing: Easing.out(Easing.ease) }),
+      )
+    }
+    // Fires once per reveal, not on every render where good/bad stay true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [good, bad])
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }, { translateX: translateX.value }] }))
+
+  return (
+    <Reanimated.View style={style}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={[
+          styles.option,
+          {
+            backgroundColor: good ? tokens.mintSoft : bad ? tokens.coralSoft : tokens.inputBg,
+            borderColor: good ? tokens.mint : bad ? tokens.coral : tokens.border,
+            borderRadius: radius.md,
+            padding: space.md,
+            gap: space.sm,
+          },
+        ]}
+      >
+        <View style={[styles.dot, { borderColor: good ? tokens.mint : bad ? tokens.coral : tokens.borderStrong }]}>
+          {(good || bad) && (
+            <Reanimated.Text
+              entering={FadeIn.duration(120)}
+              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 11 }}
+            >
+              {good ? '✓' : '✕'}
+            </Reanimated.Text>
+          )}
+        </View>
+        <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption, lineHeight: 19 }}>
+          {label}
+        </Text>
+      </Pressable>
+    </Reanimated.View>
   )
 }
 

@@ -489,6 +489,7 @@ export default function LogExpenseScreen() {
           onAccent
           onDigit={pushDigit}
           onBackspace={handleBackspace}
+          onClear={() => setAmount("")}
           extraKey="."
         />
       </View>

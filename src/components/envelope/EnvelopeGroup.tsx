@@ -17,7 +17,7 @@ interface Props {
   envelopes: Envelope[]
   hideAmounts: boolean
   onMoveMoney: (category: string) => void
-  onEditAmount: (category: string, newAssigned: number) => Promise<void>
+  onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
   expanded: boolean
   onToggle: (group: string) => void

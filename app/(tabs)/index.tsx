@@ -8,7 +8,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
+import { useBudgets } from '@/src/hooks/useBudgets'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
@@ -48,8 +48,6 @@ export default function HomeScreen() {
   const expensesQ = useExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
-  const updateBudget = useUpdateBudget()
-  const addBudget = useAddBudget()
 
   const { hideAmounts } = usePrivacy()
   const month = currentMonthKey()
@@ -71,12 +69,17 @@ export default function HomeScreen() {
     [budgets, expenses, month, categories, groups],
   )
 
+  const prevEnvelopeState = useMemo(
+    () => computeEnvelopeState(budgets, expenses, prevMonth, categories, groups),
+    [budgets, expenses, prevMonth, categories, groups],
+  )
+
   // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
   // one-time heads-up on what was left unspent overall, not a running balance.
-  const prevMonthLeftover = useMemo(() => {
-    const prevState = computeEnvelopeState(budgets, expenses, prevMonth, categories, groups)
-    return prevState.income - prevState.totalSpent
-  }, [budgets, expenses, prevMonth, categories, groups])
+  const prevMonthLeftover = useMemo(
+    () => prevEnvelopeState.income - prevEnvelopeState.totalSpent,
+    [prevEnvelopeState],
+  )
 
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
@@ -125,15 +128,10 @@ export default function HomeScreen() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
-  const showRolloverBanner = !rolloverDismissed && prevMonthLeftover > 0
+  const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
 
-  async function handleEditAmount(category: string, newAssigned: number) {
-    const exists = budgets.some((b) => b.month === month && b.category === category)
-    if (exists) {
-      await updateBudget.mutateAsync({ month, category, updates: { assigned: String(newAssigned) } })
-    } else {
-      await addBudget.mutateAsync({ month, category, assigned: String(newAssigned) })
-    }
+  function handleEditAmount(category: string) {
+    router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
   }
 
   function handleMoveMoney(category: string) {
