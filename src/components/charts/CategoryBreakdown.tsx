@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { Play } from 'lucide-react-native'
 import Reanimated, {
   Easing,
-  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withDelay,
@@ -16,7 +15,9 @@ import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { AmountText } from '@/src/components/ui/AmountText'
 import { DonutChart } from './DonutChart'
+import { useReveal } from './useReveal'
 import type { BreakdownRow, MonthComparison } from '@/src/lib/monthly'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
@@ -116,15 +117,6 @@ export function CategoryBreakdown({
   const [expanded, setExpanded] = useState(false)
   const [sortBy, setSortBy] = useState<'spend' | 'budget'>('spend')
 
-  // True only for this instance's very first render, so a month change or a
-  // mode switch (both of which swap the rows out) never replays the reveal.
-  // Same ref-not-state call as Heatmap's own mount guard.
-  const isMountingRef = useRef(true)
-  useEffect(() => {
-    isMountingRef.current = false
-  }, [])
-  const playMount = isMountingRef.current
-
   const canFilterVariable = mode === 'category' && rows.some((r) => fixedCategories.has(r.key))
 
   const displayRows = useMemo(() => {
@@ -134,6 +126,13 @@ export function CategoryBreakdown({
   }, [rows, canFilterVariable, variableOnly, fixedCategories])
 
   const displayTotal = useMemo(() => displayRows.reduce((s, r) => s + r.spent, 0), [displayRows])
+
+  // Every entrance on this card runs off one cue: the screen has settled after
+  // its push transition and there are real rows to show. Bumps again whenever
+  // the rows are swapped out (month, mode, or the variable-only filter), which
+  // is what makes a mode switch re-wipe the donut and refill the bars from 0.
+  const revealKey = useReveal(`${monthLabel}|${mode}|${variableOnly}`, displayRows.length > 0)
+  const play = revealKey > 0
 
   const colorByKey = useMemo(() => {
     const map = new Map<string, string>()
@@ -238,21 +237,25 @@ export function CategoryBreakdown({
       </View>
 
       <View style={styles.donutWrap}>
-        <DonutChart segments={segments} selectedKey={donutSelectedKey} onSelect={onSelectKey}>
-          {/* Keyed on the selection so each swap is a genuine remount and the
-              fade actually fires. On cold mount `entering` may not fire at all
-              this deep in a ScrollView, which just leaves it rendered as-is. */}
-          <Reanimated.View
-            key={selectedKey ?? '__none__'}
-            entering={FadeIn.duration(150)}
-            style={styles.centerBlock}
-          >
+        <DonutChart segments={segments} selectedKey={donutSelectedKey} onSelect={onSelectKey} revealKey={revealKey}>
+          {/* Held back until the reveal fires, so the label never sits alone in
+              an undrawn ring. Keyed so each swap is a genuine remount, and
+              driven by PopIn rather than an `entering` prop: this deep inside a
+              ScrollView `entering` may never fire, which left the swap with no
+              transition at all. AmountText's own `id` carries the odometer's
+              previous value across these remounts. */}
+          {play && (
+          <PopIn key={`${revealKey}:${selectedKey ?? '__none__'}`} play delay={0} style={styles.centerBlock}>
           {selectedRow ? (
             <>
               {selectedRow.emoji ? <Text style={{ fontSize: 22 }}>{selectedRow.emoji}</Text> : null}
-              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
-                {formatCurrency(selectedRow.spent, hideAmounts)}
-              </Text>
+              <AmountText
+                value={selectedRow.spent}
+                size={type.body}
+                weight="bodySemiBold"
+                animate
+                id="insights-donut-center"
+              />
               <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
                 {selectedRow.pct.toFixed(0)}%
               </Text>
@@ -304,7 +307,8 @@ export function CategoryBreakdown({
               </Text>
             </>
           )}
-          </Reanimated.View>
+          </PopIn>
+          )}
         </DonutChart>
       </View>
 
@@ -315,17 +319,19 @@ export function CategoryBreakdown({
           const hasBudget = !row.assignedIsCarried && row.assigned > 0
           const rowDelay = ROW_START_DELAY + Math.min(i, ROW_STAGGER_CAP) * ROW_STAGGER_MS
           return (
-            <PopIn key={row.key} play={playMount} delay={rowDelay}>
+            // The revealKey prefix is what makes the row remount on a replay:
+            // PopIn and BudgetBar both read `play`/`delay` on their own mount
+            // only, so a fresh instance is how they run again.
+            <PopIn key={`${revealKey}:${row.key}`} play={play} delay={rowDelay}>
             <Pressable
               onPress={() => onSelectKey(isSelected ? null : row.key)}
               style={[isSelected && { opacity: 1 }, !isSelected && selectedKey != null && { opacity: 0.5 }]}
             >
               <View style={styles.legendTop}>
-                {row.emoji ? (
-                  <Text style={{ fontSize: 13 }}>{row.emoji}</Text>
-                ) : (
-                  <View style={[styles.legendDot, { backgroundColor: color }]} />
-                )}
+                {/* Dot stays even when there's an emoji: it's the only thing
+                    tying this row to its wedge in the donut above. */}
+                <View style={[styles.legendDot, { backgroundColor: color }]} />
+                {row.emoji ? <Text style={{ fontSize: 13 }}>{row.emoji}</Text> : null}
                 <Text
                   style={[styles.legendLabel, { color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }]}
                   numberOfLines={1}
@@ -363,7 +369,7 @@ export function CategoryBreakdown({
                     assigned={row.assigned}
                     color={color}
                     tokens={tokens}
-                    play={playMount}
+                    play={play}
                     delay={rowDelay + BAR_OFFSET_MS}
                   />
                 ) : (

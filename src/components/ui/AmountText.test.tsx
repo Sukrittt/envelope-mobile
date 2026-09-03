@@ -4,14 +4,21 @@ import { Animated } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
 import { PrivacyProvider, usePrivacy } from '@/src/context/PrivacyContext'
+import { TabSwipeProvider } from '@/src/components/nav/TabSwipeContext'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AmountText } from './AmountText'
 
+// Must match renderWithProviders' provider stack exactly: rerender() swaps to
+// this tree, and a mismatched shape (e.g. missing TabSwipeProvider) makes
+// React unmount/remount the subtree instead of updating it, resetting
+// Odometer's prevRef and silently killing the roll animation.
 function wrapWithProviders(ui: ReactElement, queryClient: QueryClient) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <PrivacyProvider>{ui}</PrivacyProvider>
+        <PrivacyProvider>
+          <TabSwipeProvider>{ui}</TabSwipeProvider>
+        </PrivacyProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

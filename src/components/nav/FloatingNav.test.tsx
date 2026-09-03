@@ -7,6 +7,7 @@ import {
   slotProximity,
   addSlotShift,
   navStateFor,
+  swipeNeighbours,
 } from './FloatingNav'
 
 // RNTL can't simulate a real drag/snap gesture, so drag-to-navigate is
@@ -27,6 +28,40 @@ describe('slotOffset / indexFromOffset', () => {
   it('clamps below the first and above the last slot', () => {
     expect(indexFromOffset(-1000, 5)).toBe(0)
     expect(indexFromOffset(1000, 5)).toBe(4)
+  })
+})
+
+// Drives the horizontal screen swipe (see AnimatedTabContent). A break here
+// sends the swipe to the wrong screen, or lets it wrap past an end.
+describe('swipeNeighbours', () => {
+  it('steps between adjacent screens', () => {
+    expect(swipeNeighbours('/').next).toBe('activity')
+    expect(swipeNeighbours('/more').prev).toBe('envelopes')
+    expect(swipeNeighbours('/activity').prev).toBe('index')
+  })
+
+  it('skips the add slot to the real screen past it, but flags it', () => {
+    expect(swipeNeighbours('/activity')).toMatchObject({ next: 'envelopes', nextIsAdd: true })
+    expect(swipeNeighbours('/envelopes')).toMatchObject({ prev: 'activity', prevIsAdd: true })
+  })
+
+  it('stops at both ends instead of wrapping', () => {
+    expect(swipeNeighbours('/').prev).toBeNull()
+    expect(swipeNeighbours('/more').next).toBeNull()
+  })
+
+  it('treats the log-expense card as the add slot itself', () => {
+    expect(swipeNeighbours('/modals/log-expense')).toEqual({
+      next: 'envelopes',
+      prev: 'activity',
+      nextIsAdd: false,
+      prevIsAdd: false,
+      fromAdd: true,
+    })
+  })
+
+  it('has no neighbour off the nav entirely', () => {
+    expect(swipeNeighbours('/insights')).toMatchObject({ next: null, prev: null, fromAdd: false })
   })
 })
 

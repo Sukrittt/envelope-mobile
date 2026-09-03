@@ -1,5 +1,5 @@
 import { monthRange, categoryBreakdown, withDelta, leftoverFor, monthTotals, monthComparison, fixedCategories } from './monthly'
-import { CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
+import { CREDIT_CARD_CATEGORY, INCOME_CATEGORY, currentMonthKey, prevMonthKey } from './envelope'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
 function budget(month: string, category: string, assigned: string): BudgetRow {
@@ -122,6 +122,31 @@ describe('categoryBreakdown', () => {
     const expenses = [expense('2026-08-05', '🍔 Food', '200')]
     const rows = categoryBreakdown(budgets, expenses, categories, groups, '2026-08', 'category')
     expect(rows.find((r) => r.key === '🍔 Food')?.assignedIsCarried).toBe(false)
+  })
+
+  it('does not flag assignedIsCarried for the current month, where a carried amount is the live budget', () => {
+    const month = currentMonthKey()
+    const budgets = [budget(prevMonthKey(month), '🍔 Food', '1000')]
+    const expenses = [expense(`${month}-05`, '🍔 Food', '200')]
+    const rows = categoryBreakdown(budgets, expenses, categories, groups, month, 'category')
+    const row = rows.find((r) => r.key === '🍔 Food')
+    expect(row?.assigned).toBe(1000)
+    expect(row?.assignedIsCarried).toBe(false)
+  })
+
+  it('falls back to the category emoji table for a name with no leading emoji', () => {
+    const expenses = [expense('2026-08-05', 'Cook', '200')]
+    const rows = categoryBreakdown([], expenses, [{ name: 'Cook', group: 'Living' }], groups, '2026-08', 'category')
+    expect(rows.find((r) => r.key === 'Cook')?.emoji).toBe('👨‍🍳')
+  })
+
+  it('splits the emoji off a group label', () => {
+    const expenses = [expense('2026-08-05', '🍔 Food', '200')]
+    const cats: CategoryRow[] = [{ name: '🍔 Food', group: '🏠 Living' }]
+    const rows = categoryBreakdown([], expenses, cats, ['🏠 Living'], '2026-08', 'group')
+    const row = rows.find((r) => r.key === '🏠 Living')
+    expect(row?.label).toBe('Living')
+    expect(row?.emoji).toBe('🏠')
   })
 })
 

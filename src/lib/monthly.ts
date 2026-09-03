@@ -1,8 +1,14 @@
 // Per-month category analytics for Insights. Kept separate from envelope.ts
 // (the current-envelope math) since this is read-only history over an
 // arbitrary past month, not the live assign/spend engine.
-import { computeEnvelopeState, shiftMonthKey, CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
-import { splitEmoji } from './emoji'
+import {
+  computeEnvelopeState,
+  currentMonthKey,
+  shiftMonthKey,
+  CREDIT_CARD_CATEGORY,
+  INCOME_CATEGORY,
+} from './envelope'
+import { categoryEmoji, splitEmoji } from './emoji'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
 /** "2026-09" -> { start: "2026-09-01", end: "2026-09-30" }. String-built, no
@@ -22,7 +28,12 @@ export interface BreakdownRow {
   /** True when `assigned` was carried forward from a prior month's budget row
    *  rather than set for this month (see carriedAssigned() in envelope.ts). A
    *  past month with no row of its own never had this budget; say so instead
-   *  of presenting the carried figure as a fact for that month. */
+   *  of presenting the carried figure as a fact for that month.
+   *
+   *  Only ever true for a past month. For the current one, the carried amount
+   *  is the live budget: Home shows it as the envelope's assigned figure
+   *  (₹4,000/₹4,000), so calling the same number "no budget set" here would
+   *  contradict the other half of the app on the same day. */
   assignedIsCarried: boolean
   pct: number
   deltaPct?: number | null
@@ -84,6 +95,8 @@ export function categoryBreakdown(
   const hasOwnBudgetRow = new Set(
     budgetRows.filter((b) => b.month === month).map((b) => b.category),
   )
+  const isPast = month < currentMonthKey()
+  const isCarried = (category: string) => isPast && !hasOwnBudgetRow.has(category)
 
   const groupByCategory = new Map<string, string>()
   for (const c of categoryRows) groupByCategory.set(c.name, c.group ?? '')
@@ -92,15 +105,17 @@ export function categoryBreakdown(
 
   if (mode === 'category') {
     const rows: BreakdownRow[] = [...spentByCategory.keys()].map((category) => {
-      const { icon, text } = splitEmoji(category)
+      const { text } = splitEmoji(category)
       const spent = spentByCategory.get(category) ?? 0
       return {
         key: category,
         label: text,
-        emoji: icon,
+        // Same fallback table the rest of the app renders categories with
+        // (EnvelopeRow, Activity), so a plain "Cook" isn't iconless here alone.
+        emoji: categoryEmoji(category, groupByCategory.get(category)),
         spent,
         assigned: assignedByCategory.get(category) ?? 0,
-        assignedIsCarried: !hasOwnBudgetRow.has(category),
+        assignedIsCarried: isCarried(category),
         pct: (spent / total) * 100,
       }
     })
@@ -114,14 +129,18 @@ export function categoryBreakdown(
     const group = groupByCategory.get(category) || 'Other'
     spentByGroup.set(group, (spentByGroup.get(group) ?? 0) + spent)
     assignedByGroup.set(group, (assignedByGroup.get(group) ?? 0) + (assignedByCategory.get(category) ?? 0))
-    carriedByGroup.set(group, (carriedByGroup.get(group) ?? true) && !hasOwnBudgetRow.has(category))
+    carriedByGroup.set(group, (carriedByGroup.get(group) ?? true) && isCarried(category))
   }
   const rows: BreakdownRow[] = [...spentByGroup.keys()].map((group) => {
     const spent = spentByGroup.get(group) ?? 0
+    // No groupEmoji() fallback: an unknown group would get the same generic
+    // folder glyph as every other one, which reads as noise next to the
+    // colour dot it replaces.
+    const { icon, text } = splitEmoji(group)
     return {
       key: group,
-      label: group,
-      emoji: '',
+      label: text,
+      emoji: icon,
       spent,
       assigned: assignedByGroup.get(group) ?? 0,
       assignedIsCarried: carriedByGroup.get(group) ?? true,
@@ -234,8 +253,8 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
       if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { category, delta }
     }
     if (best && Math.abs(best.delta) / Math.abs(totalDelta) >= DRIVER_SHARE_THRESHOLD) {
-      const { icon, text } = splitEmoji(best.category)
-      driver = { category: text, emoji: icon, delta: best.delta }
+      const { text } = splitEmoji(best.category)
+      driver = { category: text, emoji: categoryEmoji(best.category), delta: best.delta }
     }
   }
 

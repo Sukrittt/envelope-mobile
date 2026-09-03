@@ -9,12 +9,16 @@ import { setAudioModeAsync } from 'expo-audio'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
 import { accessMode, clearAccess, initAccessMode } from '@/src/api/accessMode'
+import { readCategoryCache } from '@/src/lib/categoryCache'
+import { startAutoFlush } from '@/src/sync/flush'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
-import { identifyUser, initAnalytics, posthog, track } from '@/src/lib/analytics'
+import { identifyUser, initAnalytics, trackScreen, track } from '@/src/lib/analytics'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { TabBar } from '@/src/components/nav/TabBar'
+import { TabSwipeOverlay } from '@/src/components/nav/TabSwipeOverlay'
+import { TabSwipeProvider } from '@/src/components/nav/TabSwipeContext'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
 import { WidgetSync } from '@/src/widgets/WidgetSync'
 import { clearSnapshot } from '@/src/widgets/snapshot'
@@ -32,6 +36,7 @@ initAnalytics()
 // Default playsInSilentMode is false — success/delete sound effects would be
 // silently muted whenever the iOS ring switch is off.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
+startAutoFlush()
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : ''
@@ -87,6 +92,12 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     initAccessMode().then((restored) => {
       setHasSession(restored !== null)
       setAuthReady(true)
+      // Hydrate the offline category picker instantly from disk, after the
+      // sign-in notification above has already cleared the query cache for
+      // this boot — hydrating any earlier would just get wiped by that clear.
+      // React Query revalidates in the background once online (staleTime
+      // already 30s), so this is a fast first paint, not a stale-forever cache.
+      if (restored) readCategoryCache().then((cached) => cached && queryClient.setQueryData(['categories'], cached))
     })
     // The auth screens persist a session (real or guest) then let the guards
     // take over — without this, hasSession stayed stale until the next app
@@ -214,7 +225,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     // The synthetic splash route, held for MIN_SPLASH_MS on every cold boot.
     // Nobody navigates to it, so counting it as a screen view is just noise.
     if (pathname === '/loading') return
-    posthog.screen(pathname)
+    trackScreen(pathname)
   }, [pathname])
 
   return (
@@ -265,6 +276,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
       </Stack>
+      <TabSwipeOverlay />
       <TabBar />
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
@@ -305,7 +317,9 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <PrivacyProvider>
-              <RootNavigator fontsLoaded={fontsLoaded} />
+              <TabSwipeProvider>
+                <RootNavigator fontsLoaded={fontsLoaded} />
+              </TabSwipeProvider>
             </PrivacyProvider>
           </ThemeProvider>
         </QueryClientProvider>

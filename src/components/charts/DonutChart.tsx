@@ -21,13 +21,15 @@ interface Props {
   onSelect: (key: string | null) => void
   size?: number
   thickness?: number
+  /** Bumped by the caller's useReveal() to (re)play the wipe — on the screen's
+   *  first settled paint, and again whenever the segments are swapped out. */
+  revealKey?: number
   children?: React.ReactNode
 }
 
 const DEFAULT_SIZE = 200
 const DEFAULT_THICKNESS = 28
 
-// Mount-only reveal: the ring wipes open once, not on every month change.
 const SWEEP_DELAY = 80
 const SWEEP_DURATION = 450
 /** How far the selected wedge pushes out of the ring, along its own bisector. */
@@ -129,16 +131,27 @@ export function DonutChart({
   onSelect,
   size = DEFAULT_SIZE,
   thickness = DEFAULT_THICKNESS,
+  revealKey,
   children,
 }: Props) {
   const { tokens } = useTheme()
   const total = segments.reduce((s, seg) => s + seg.value, 0)
+  const hasData = total > 0
 
   // Hooks must run unconditionally — declared above the `total <= 0` bail-out
-  // below (same call as AllocationBar).
-  const sweep = useRef(new Animated.Value(0)).current
+  // below (same call as AllocationBar). A caller that drives no reveal gets the
+  // ring drawn outright rather than an invisible one waiting for a cue.
+  const sweep = useRef(new Animated.Value(revealKey == null ? 1 : 0)).current
   useEffect(() => {
-    Animated.timing(sweep, {
+    // Nothing to wipe open yet. Running here anyway is what used to spend the
+    // whole sweep on the empty state while the queries were still in flight.
+    if (!hasData || !revealKey) return
+    sweep.setValue(0)
+    // ponytail: a swapped-out dataset re-wipes rather than morphing wedge
+    // angles from their old positions. Morphing needs enter/exit handling for
+    // segments that only exist in one of the two sets (category vs group);
+    // upgrade there if the re-wipe ever reads as too heavy a reset.
+    const anim = Animated.timing(sweep, {
       toValue: 1,
       duration: SWEEP_DURATION,
       delay: SWEEP_DELAY,
@@ -147,10 +160,10 @@ export function DonutChart({
       easing: Easing.inOut(Easing.cubic),
       // strokeDashoffset is an SVG prop, not native-driver-friendly.
       useNativeDriver: false,
-    }).start()
-    // Mount-only: stepping through months shouldn't replay the wipe.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    })
+    anim.start()
+    return () => anim.stop()
+  }, [sweep, hasData, revealKey])
 
   if (total <= 0) {
     return (
