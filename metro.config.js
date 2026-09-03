@@ -14,4 +14,19 @@ config.resolver.blockList = [...config.resolver.blockList, /\.test\.[jt]sx?$/]
 // `require('@/assets/animations/*.lottie')` to resolve.
 config.resolver.assetExts = [...config.resolver.assetExts, 'lottie']
 
+// Drop the 962 KB Material Symbols font. Nothing in the app asks for it:
+// expo-router's native-tabs imports expo-symbols, which imports the font, and
+// the module graph reaches that whether or not a NativeTabs is ever rendered.
+// This app navigates with src/components/nav/FloatingNav.tsx and has no native
+// tabs, so the font is pure weight. If NativeTabs is ever adopted, delete this
+// block — the icons will render as blank glyphs until it's gone.
+const emptyModule = { type: 'empty' }
+const defaultResolveRequest = config.resolver.resolveRequest
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName.startsWith('@expo-google-fonts/material-symbols')) return emptyModule
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = config

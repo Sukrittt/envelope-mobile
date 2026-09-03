@@ -3,7 +3,7 @@ import { useAudioPlayer } from 'expo-audio'
 
 /** Loops the Wrapped background track while the story is playing and unmuted. */
 export function useWrappedMusic(active: boolean) {
-  const player = useAudioPlayer(require('@/assets/sounds/wrapped-loop.wav'))
+  const player = useAudioPlayer(require('@/assets/sounds/wrapped-loop.m4a'))
 
   useEffect(() => {
     player.loop = true

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn, FadeInDown, LinearTransition } from 'react-native-reanimated'
-import { DotLottie } from '@lottiefiles/dotlottie-react-native'
+import LottieView from 'lottie-react-native'
 import { useAudioPlayer } from 'expo-audio'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -98,7 +98,7 @@ export default function ExpenseAddedScreen() {
   // src/context/PrivacyContext.tsx if one is ever wanted.
   // Logging an expense is the only action that chimes — every other success CTA
   // is the silent inline CheckIcon, so the sound stays the app's one verb.
-  const chime = useAudioPlayer(require('@/assets/sounds/success.wav'))
+  const chime = useAudioPlayer(require('@/assets/sounds/success.m4a'))
   useEffect(() => {
     // Chime and haptic together at mount, landing with the tick's first stroke.
     chime.play()
@@ -207,15 +207,15 @@ export default function ExpenseAddedScreen() {
     <View style={[styles.screen, { backgroundColor: tokens.bg, paddingHorizontal: space.lg }]}>
       <View style={styles.body}>
         <Reanimated.View style={styles.receipt} layout={LinearTransition.duration(motion.slow)}>
-          {/* Wrapper carries the spacing: DotLottie's `style` is a plain ViewStyle,
-              not a StyleProp, so it takes no array. Mounts 500ms in so the tick
-              lands after a beat rather than on first paint. */}
+          {/* Wrapper carries the spacing so the animation's own style stays
+              purely its box. Mounts 500ms in so the tick lands after a beat
+              rather than on first paint. */}
           <View style={{ marginBottom: space.xxl }}>
             {playTick && (
-              <DotLottie
+              <LottieView
                 source={require('@/assets/animations/success-tick.lottie')}
                 style={styles.tick}
-                autoplay
+                autoPlay
                 loop={false}
               />
             )}

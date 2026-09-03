@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
-import { DotLottie } from '@lottiefiles/dotlottie-react-native'
+import LottieView from 'lottie-react-native'
 import * as Haptics from 'expo-haptics'
 import { AlertCircle } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -132,18 +132,18 @@ export default function ExpenseFailedScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg, paddingHorizontal: space.lg }]}>
       <View style={styles.body}>
-        {/* Wrapper carries the spacing: DotLottie's `style` is a plain ViewStyle,
-            not a StyleProp, so it takes no array. */}
+        {/* Wrapper carries the spacing so the animation's own style stays
+            purely its box. */}
         <View style={[styles.mark, { marginBottom: space.xxl }]}>
           {lottieFailed ? (
             <Icon icon={AlertCircle} size={MARK * 0.5} color={tokens.coral} strokeWidth={1.5} />
           ) : (
-            <DotLottie
+            <LottieView
               source={{ uri: ERROR_LOTTIE }}
               style={styles.lottie}
-              autoplay
+              autoPlay
               loop={false}
-              onLoadError={() => setLottieFailed(true)}
+              onAnimationFailure={() => setLottieFailed(true)}
             />
           )}
         </View>

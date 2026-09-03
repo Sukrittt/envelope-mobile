@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Image, StyleSheet, View } from 'react-native'
-import { DotLottie } from '@lottiefiles/dotlottie-react-native'
+import LottieView from 'lottie-react-native'
 
 /** Same animation as the app icon's first frame, for continuity between the
  *  native launch image and this JS-level splash (see app/loading.tsx). */
@@ -18,12 +18,12 @@ export function AppSplash() {
       {lottieFailed ? (
         <Image source={require('@/assets/icon.png')} style={styles.fallback} resizeMode="contain" />
       ) : (
-        <DotLottie
+        <LottieView
           source={{ uri: SPLASH_LOTTIE }}
           style={styles.lottie}
-          autoplay
+          autoPlay
           loop
-          onLoadError={() => setLottieFailed(true)}
+          onAnimationFailure={() => setLottieFailed(true)}
         />
       )}
     </View>
