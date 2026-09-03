@@ -28,7 +28,6 @@ import {
   publishLogExpenseSubmit,
   resetLogExpenseSubmit,
 } from "@/src/hooks/useLogExpenseSubmit";
-import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { formatAmountInput } from "@/src/lib/format";
 import { DatePicker } from "@/src/components/shared/DatePicker";
@@ -350,331 +349,324 @@ export default function LogExpenseScreen() {
   const fieldBg = "rgba(255, 255, 255, 0.16)";
 
   return (
-    // The card sits in the nav strip's centre slot, so the same horizontal drag
-    // that moves between tabs reaches activity and envelopes from here. fade off:
-    // the stack already cross-fades this screen in (app/_layout.tsx).
-    <AnimatedTabContent fade={false}>
-      <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
-        <View
+    <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg },
+        ]}
+      >
+        <Text
           style={[
-            styles.header,
-            { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg },
-          ]}
-        >
-          <Text
-            style={[
-              styles.headerTitle,
-              {
-                color: "#ffffff",
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-                flex: 1,
-                textAlign: "center",
-              },
-            ]}
-          >
-            {isEdit ? "Edit expense" : "Log expense"}
-          </Text>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[
-            styles.body,
-            { paddingHorizontal: space.lg, gap: space.lg, flexGrow: 1 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={[styles.amountWrap, { gap: space.sm }]}>
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    translateX: shake.interpolate({
-                      inputRange: [-1, 1],
-                      outputRange: [-8, 8],
-                    }),
-                  },
-                ],
-              }}
-            >
-              <AmountText
-                value={parsedAmount || 0}
-                rawText={formatAmountInput(amount)}
-                size={type.hero * 1.3}
-                color={amount === "" ? onAccentDim : "#ffffff"}
-                weight="displayBold"
-                animate
-                ignoreHide
-              />
-            </Animated.View>
-
-            <Pressable
-              onPress={() => setShowMore(true)}
-              style={[styles.moreToggle, { gap: space.xs }]}
-              hitSlop={8}
-            >
-              <Text
-                style={[
-                  styles.moreLabel,
-                  {
-                    color: onAccentDim,
-                    fontFamily: fontFamily.bodySemiBold,
-                    fontSize: type.caption,
-                  },
-                ]}
-              >
-                More
-              </Text>
-              <ChevronDown size={16} color={onAccentDim} />
-            </Pressable>
-          </View>
-        </ScrollView>
-
-        <View
-          style={[
-            styles.footer,
+            styles.headerTitle,
             {
-              paddingHorizontal: space.lg,
-              paddingBottom: NAV_HEIGHT + insets.bottom + space.lg,
-              gap: space.md,
+              color: "#ffffff",
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+              flex: 1,
+              textAlign: "center",
             },
           ]}
         >
-          {error !== "" && (
+          {isEdit ? "Edit expense" : "Log expense"}
+        </Text>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.body,
+          { paddingHorizontal: space.lg, gap: space.lg, flexGrow: 1 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.amountWrap, { gap: space.sm }]}>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  translateX: shake.interpolate({
+                    inputRange: [-1, 1],
+                    outputRange: [-8, 8],
+                  }),
+                },
+              ],
+            }}
+          >
+            <AmountText
+              value={parsedAmount || 0}
+              rawText={formatAmountInput(amount)}
+              size={type.hero * 1.3}
+              color={amount === "" ? onAccentDim : "#ffffff"}
+              weight="displayBold"
+              animate
+              ignoreHide
+            />
+          </Animated.View>
+
+          <Pressable
+            onPress={() => setShowMore(true)}
+            style={[styles.moreToggle, { gap: space.xs }]}
+            hitSlop={8}
+          >
             <Text
               style={[
-                styles.error,
-                { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold },
+                styles.moreLabel,
+                {
+                  color: onAccentDim,
+                  fontFamily: fontFamily.bodySemiBold,
+                  fontSize: type.caption,
+                },
               ]}
             >
-              {error}
+              More
             </Text>
-          )}
+            <ChevronDown size={16} color={onAccentDim} />
+          </Pressable>
+        </View>
+      </ScrollView>
 
-          <View style={styles.itemRow}>
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingHorizontal: space.lg,
+            paddingBottom: NAV_HEIGHT + insets.bottom + space.lg,
+            gap: space.md,
+          },
+        ]}
+      >
+        {error !== "" && (
+          <Text
+            style={[
+              styles.error,
+              { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold },
+            ]}
+          >
+            {error}
+          </Text>
+        )}
+
+        <View style={styles.itemRow}>
+          <TextInput
+            value={item}
+            onChangeText={setItem}
+            placeholder="What was it for?"
+            placeholderTextColor={onAccentDim}
+            style={[
+              styles.itemInput,
+              styles.itemInputWithPill,
+              {
+                backgroundColor: fieldBg,
+                borderRadius: radius.md,
+                color: "#ffffff",
+                fontFamily: fontFamily.bodySemiBold,
+                fontSize: type.bodyLg,
+              },
+            ]}
+          />
+          <Pressable
+            onPress={() => setPickerOpen(true)}
+            style={[
+              styles.categoryPill,
+              {
+                backgroundColor: "rgba(255, 255, 255, 0.3)",
+                borderRadius: radius.full,
+              },
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.categoryPillText,
+                {
+                  color: tokens.onAccent,
+                  fontFamily: fontFamily.bodySemiBold,
+                },
+              ]}
+            >
+              {selectedCategory
+                ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}`
+                : "Category"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Numpad
+          onAccent
+          onDigit={pushDigit}
+          onBackspace={handleBackspace}
+          onClear={() => setAmount("")}
+          extraKey="."
+        />
+      </View>
+
+      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
+        <Text
+          style={[
+            styles.sheetTitle,
+            {
+              color: tokens.text,
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+            },
+          ]}
+        >
+          Choose a category
+        </Text>
+        <ScrollView
+          style={styles.sheetList}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.sheetChips, { gap: space.sm }]}>
+            {orderedCategories.map((c) => (
+              <Chip
+                key={c.name}
+                selected={category === c.name}
+                label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
+                onPress={() => {
+                  setCategory(c.name);
+                  setCategoryTouched(true);
+                  setPickerOpen(false);
+                }}
+              />
+            ))}
+          </View>
+        </ScrollView>
+        {categories.length === 0 && !online && (
+          <Text
+            style={[
+              styles.fieldLabel,
+              {
+                color: tokens.text3,
+                fontFamily: fontFamily.bodyMedium,
+                marginTop: space.md,
+              },
+            ]}
+          >
+            You can add categories once you&apos;re back online.
+          </Text>
+        )}
+        {categories.length === 0 && online && (
+          <View
+            style={{
+              flexDirection: "row",
+              gap: space.sm,
+              marginTop: space.md,
+            }}
+          >
             <TextInput
-              value={item}
-              onChangeText={setItem}
-              placeholder="What was it for?"
-              placeholderTextColor={onAccentDim}
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              placeholder="New category name"
+              placeholderTextColor={tokens.text3}
+              onSubmitEditing={handleCreateCategory}
               style={[
                 styles.itemInput,
-                styles.itemInputWithPill,
                 {
-                  backgroundColor: fieldBg,
+                  flex: 1,
+                  backgroundColor: tokens.inputBg,
                   borderRadius: radius.md,
-                  color: "#ffffff",
-                  fontFamily: fontFamily.bodySemiBold,
-                  fontSize: type.bodyLg,
+                  color: tokens.text,
+                  fontFamily: fontFamily.bodyMedium,
+                  fontSize: type.body,
                 },
               ]}
             />
             <Pressable
-              onPress={() => setPickerOpen(true)}
+              onPress={handleCreateCategory}
+              disabled={!newCategoryName.trim() || addCategory.isPending}
               style={[
-                styles.categoryPill,
+                styles.addCategory,
                 {
-                  backgroundColor: "rgba(255, 255, 255, 0.3)",
-                  borderRadius: radius.full,
+                  backgroundColor: tokens.accentInk,
+                  borderRadius: radius.md,
+                  opacity:
+                    !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1,
                 },
               ]}
             >
               <Text
-                numberOfLines={1}
-                style={[
-                  styles.categoryPillText,
-                  {
-                    color: tokens.onAccent,
-                    fontFamily: fontFamily.bodySemiBold,
-                  },
-                ]}
+                style={{
+                  color: tokens.onAccent,
+                  fontFamily: fontFamily.bodySemiBold,
+                  fontSize: type.caption,
+                }}
               >
-                {selectedCategory
-                  ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}`
-                  : "Category"}
+                Add
               </Text>
             </Pressable>
           </View>
+        )}
+      </BottomSheet>
 
-          <Numpad
-            onAccent
-            onDigit={pushDigit}
-            onBackspace={handleBackspace}
-            onClear={() => setAmount("")}
-            extraKey="."
-          />
-        </View>
+      <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
+        <Text
+          style={[
+            styles.sheetTitle,
+            {
+              color: tokens.text,
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.bodyLg,
+            },
+          ]}
+        >
+          More details
+        </Text>
 
-        <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
-          <Text
-            style={[
-              styles.sheetTitle,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-              },
-            ]}
-          >
-            Choose a category
-          </Text>
-          <ScrollView
-            style={styles.sheetList}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={[styles.sheetChips, { gap: space.sm }]}>
-              {orderedCategories.map((c) => (
-                <Chip
-                  key={c.name}
-                  selected={category === c.name}
-                  label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
-                  onPress={() => {
-                    setCategory(c.name);
-                    setCategoryTouched(true);
-                    setPickerOpen(false);
-                  }}
-                />
-              ))}
-            </View>
-          </ScrollView>
-          {categories.length === 0 && !online && (
+        <View style={{ gap: space.lg }}>
+          <DatePicker mode="single" value={date} onChange={setDate} />
+
+          <View style={{ gap: space.sm }}>
             <Text
               style={[
                 styles.fieldLabel,
-                {
-                  color: tokens.text3,
-                  fontFamily: fontFamily.bodyMedium,
-                  marginTop: space.md,
-                },
+                { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
-              You can add categories once you&apos;re back online.
+              Payment Method
             </Text>
-          )}
-          {categories.length === 0 && online && (
-            <View
-              style={{
-                flexDirection: "row",
-                gap: space.sm,
-                marginTop: space.md,
-              }}
-            >
-              <TextInput
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="New category name"
-                placeholderTextColor={tokens.text3}
-                onSubmitEditing={handleCreateCategory}
-                style={[
-                  styles.itemInput,
-                  {
-                    flex: 1,
-                    backgroundColor: tokens.inputBg,
-                    borderRadius: radius.md,
-                    color: tokens.text,
-                    fontFamily: fontFamily.bodyMedium,
-                    fontSize: type.body,
-                  },
-                ]}
-              />
-              <Pressable
-                onPress={handleCreateCategory}
-                disabled={!newCategoryName.trim() || addCategory.isPending}
-                style={[
-                  styles.addCategory,
-                  {
-                    backgroundColor: tokens.accentInk,
-                    borderRadius: radius.md,
-                    opacity:
-                      !newCategoryName.trim() || addCategory.isPending
-                        ? 0.5
-                        : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: tokens.onAccent,
-                    fontFamily: fontFamily.bodySemiBold,
-                    fontSize: type.caption,
-                  }}
-                >
-                  Add
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </BottomSheet>
-
-        <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
-          <Text
-            style={[
-              styles.sheetTitle,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.displaySemiBold,
-                fontSize: type.bodyLg,
-              },
-            ]}
-          >
-            More details
-          </Text>
-
-          <View style={{ gap: space.lg }}>
-            <DatePicker mode="single" value={date} onChange={setDate} />
-
-            <View style={{ gap: space.sm }}>
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
-                ]}
-              >
-                Payment Method
-              </Text>
-              <View style={{ flexDirection: "row", gap: space.sm }}>
-                {(["bank", "credit_card"] as const).map((m) => (
-                  <Chip
-                    key={m}
-                    selected={paymentMethod === m}
-                    label={m === "bank" ? "Bank/UPI" : "Credit Card"}
-                    onPress={() => setPaymentMethod(m)}
-                  />
-                ))}
-              </View>
-            </View>
-
-            <View style={{ gap: space.sm }}>
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
-                ]}
-              >
-                Notes (optional)
-              </Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Notes"
-                placeholderTextColor={tokens.text3}
-                style={[
-                  styles.itemInput,
-                  {
-                    backgroundColor: tokens.inputBg,
-                    borderRadius: radius.md,
-                    color: tokens.text,
-                    fontFamily: fontFamily.bodyMedium,
-                    fontSize: type.body,
-                  },
-                ]}
-              />
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              {(["bank", "credit_card"] as const).map((m) => (
+                <Chip
+                  key={m}
+                  selected={paymentMethod === m}
+                  label={m === "bank" ? "Bank/UPI" : "Credit Card"}
+                  onPress={() => setPaymentMethod(m)}
+                />
+              ))}
             </View>
           </View>
-        </BottomSheet>
-      </View>
-    </AnimatedTabContent>
+
+          <View style={{ gap: space.sm }}>
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
+              ]}
+            >
+              Notes (optional)
+            </Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Notes"
+              placeholderTextColor={tokens.text3}
+              style={[
+                styles.itemInput,
+                {
+                  backgroundColor: tokens.inputBg,
+                  borderRadius: radius.md,
+                  color: tokens.text,
+                  fontFamily: fontFamily.bodyMedium,
+                  fontSize: type.body,
+                },
+              ]}
+            />
+          </View>
+        </View>
+      </BottomSheet>
+    </View>
   );
 }
 

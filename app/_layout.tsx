@@ -17,8 +17,6 @@ import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { identifyUser, initAnalytics, trackScreen, track } from '@/src/lib/analytics'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { TabBar } from '@/src/components/nav/TabBar'
-import { TabSwipeOverlay } from '@/src/components/nav/TabSwipeOverlay'
-import { TabSwipeProvider } from '@/src/components/nav/TabSwipeContext'
 import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
 import { WidgetSync } from '@/src/widgets/WidgetSync'
 import { clearSnapshot } from '@/src/widgets/snapshot'
@@ -276,7 +274,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
       </Stack>
-      <TabSwipeOverlay />
       <TabBar />
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
@@ -317,9 +314,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
             <PrivacyProvider>
-              <TabSwipeProvider>
-                <RootNavigator fontsLoaded={fontsLoaded} />
-              </TabSwipeProvider>
+              <RootNavigator fontsLoaded={fontsLoaded} />
             </PrivacyProvider>
           </ThemeProvider>
         </QueryClientProvider>

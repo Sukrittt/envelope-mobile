@@ -58,10 +58,10 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 // GestureDetector's internals reach for reanimated APIs (useEvent) that the
 // hand-written reanimated mock in __mocks__ deliberately doesn't implement,
 // and it also demands a GestureHandlerRootView ancestor that unit tests have
-// no reason to mount. RNTL can't simulate a drag anyway (see
-// FloatingNav.test.tsx), so gesture behaviour is verified by hand and the
-// detector is a pass-through here. Global because AnimatedTabContent puts one
-// around every tab body for the horizontal screen swipe.
+// no reason to mount. RNTL can't simulate a drag anyway, so gesture behaviour
+// is verified by hand and the detector is a pass-through here. Global because
+// loading the real module in every suite that reaches it is slow enough to
+// trip test timeouts.
 jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual('react-native-gesture-handler'),
   GestureDetector: ({ children }) => children,
