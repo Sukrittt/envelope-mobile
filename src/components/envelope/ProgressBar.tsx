@@ -21,6 +21,12 @@ export function fillColor(pct: number, tokens: ThemeTokens): string {
   return pct === 100 ? tokens.text3 : pct > 90 ? tokens.coral : pct > 75 ? tokens.warn : tokens.mint
 }
 
+// Tinted-pill background to pair with fillColor's text/dot color — the "N%
+// used" badge on the success card.
+export function fillSoftColor(pct: number, tokens: ThemeTokens): string {
+  return pct === 100 ? tokens.borderStrong : pct > 90 ? tokens.coralSoft : pct > 75 ? tokens.warnSoft : tokens.mintSoft
+}
+
 /** Spend-vs-assigned bar.
  * pct===100 -> muted, >90 -> coral, >75 -> warn, else mint.
  *

@@ -120,6 +120,12 @@ export default function LogExpenseScreen() {
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Set only by a successful add (never an edit) right before setLogSuccess —
+  // the effect below reads it to tell the two cases apart.
+  const pendingAddNavRef = useRef<null | {
+    pathname: "/modals/expense-added";
+    params: Record<string, string>;
+  }>(null);
 
   // Most-recently-used first. A single-line rail only shows a handful, and users
   // routinely keep 20+ envelopes — recency is what makes the visible few the
@@ -173,12 +179,18 @@ export default function LogExpenseScreen() {
     parsedAmount > 0;
   const saving = addExpense.isPending || updateExpense.isPending;
 
-  // Edit only — a successful add routes to modals/expense-added instead. Let the
-  // inline checkmark finish drawing before navigating back — same 1100ms beat
-  // used by CheckIcon elsewhere in the app.
+  // Edit: let the inline checkmark finish drawing before navigating back
+  // (1100ms, same beat CheckIcon uses elsewhere). Add: let the nav circle's
+  // save animation (ripple -> tick, ~950ms) finish before replacing this
+  // screen with the success screen — pendingAddNavRef, set right before
+  // setLogSuccess(true) in the add branch below, tells the two apart.
   useEffect(() => {
     if (!logSuccess) return;
-    const timer = setTimeout(() => router.back(), 1100);
+    const pending = pendingAddNavRef.current;
+    const timer = setTimeout(
+      () => (pending ? router.replace(pending) : router.back()),
+      pending ? 950 : 1100,
+    );
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
@@ -291,8 +303,10 @@ export default function LogExpenseScreen() {
           // replace, not push: this screen is spent, and Done on the success
           // screen should land on home with nothing stale behind it. `id` and
           // `timestamp` come back from the POST so Undo can address the row.
-          onSuccess: (res) =>
-            router.replace({
+          // The replace itself is deferred: stash it and flip logSuccess so
+          // the nav circle's save animation plays first (see the effect above).
+          onSuccess: (res) => {
+            pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: {
                 id: res.id ?? "",
@@ -309,7 +323,9 @@ export default function LogExpenseScreen() {
                 notes: notes.trim(),
                 paymentMethod,
               },
-            }),
+            };
+            setLogSuccess(true);
+          },
           // A failed *add* gets its own screen, same as a successful one — the
           // inline error line below is easy to miss on the flood screen, and it
           // offers no next action. replace for the same reason as onSuccess:

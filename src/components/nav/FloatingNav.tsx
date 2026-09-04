@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Pressable,
-  ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
   type NativeSyntheticEvent,
@@ -23,7 +22,7 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
-import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
@@ -299,11 +298,11 @@ export function FloatingNav({
               overrideContent={
                 addActive && addSuccess ? (
                   <View testID="nav-add-success">
-                    <CheckIcon color={activeIcon} size={ICON} />
+                    <AddCircleDone discColor={tokens.mint} checkColor={tokens.onAccent} />
                   </View>
                 ) : addActive && addSaving ? (
                   <View testID="nav-add-saving">
-                    <ActivityIndicator color={activeIcon} size="small" />
+                    <AddCircleLoad discColor={activeFill} iconColor={activeIcon} />
                   </View>
                 ) : undefined
               }

@@ -190,3 +190,16 @@ export async function getIdentityProviders(): Promise<string[]> {
   const body: { providers: string[] } = await resp.json()
   return body.providers
 }
+
+export interface PrivacyProof {
+  fields: string[]
+  sample: Record<string, string> | null
+}
+
+/** The user's most recent expense exactly as stored — encrypted fields still `enc:v1:…`.
+ *  Backs the "Your data, encrypted" proof section on the security screen. */
+export async function getPrivacyProof(): Promise<PrivacyProof> {
+  const resp = await apiFetch('/api/privacy/proof')
+  if (!resp.ok) throw new Error(`Failed to load privacy proof: ${resp.status}`)
+  return resp.json()
+}

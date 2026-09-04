@@ -49,14 +49,33 @@ Lessons from the Code Quality Checks pass (2026-08), worth not re-learning:
 
 App uses one shared success-tech animation (`src/components/shared/CheckIcon.tsx`: checkmark draw-on + haptic, swaps button label, background goes `tokens.mint`, auto-dismiss ~1100ms). Every synchronous success CTA (save/confirm button that resolves in-place) must reuse this pattern instead of a new toast/animation.
 
-One exception: logging a _new_ expense routes to the full success screen at
-`app/modals/expense-added.tsx` — the app's primary verb, so it earns its own
-moment. Two phases, no card or chip anywhere: the receipt lands first (200px
-dotLottie tick badge + chime, then amount, `item · category`, timestamp), and
-after `ENVELOPE_DELAY` the column glides up (`LinearTransition` on the group)
-while the envelope block rises in below it — balance left, plus a `ProgressBar`
-tweening from the pre-expense fill to the post-expense one. Editing an expense,
-and every other CTA, keeps the inline pattern.
+One exception: logging a _new_ expense earns its own moment across two screens.
+The nav circle itself (`src/components/nav/AddCircleAnim.tsx`, wired into
+`FloatingNav.tsx`'s add slot) plays a four-phase save animation in place of a
+bare spinner — plus morphs away into a ripple + spinning ring while the request
+is in flight (`AddCircleLoad`), then a halo + pop + `CheckIcon` draw on success
+(`AddCircleDone`) — and `log-expense.tsx` only replaces the screen with
+`app/modals/expense-added.tsx` ~950ms later, once that plays out.
+
+`expense-added.tsx` is one tight column, no floating clusters: the tick
+(a bundled Lottie clip, `assets/animations/success-tick.lottie`, played via
+`lottie-react-native` — this screen's one departure from the app's drawn-icon
+tick, since it earns its own moment), then "Added ₹X" on one line, then the
+item name alone (category isn't repeated here — it's already on the budget
+card below). The payoff is a budget card promoted right below it: a header
+row (category dot + name, threshold-coloured "N% used" pill via
+`ProgressBar.fillSoftColor`), then the "₹X left of ₹Y" line — `DeltaBar`
+(`src/components/envelope/DeltaBar.tsx`) grows its base fill to the
+*pre*-expense position, pins a ghost marker there, then snaps in a brighter
+delta segment with a `+₹X` tag; "left" counts down from the pre-expense value
+on the same beat (`DELTA_DELAY`), while "N% used" shows the final figure
+immediately in the threshold colour (`ProgressBar.fillColor`). A days-left/pace
+row ("N days left" / "₹X/day to stay on track") sits below a divider inside
+the card, revealed last (`STAGGER.cardFooter`, 1.5s) — after the delta and its
+tag have landed, as the final beat. Undo and Done sit side by side as
+bordered/filled buttons; the timestamp is a
+caption underneath. Editing an expense, and every other CTA, keeps the inline
+pattern.
 
 # voice and copy
 

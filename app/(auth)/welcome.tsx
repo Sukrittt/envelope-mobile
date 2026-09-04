@@ -90,7 +90,8 @@ export default function WelcomeScreen() {
             By continuing you agree to the{' '}
             <Text style={{ color: tokens.accentInk }}>Terms</Text> and{' '}
             <Text style={{ color: tokens.accentInk }}>Privacy Policy</Text>.{'\n'}
-            Free and open source. Your data stays yours.
+            Free and open source. Your amounts and notes are encrypted before they reach our
+            database. Offline? Log the expense anyway, it&apos;ll sync once you&apos;re back.
           </Text>
         </Animated.View>
       </View>

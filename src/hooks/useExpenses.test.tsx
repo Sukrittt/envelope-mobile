@@ -54,6 +54,7 @@ it('useAddExpense invalidates both the expenses and ai-brief queries on success'
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expenses'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-brief'] })
+  expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['category-map'] })
 })
 
 describe('useAddExpense offline (offline sync §5/§7)', () => {
@@ -113,4 +114,5 @@ it('useUpdateExpense also invalidates the budgets query on success', async () =>
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['expenses'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-brief'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['budgets'] })
+  expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['category-map'] })
 })

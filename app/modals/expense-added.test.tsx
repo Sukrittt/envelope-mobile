@@ -5,9 +5,9 @@ import { getExpenses, deleteExpense } from '@/src/api/expenses'
 import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
-import ExpenseAddedScreen, { ENVELOPE_DELAY } from './expense-added'
-import { FILL_DELAY, FILL_DURATION } from '@/src/components/envelope/ProgressBar'
-import { currentMonthKey } from '@/src/lib/envelope'
+import ExpenseAddedScreen from './expense-added'
+import { DELTA_DELAY } from '@/src/components/envelope/DeltaBar'
+import { currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -73,12 +73,17 @@ const BASE_PARAMS = {
   paymentMethod: 'bank',
 }
 
-function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] = []) {
+// `budgets` defaults to the standard row rather than being fixed, so a
+// caller that needs a different shape (e.g. no budget at all) can set its
+// own mock *before* calling setup() without this overwriting it back.
+function setup(
+  overrides: Partial<typeof BASE_PARAMS> = {},
+  expenses: object[] = [],
+  budgets: object[] = [{ month: MONTH, category: '🛒 Groceries', assigned: '8000', rolled_over: '0' }],
+) {
   mockParams = { ...BASE_PARAMS, ...overrides }
   ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
-  ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '🛒 Groceries', assigned: '8000', rolled_over: '0' },
-  ])
+  ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛒 Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   return renderWithProviders(<ExpenseAddedScreen />)
@@ -88,67 +93,74 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-const SLOW = { timeout: ENVELOPE_DELAY + 1500 }
-const PCT_SLOW = { timeout: ENVELOPE_DELAY + FILL_DELAY + FILL_DURATION + 1500 }
+const COUNTDOWN_SLOW = { timeout: DELTA_DELAY + 1500 }
 
-it('reads back the amount, category and time of what was just logged', async () => {
+it('reads back the amount, item and time of what was just logged', async () => {
   const { getByLabelText, getByText } = setup()
   // The amount animates, so the full string only exists on the odometer's label.
   expect(getByLabelText('₹450')).toBeTruthy()
-  expect(getByText('Milk · 🛒 Groceries')).toBeTruthy()
+  expect(getByText('Milk')).toBeTruthy()
   expect(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`)).toBeTruthy()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
-// An item named after its own category ("Groceries" in "🛒 Groceries") would
-// otherwise print the same word twice.
-it('collapses the detail line when the item is named after its category', async () => {
-  const { getByText, queryByText } = setup({ item: 'groceries' })
+// Category already shows in the budget card below (pill + dot), so the
+// subtitle under the headline is the item name alone, even when the item
+// happens to share the category's name.
+it('falls back to the category label only when there is no item name', async () => {
+  const { getByText } = setup({ item: '' })
   expect(getByText('🛒 Groceries')).toBeTruthy()
-  expect(queryByText('groceries · 🛒 Groceries')).toBeNull()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
-// The envelope is a second beat, not part of the receipt: it lands after the
-// column has had the screen to itself.
-it('holds the envelope back until the receipt has landed', async () => {
-  const { queryByText, getByText } = setup()
-  expect(queryByText('left in Groceries (0% used)')).toBeNull()
-  await waitFor(() => expect(getByText('left in Groceries (0% used)')).toBeTruthy(), SLOW)
+// The card is the payoff, not an afterthought: "% used" is the final,
+// post-expense figure the moment the card renders — no tween on this one.
+it('shows the budget card with the final percent-used figure once the envelope loads', async () => {
+  const { getByText } = setup()
+  await waitFor(() => expect(getByText('6% used')).toBeTruthy())
+  expect(getByText('left of ₹8,000')).toBeTruthy()
+  // Category header (dot + name) and the days-left/pace footer. Not
+  // hardcoded: daysLeftInMonth() reads the real wall-clock date, same as the
+  // screen does, so the assertion has to track it rather than freeze today's
+  // value.
+  expect(getByText('Groceries')).toBeTruthy()
+  const days = daysLeftInMonth()
+  expect(getByText(days === 0 ? 'Less than 24 hrs' : `${days} days left`)).toBeTruthy()
 })
 
-// The "% used" figure lands with the envelope block at the pre-expense
-// percentage, then counts up to the post-expense one once the bar starts
-// tweening — it must not jump straight to the final value.
-it('counts the used percentage up from its pre-expense value once the bar starts moving', async () => {
-  const { queryByText, getByText } = setup()
-  await waitFor(() => expect(getByText('left in Groceries (0% used)')).toBeTruthy(), SLOW)
-  expect(queryByText('left in Groceries (6% used)')).toBeNull()
-  await waitFor(() => expect(getByText('left in Groceries (6% used)')).toBeTruthy(), PCT_SLOW)
+// The "left" figure is the one that visibly moves: it opens on the
+// pre-expense balance and counts down to the post-expense one once the
+// delta lands on the bar, so the charge just made reads as an event rather
+// than a bar that was simply short to begin with.
+it('counts the left figure down from its pre-expense value once the delta lands', async () => {
+  const { getByLabelText } = setup()
+  // 8000 assigned - 0 already spent - 450 not yet subtracted = 8000 pre-expense.
+  await waitFor(() => expect(getByLabelText('₹8,000')).toBeTruthy())
+  // 8000 - 450 = 7550 once the countdown fires.
+  await waitFor(() => expect(getByLabelText('₹7,550')).toBeTruthy(), COUNTDOWN_SLOW)
 })
 
 // The expenses refetch the mutation triggered may not have landed yet. Both
 // branches have to produce the same number, or the envelope balance visibly
 // ticks down mid-animation — or worse, double-counts the new expense.
 it('charges the envelope by hand while the new expense is missing from the cache', async () => {
-  const { getByText } = setup({}, [{ date: TODAY, amount_inr: '1200', category: '🛒 Groceries', timestamp: 'other' }])
+  const { getByLabelText } = setup({}, [{ date: TODAY, amount_inr: '1200', category: '🛒 Groceries', timestamp: 'other' }])
   // 8000 assigned - 1200 already spent - 450 not yet in the list = 6350
-  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy(), SLOW)
+  await waitFor(() => expect(getByLabelText('₹6,350')).toBeTruthy(), COUNTDOWN_SLOW)
 })
 
 it('does not double-charge once the new expense is in the cache', async () => {
-  const { getByText } = setup({}, [
+  const { getByLabelText } = setup({}, [
     { date: TODAY, amount_inr: '1200', category: '🛒 Groceries', timestamp: 'other' },
     { date: TODAY, amount_inr: '450', category: '🛒 Groceries', timestamp: BASE_PARAMS.timestamp },
   ])
-  await waitFor(() => expect(getByText('₹6,350')).toBeTruthy(), SLOW)
+  await waitFor(() => expect(getByLabelText('₹6,350')).toBeTruthy(), COUNTDOWN_SLOW)
 })
 
 it('omits the envelope line for a category with no money assigned this month', async () => {
-  ;(getBudgets as jest.Mock).mockResolvedValue([])
-  const { queryByText } = setup()
+  const { queryByText } = setup({}, [], [])
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
-  expect(queryByText('left in Groceries')).toBeNull()
+  expect(queryByText(/left of/)).toBeNull()
 })
 
 // The POST is the only source of a timestamp on newer servers; older ones return

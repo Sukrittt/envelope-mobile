@@ -16,6 +16,9 @@ const key = ['expenses'] as const
 // Money Brain's brief is computed from expenses too, but keyed separately —
 // an edit here must bust it or it shows stale numbers for up to its 15min staleTime.
 const briefKey = ['ai-brief'] as const
+// The autosuggest word->category map is built from expense item/category text —
+// bust it too or it shows stale suggestions for up to its 60s staleTime.
+const categoryMapKey = ['category-map'] as const
 
 export function useExpenses() {
   return useQuery({ queryKey: key, queryFn: getExpenses, staleTime: 30_000 })
@@ -54,6 +57,7 @@ export function useAddExpense() {
       // Card envelope server-side — bust budgets too or Envelopes shows a
       // stale balance for up to its 30s staleTime.
       qc.invalidateQueries({ queryKey: budgetsKey })
+      qc.invalidateQueries({ queryKey: categoryMapKey })
     },
   })
 }
@@ -73,6 +77,7 @@ export function useUpdateExpense() {
       qc.invalidateQueries({ queryKey: briefKey })
       // See useAddExpense — this can also rebalance the CC envelope.
       qc.invalidateQueries({ queryKey: budgetsKey })
+      qc.invalidateQueries({ queryKey: categoryMapKey })
     },
   })
 }
@@ -87,6 +92,7 @@ export function useDeleteExpense() {
       qc.invalidateQueries({ queryKey: briefKey })
       // See useAddExpense — this can also rebalance the CC envelope.
       qc.invalidateQueries({ queryKey: budgetsKey })
+      qc.invalidateQueries({ queryKey: categoryMapKey })
     },
   })
 }

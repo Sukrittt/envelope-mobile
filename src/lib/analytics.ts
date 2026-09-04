@@ -40,6 +40,7 @@ export type AppEvent =
   | 'envelope_created'
   | 'money_brain_query'
   | 'onboarding_completed'
+  | 'feedback_sent'
 
 /**
  * Properties are for segmenting, never for identifying. Amounts, item names
@@ -67,9 +68,21 @@ export function track(event: AppEvent, properties?: Record<string, string | numb
   }
 }
 
+// Last screen the app navigated to, mirrored off every trackScreen() call
+// below. Used to auto-attach "which screen was this filed from" to the
+// in-app feedback form (src/api/feedback.ts) without adding separate nav
+// state just for that.
+let lastScreen = '/'
+
+/** The most recent pathname passed to trackScreen(). */
+export function getLastScreen(): string {
+  return lastScreen
+}
+
 /** Manual screen-view capture (see initAnalytics's comment on why this isn't
  * autocaptured). Same offline guard as track(). */
 export function trackScreen(pathname: string): void {
+  lastScreen = pathname
   if (!isOnline()) return
   try {
     posthog.screen(pathname)

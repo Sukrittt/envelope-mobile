@@ -13,7 +13,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearAccess } from '@/src/api/accessMode'
 import { deleteAccount, resendEmailCode, revokeAllSessions, revokeSession } from '@/src/api/account'
-import { useUser, useUpdateUser, useSessions, useIdentities, useRestoreAccount } from '@/src/hooks/useUser'
+import { useUser, useUpdateUser, useSessions, useIdentities, useRestoreAccount, usePrivacyProof } from '@/src/hooks/useUser'
 import { useLinkGoogle } from '@/src/api/useLinkGoogle'
 import { daysUntil } from '@/src/lib/format'
 
@@ -36,6 +36,9 @@ export default function SecurityScreen() {
   const sessionsQuery = useSessions()
   const identitiesQuery = useIdentities()
   const linkGoogle = useLinkGoogle()
+  const proofQuery = usePrivacyProof()
+  const proof = proofQuery.data
+  const [showProof, setShowProof] = useState(false)
 
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -315,6 +318,56 @@ export default function SecurityScreen() {
           </View>
         </View>
 
+        {proof && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>YOUR DATA, ENCRYPTED</Text>
+            <View style={[styles.card, styles.proofCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                Before an expense, budget number or Money Brain chat reaches our database, we encrypt it
+                with AES-256-GCM. A leaked database backup only turns up ciphertext, never your amounts,
+                item names or notes.
+              </Text>
+              <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 10 }]}>
+                Dates, categories and payment methods stay readable so search and filtering still work.
+              </Text>
+              <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 10 }]}>
+                This isn&apos;t end-to-end encryption, and we won&apos;t call it that. Our server still
+                decrypts your data to run your budget, digests and Money Brain, so it protects you if the
+                database leaks, not if the app server itself is compromised.
+              </Text>
+              <Pressable
+                onPress={() => setShowProof((v) => !v)}
+                style={[styles.editButton, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, marginTop: 12, alignSelf: 'flex-start' }]}
+              >
+                <Text style={[styles.editButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+                  {showProof ? 'Hide proof' : 'Show me'}
+                </Text>
+              </Pressable>
+              {showProof && (
+                <View style={{ marginTop: 8 }}>
+                  {proof.sample ? (
+                    Object.entries(proof.sample).map(([key, value]) => (
+                      <View key={key} style={[styles.proofRow, { borderTopColor: tokens.border }]}>
+                        <Text style={[styles.proofRowKey, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                          {key}
+                          {proof.fields.includes(key) ? ' (encrypted)' : ''}
+                        </Text>
+                        <Text style={[styles.proofRowValue, { color: tokens.text }]} numberOfLines={1}>
+                          {value || '—'}
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                      Log an expense to see this in action.
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         <Pressable onPress={confirmSignOutAll} disabled={signingOutAll} style={styles.signOutEverywhere}>
           <Text style={[styles.signOutText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
             {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
@@ -461,6 +514,11 @@ const styles = StyleSheet.create({
   warnRestoreButtonText: { fontSize: 13 },
   section: { gap: 10 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
+  proofCard: { padding: 16 },
+  proofCopy: { fontSize: 12, lineHeight: 18 },
+  proofRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
+  proofRowKey: { fontSize: 12, flexShrink: 0 },
+  proofRowValue: { fontSize: 12, flexShrink: 1, textAlign: 'right' },
   signOutEverywhere: { alignSelf: 'flex-start', paddingVertical: 6 },
   signOutText: { fontSize: 13 },
   dangerCard: { padding: 16, borderWidth: 1, borderRadius: 20 },

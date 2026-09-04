@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getUser, getIdentityProviders, getSessions, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
+import { getUser, getIdentityProviders, getSessions, getPrivacyProof, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
 
 export const userKey = ['user'] as const
 const sessionsKey = ['user', 'sessions'] as const
 const identitiesKey = ['user', 'identities'] as const
+const privacyProofKey = ['user', 'privacy-proof'] as const
 
 export function useUser() {
   return useQuery({ queryKey: userKey, queryFn: getUser, staleTime: 30_000 })
@@ -47,4 +48,8 @@ export function useSessions() {
 
 export function useIdentities() {
   return useQuery({ queryKey: identitiesKey, queryFn: getIdentityProviders, staleTime: 30_000 })
+}
+
+export function usePrivacyProof() {
+  return useQuery({ queryKey: privacyProofKey, queryFn: getPrivacyProof, staleTime: 30_000 })
 }
