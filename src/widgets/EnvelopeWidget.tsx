@@ -11,7 +11,7 @@ import { headerRightLabel, layoutFor, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
-const LOG_URI = "mobile://modals/log-expense";
+const LOG_URI = "envelope://modals/log-expense";
 
 export function EnvelopeWidget({
   tokens,

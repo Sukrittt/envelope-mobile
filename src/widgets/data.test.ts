@@ -105,10 +105,10 @@ describe('selectChips', () => {
     expect(chips.map((c) => c.category)).toEqual(['🚗 Transport', '🎉 Fun', '🍔 Food'])
   })
 
-  it('encodes the category into a mobile:// deep link', () => {
+  it('encodes the category into an envelope:// deep link', () => {
     const state = stateWithSpends({ '🍔 Food': 100 })
     const chip = selectChips(state).find((c) => c.category === '🍔 Food')!
-    expect(chip.uri).toBe(`mobile://modals/log-expense?category=${encodeURIComponent('🍔 Food')}`)
+    expect(chip.uri).toBe(`envelope://modals/log-expense?category=${encodeURIComponent('🍔 Food')}`)
   })
 
   it('labels with the full category name in sentence case, no emoji', () => {

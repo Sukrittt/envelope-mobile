@@ -12,7 +12,7 @@ import { headerRightLabel, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg, trendingSvg } from "./icons";
 
-const LOG_URI = "mobile://modals/log-expense";
+const LOG_URI = "envelope://modals/log-expense";
 
 export function EnvelopeMiniWidget({
   tokens,

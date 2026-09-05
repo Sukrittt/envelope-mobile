@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Animated, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Animated, View, Text, Pressable, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { IndianRupee } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -9,6 +9,7 @@ import { useSignIn } from '@/src/api/useSignIn'
 import { AuthBackdrop } from '@/src/components/auth/AuthBackdrop'
 import { UnlockIcon } from '@/src/components/shared/UnlockIcon'
 import { Icon } from '@/src/components/shared/Icon'
+import { BASE_URL } from '@/src/api/client'
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -88,8 +89,14 @@ export default function WelcomeScreen() {
 
           <Text style={[styles.legal, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
             By continuing you agree to the{' '}
-            <Text style={{ color: tokens.accentInk }}>Terms</Text> and{' '}
-            <Text style={{ color: tokens.accentInk }}>Privacy Policy</Text>.{'\n'}
+            <Text style={{ color: tokens.accentInk }} onPress={() => Linking.openURL(`${BASE_URL}/legal/terms`)}>
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text style={{ color: tokens.accentInk }} onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}>
+              Privacy Policy
+            </Text>
+            .{'\n'}
             Free and open source. Your amounts and notes are encrypted before they reach our
             database. Offline? Log the expense anyway, it&apos;ll sync once you&apos;re back.
           </Text>

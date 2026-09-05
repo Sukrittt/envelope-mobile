@@ -80,7 +80,7 @@ export function selectChips(state: EnvelopeState): WidgetChip[] {
       return {
         category: e.category,
         label: text,
-        uri: `mobile://modals/log-expense?category=${encodeURIComponent(e.category)}`,
+        uri: `envelope://modals/log-expense?category=${encodeURIComponent(e.category)}`,
       }
     })
 }

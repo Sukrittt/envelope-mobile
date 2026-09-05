@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -18,6 +18,7 @@ import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
+import { BASE_URL } from '@/src/api/client'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import { useCategories } from '@/src/hooks/useCategories'
@@ -280,7 +281,7 @@ export default function MoreScreen() {
                   Plan & billing
                 </Text>
                 <Pressable
-                  onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
+                  onPress={() => Linking.openURL('https://github.com/Sukrittt/ynab-replacement')}
                   style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
                 >
                   <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Free & open source</Text>
@@ -290,6 +291,13 @@ export default function MoreScreen() {
               <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={MessageCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow
+                icon={FileText}
+                label="Terms & privacy"
+                onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}
+                tokens={tokens}
+              />
             </View>
           </View>
 

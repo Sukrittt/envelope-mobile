@@ -1,5 +1,5 @@
 import { accessMode, currentUserId, type AccessMode } from '../api/accessMode'
-import { identifyUser, initAnalytics, posthog, track } from './analytics'
+import { identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, track } from './analytics'
 
 jest.mock('../api/accessMode', () => ({
   accessMode: { subscribe: jest.fn(), subscribeLogout: jest.fn() },
@@ -79,6 +79,31 @@ describe('identifyUser', () => {
     mockCurrentUserId.mockReturnValue(null)
     identifyUser({ email: 'a@b.com', name: 'Ada' })
     expect(posthog.identify).not.toHaveBeenCalled()
+  })
+})
+
+describe('analytics opt-out', () => {
+  afterEach(() => {
+    ;(posthog as unknown as { optedOut: boolean }).optedOut = false
+  })
+
+  it('reads enabled state off the SDK\'s own optedOut flag', () => {
+    ;(posthog as unknown as { optedOut: boolean }).optedOut = true
+    expect(isAnalyticsEnabled()).toBe(false)
+    ;(posthog as unknown as { optedOut: boolean }).optedOut = false
+    expect(isAnalyticsEnabled()).toBe(true)
+  })
+
+  it('calls optOut() when turned off', async () => {
+    await setAnalyticsEnabled(false)
+    expect(posthog.optOut).toHaveBeenCalledTimes(1)
+    expect(posthog.optIn).not.toHaveBeenCalled()
+  })
+
+  it('calls optIn() when turned on', async () => {
+    await setAnalyticsEnabled(true)
+    expect(posthog.optIn).toHaveBeenCalledTimes(1)
+    expect(posthog.optOut).not.toHaveBeenCalled()
   })
 })
 

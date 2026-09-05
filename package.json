@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "main": "src/main.tsx",
   "dependencies": {
     "@expo-google-fonts/fredoka": "^0.4.1",
@@ -66,7 +66,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "build:android": "eas build --platform android --profile production",
+    "submit:android": "eas submit --platform android --profile production"
   },
   "private": true
 }

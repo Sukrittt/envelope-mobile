@@ -27,12 +27,12 @@ const data: WidgetData = {
     {
       category: "🍔 Food",
       label: "Food",
-      uri: "mobile://modals/log-expense?category=Food",
+      uri: "envelope://modals/log-expense?category=Food",
     },
     {
       category: "🚕 Travel",
       label: "Travel",
-      uri: "mobile://modals/log-expense?category=Travel",
+      uri: "envelope://modals/log-expense?category=Travel",
     },
   ],
   today: [{ item: "Coffee", amount: "₹180" }],

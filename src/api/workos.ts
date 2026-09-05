@@ -23,7 +23,7 @@ export const CLIENT_ID = process.env.EXPO_PUBLIC_WORKOS_CLIENT_ID ?? ''
 
 /** Must exactly match a redirect URI registered in the WorkOS dashboard. */
 export const REDIRECT_URI = AuthSession.makeRedirectUri({
-  scheme: 'com.sukrit04.Mobile',
+  scheme: 'com.sukrit04.envelope',
   path: 'callback',
 })
 

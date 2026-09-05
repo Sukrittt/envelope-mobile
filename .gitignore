@@ -47,6 +47,10 @@ yarn-error.*
 # Android API key it contains in the GCP console — see Mobile/README.md.
 /google-services.json
 
+# Play Console service account key (eas.json submit.production.android),
+# downloaded from Google Cloud console — never commit it.
+/play-service-account.json
+
 # graphify local knowledge graph (machine-specific paths + volatile state)
 .graphify/
 

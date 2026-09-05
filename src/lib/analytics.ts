@@ -91,6 +91,21 @@ export function trackScreen(pathname: string): void {
   }
 }
 
+/** Whether analytics is currently allowed to send events. */
+export function isAnalyticsEnabled(): boolean {
+  return !posthog.optedOut
+}
+
+/**
+ * Turn product analytics on or off. PostHog persists the opt-out state
+ * itself (`PostHogPersistedProperty`) and every capture/identify call above
+ * already checks it, so there is nothing else to wire up on our side.
+ */
+export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {
+  if (enabled) await posthog.optIn()
+  else await posthog.optOut()
+}
+
 /**
  * Attach name and email to the person record, so PostHog shows a human
  * instead of a WorkOS id. Called once per sign-in from the root layout's

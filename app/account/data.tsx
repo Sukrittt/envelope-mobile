@@ -4,6 +4,7 @@ import {
   Text,
   Pressable,
   ScrollView,
+  Switch,
   Linking,
   StyleSheet,
 } from "react-native";
@@ -42,6 +43,7 @@ import {
   getExportDownloadUrl,
   type ExportRow,
 } from "@/src/api/account";
+import { isAnalyticsEnabled, setAnalyticsEnabled } from "@/src/lib/analytics";
 
 function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
   switch (status) {
@@ -131,6 +133,12 @@ export default function DataScreen() {
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [failureReason, setFailureReason] = useState<string | null>(null);
+  const [analyticsOn, setAnalyticsOn] = useState(isAnalyticsEnabled);
+
+  const handleToggleAnalytics = (value: boolean) => {
+    setAnalyticsOn(value);
+    void setAnalyticsEnabled(value);
+  };
 
   const exportsData = exportsQuery.data;
   const atLimit = exportsData
@@ -396,6 +404,49 @@ export default function DataScreen() {
           ) : null}
         </View>
 
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: tokens.card, borderColor: tokens.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cardTitle,
+              { color: tokens.text, fontFamily: fontFamily.bodyExtraBold },
+            ]}
+          >
+            Privacy
+          </Text>
+          <View style={styles.analyticsRow}>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.analyticsLabel,
+                  { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+                ]}
+              >
+                Share usage analytics
+              </Text>
+              <Text
+                style={[
+                  styles.cardMeta,
+                  { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+                ]}
+              >
+                Your name, email, and which features you use, sent to
+                PostHog. Never your amounts or item names.
+              </Text>
+            </View>
+            <Switch
+              value={analyticsOn}
+              onValueChange={handleToggleAnalytics}
+              trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
+              thumbColor={tokens.onAccent}
+            />
+          </View>
+        </View>
+
         <Pressable
           onPress={() => setConfirmingClear(true)}
           disabled={clearing}
@@ -590,6 +641,13 @@ const styles = StyleSheet.create({
   },
   clearTitle: { fontSize: 14 },
   clearHint: { fontSize: 11, marginTop: 2 },
+  analyticsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 12,
+  },
+  analyticsLabel: { fontSize: 14, marginBottom: 2 },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
   sheetBody: { fontSize: 13, lineHeight: 18 },
   sheetSaveButton: {

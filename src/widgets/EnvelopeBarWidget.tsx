@@ -6,7 +6,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { headerRightLabel, type WidgetData } from './data'
 import { WidgetSurface, color } from './surface'
 
-const LOG_URI = 'mobile://modals/log-expense'
+const LOG_URI = 'envelope://modals/log-expense'
 
 export function EnvelopeBarWidget({ tokens, scheme, ...data }: WidgetData & { tokens: ThemeTokens; scheme: 'light' | 'dark' }) {
   return (
