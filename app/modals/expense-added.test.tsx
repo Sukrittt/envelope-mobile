@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
+import { StyleSheet } from 'react-native'
 import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses, deleteExpense } from '@/src/api/expenses'
@@ -8,6 +9,8 @@ import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen from './expense-added'
 import { DELTA_DELAY } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
+import { fontFamily } from '@/src/theme/fonts'
+import { type } from '@/src/theme/scale'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -126,6 +129,30 @@ it('shows the budget card with the final percent-used figure once the envelope l
   expect(getByText('Groceries')).toBeTruthy()
   const days = daysLeftInMonth()
   expect(getByText(days === 0 ? 'Less than 24 hrs' : `${days} days left`)).toBeTruthy()
+})
+
+it('uses the emphasized typography hierarchy from the confirmation design', async () => {
+  const { getByText } = setup({ item: 'Apples' })
+  await waitFor(() => expect(getByText('6% used')).toBeTruthy())
+
+  const days = daysLeftInMonth()
+  const daysLabel = days === 0 ? 'Less than 24 hrs' : `${days} days left`
+  const perDay = days > 0 ? Math.round(7550 / days) : 7550
+
+  expect(StyleSheet.flatten(getByText('Apples').props.style)).toMatchObject({ fontFamily: fontFamily.bodySemiBold })
+  expect(StyleSheet.flatten(getByText('Groceries').props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
+  expect(StyleSheet.flatten(getByText('6% used').props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
+  expect(StyleSheet.flatten(getByText('left of ₹8,000').props.style)).toMatchObject({
+    fontFamily: fontFamily.bodyBold,
+    fontSize: type.caption,
+  })
+  expect(StyleSheet.flatten(getByText(daysLabel).props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
+  expect(StyleSheet.flatten(getByText(`₹${perDay.toLocaleString('en-IN')}/day to stay on track`).props.style)).toMatchObject({
+    fontFamily: fontFamily.bodyBold,
+  })
+  expect(StyleSheet.flatten(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`).props.style)).toMatchObject({
+    fontFamily: fontFamily.bodySemiBold,
+  })
 })
 
 // The "left" figure is the one that visibly moves: it opens on the
