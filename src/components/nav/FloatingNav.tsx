@@ -51,11 +51,8 @@ export function activeRouteFor(pathname: string): NavRoute | null {
   return match?.name ?? null
 }
 
-export const LOG_EXPENSE_PATH = '/modals/log-expense'
-
 /** Nav state for a pathname: which slot is live, and whether the nav shows at all. */
-export function navStateFor(pathname: string): { active: NavRoute | null; addActive: boolean; visible: boolean } {
-  const addActive = pathname === LOG_EXPENSE_PATH
+export function navStateFor(pathname: string, addActive = false): { active: NavRoute | null; addActive: boolean; visible: boolean } {
   const active = activeRouteFor(pathname)
   return { active, addActive, visible: addActive || active !== null }
 }

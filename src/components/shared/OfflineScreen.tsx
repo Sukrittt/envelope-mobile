@@ -7,7 +7,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatRelativeTime } from '@/src/lib/format'
 import { Button } from '@/src/components/ui/Button'
-import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
+import { LOG_EXPENSE_PATH } from '@/src/features/log-expense/SubmitContext'
 import { count as pendingCount } from '@/src/lib/pendingExpenses'
 import { readLastSynced } from '@/src/lib/netStatus'
 

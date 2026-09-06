@@ -1,25 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated, Easing } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import * as Haptics from 'expo-haptics'
-import { ArrowLeft, X, Search } from 'lucide-react-native'
-import { useTheme } from '@/src/theme/ThemeProvider'
-import { usePrivacy } from '@/src/context/PrivacyContext'
-import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency, formatINR, formatAmountInput } from '@/src/lib/format'
-import { splitEmoji, categoryEmoji } from '@/src/lib/emoji'
-import { CheckIcon } from '@/src/components/shared/CheckIcon'
-import { Numpad } from '@/src/components/ui/Numpad'
-import { AmountText } from '@/src/components/ui/AmountText'
 import { StepDot } from '@/src/components/onboarding/StepDot'
-import { useBudgets, useTransferBudget } from '@/src/hooks/useBudgets'
-import { useExpenses } from '@/src/hooks/useExpenses'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { AmountText } from '@/src/components/ui/AmountText'
+import { Numpad } from '@/src/components/ui/Numpad'
+import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
+import { usePrivacy } from '@/src/context/PrivacyContext'
+import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
+import { useExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
-import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
-import type { ThemeTokens } from '@/src/theme/tokens'
 import { EMPTY } from '@/src/lib/constants'
+import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
+import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
+import { formatAmountInput,formatCurrency,formatINR } from '@/src/lib/format'
+import { fontFamily } from '@/src/theme/fonts'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import type { ThemeTokens } from '@/src/theme/tokens'
+import { useLocalSearchParams,useRouter } from 'expo-router'
+import { ArrowLeft,Search,X } from 'lucide-react-native'
+import { useEffect,useMemo,useState } from 'react'
+import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 const MAX_AUTO_SOURCES = 3
@@ -79,8 +79,8 @@ export default function MoveMoneyModal() {
   )
 
   const [step, setStep] = useState<'amount' | 'sources'>('amount')
-  const [amountStr, setAmountStr] = useState(isOverspent ? String(Math.round(shortfall)) : '')
   const [allocs, setAllocs] = useState<Record<string, number>>({})
+  const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(isOverspent ? String(Math.round(shortfall)) : '', { onChange: () => setAllocs({}) })
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [moveSuccess, setMoveSuccess] = useState(false)
@@ -121,37 +121,6 @@ export default function MoveMoneyModal() {
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveSuccess])
-
-  // Same digit/decimal math as log-expense's pushDigit: cap at a sane length
-  // and at most 2 decimal places.
-  function pushDigit(digit: string) {
-    setAmountStr((prev) => {
-      if (digit === '.') return prev.includes('.') ? prev : prev === '' ? '0.' : prev + '.'
-      const dot = prev.indexOf('.')
-      if (dot !== -1 && prev.length - dot - 1 >= 2) return prev
-      const next = (prev + digit).replace(/^0+(?=\d)/, '')
-      return next.length > 9 ? prev : next
-    })
-    setAllocs({})
-  }
-
-  // Shake + haptic instead of a no-op backspace when there's nothing left to
-  // delete — same beat as log-expense.
-  const shake = useRef(new Animated.Value(0)).current
-  function handleBackspace() {
-    if (amountStr === '') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
-      shake.setValue(0)
-      Animated.sequence([
-        Animated.timing(shake, { toValue: 1, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: -1, duration: 90, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: 0, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-      ]).start()
-      return
-    }
-    setAmountStr((prev) => prev.slice(0, -1))
-    setAllocs({})
-  }
 
   // Typing a value down to 0 keeps the row (and its key) in `allocs` — only
   // "Remove" deletes it. Auto-deleting on 0 would unmount the row mid-edit,

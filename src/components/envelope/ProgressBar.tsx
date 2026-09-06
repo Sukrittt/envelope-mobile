@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
-import { View, Animated, Easing, StyleSheet, type LayoutChangeEvent } from 'react-native'
+import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
+import { useState } from 'react'
+import { Animated,StyleSheet,View,type LayoutChangeEvent } from 'react-native'
+export { FILL_DELAY,FILL_DURATION } from '@/src/components/ui/useProgressWidth'
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n))
 
 /** The fill waits out the block's own entrance before it moves, then takes long
  *  enough to be watched — at motion.slow it was over before the eye found it. */
 // Exported so callers (the "% used" readout) can tween in lockstep with the bar.
-export const FILL_DELAY = 500
-export const FILL_DURATION = 900
 
 /** Where the colour changes hands. The animated fill crosses these as it grows,
  *  so the bar reddens on the way rather than starting out at its end state. */
@@ -69,21 +69,7 @@ export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
  */
 function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trackWidth: number }) {
   const { tokens } = useTheme()
-  const width = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    if (trackWidth === 0) return
-    width.setValue((from / 100) * trackWidth)
-    Animated.timing(width, {
-      toValue: (to / 100) * trackWidth,
-      duration: FILL_DURATION,
-      delay: FILL_DELAY,
-      // Eased at both ends: it crept off the mark but stopped dead before.
-      easing: Easing.inOut(Easing.cubic),
-      // Layout props can't be driven natively.
-      useNativeDriver: false,
-    }).start()
-  }, [width, from, to, trackWidth])
+  const width = useProgressWidth(trackWidth, to, from)
 
   // Driven off the same value as the width, so the colour hands over exactly as
   // the fill passes each threshold instead of being fixed at the end state.

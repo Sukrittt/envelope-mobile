@@ -4,7 +4,7 @@ import { getExpenses, postExpensePayload } from '@/src/api/expenses'
 import { getCategories } from '@/src/api/categories'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
-import { useLogExpenseSubmitState, resetLogExpenseSubmit } from '@/src/hooks/useLogExpenseSubmit'
+import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -29,13 +29,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }))
 
-// The nav circle is a sibling of this screen in production (see
-// FloatingNav.tsx / TabBar.tsx), reached only through this store — there is
-// no submit button in log-expense's own tree to press. Mirror that sibling
-// relationship here too, not a parent/child one: a subscriber that instead
-// wraps LogExpenseScreen would re-render it on every publish (the store
-// notifies unconditionally), and LogExpenseScreen's own publish-on-every-
-// render effect would then refire and republish forever.
+// Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
   const { submit } = useLogExpenseSubmitState()
   ;(globalThis as any).__submit = submit
@@ -49,17 +43,16 @@ function setup() {
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('')
   return renderWithProviders(
-    <>
+    <LogExpenseSubmitProvider>
       <LogExpenseScreen />
       <Harness />
-    </>,
+    </LogExpenseSubmitProvider>,
   )
 }
 
 beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers({ legacyFakeTimers: false })
-  resetLogExpenseSubmit()
 })
 
 afterEach(() => {

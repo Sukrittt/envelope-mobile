@@ -1,32 +1,30 @@
-import { useEffect, useRef, useState } from 'react'
-import { View, StyleSheet } from 'react-native'
-import { Stack, useGlobalSearchParams, usePathname, useRouter, useSegments } from 'expo-router'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import * as SplashScreen from 'expo-splash-screen'
-import { setAudioModeAsync } from 'expo-audio'
-import { useAppFonts } from '@/src/theme/fonts'
-import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
-import { accessMode, clearAccess, initAccessMode } from '@/src/api/accessMode'
-import { readCategoryCache } from '@/src/lib/categoryCache'
-import { startAutoFlush } from '@/src/sync/flush'
+import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
-import { PrivacyProvider } from '@/src/context/PrivacyContext'
-import { identifyUser, initAnalytics, trackScreen, track } from '@/src/lib/analytics'
 import { AlertHost } from '@/src/components/ui/AlertHost'
-import { TabBar } from '@/src/components/nav/TabBar'
-import { LOG_EXPENSE_PATH } from '@/src/components/nav/FloatingNav'
-import { WidgetSync } from '@/src/widgets/WidgetSync'
-import { clearSnapshot } from '@/src/widgets/snapshot'
+import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
+import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
+import { identifyUser,initAnalytics,track,trackScreen } from '@/src/lib/analytics'
+import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
 import {
-  configureNotificationHandler,
-  registerForPushNotificationsAsync,
-  addPushTokenListener,
-  addNotificationResponseListener,
-  checkColdStartNotification,
+addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
+registerForPushNotificationsAsync,unregisterDevicePushToken
 } from '@/src/lib/notifications'
+import { clearAll as clearPendingExpenses } from '@/src/lib/pendingExpenses'
+import { startAutoFlush } from '@/src/sync/flush'
+import { useAppFonts } from '@/src/theme/fonts'
+import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
+import { clearSnapshot } from '@/src/widgets/snapshot'
+import { WidgetSync } from '@/src/widgets/WidgetSync'
+import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
+import { setAudioModeAsync } from 'expo-audio'
+import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments } from 'expo-router'
+import * as SplashScreen from 'expo-splash-screen'
+import { useEffect,useRef,useState } from 'react'
+import { StyleSheet,View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 configureNotificationHandler()
@@ -110,14 +108,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
     })
-    const unsubscribeLogout = accessMode.subscribeLogout(() => {
+    const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
       queryClient.clear()
       loggedExpenseRedirect.current = false
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
-      void clearSnapshot()
+      await Promise.allSettled([clearSnapshot(), clearPendingExpenses(), clearCategoryCache(), unregisterDevicePushToken(token)])
     })
     return () => {
       unsubscribe()
@@ -274,7 +272,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
       </Stack>
-      <TabBar />
+      <LogExpenseNavigation />
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
@@ -313,9 +311,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ThemeProvider>
-            <PrivacyProvider>
+            <PrivacyProvider><LogExpenseSubmitProvider>
               <RootNavigator fontsLoaded={fontsLoaded} />
-            </PrivacyProvider>
+            </LogExpenseSubmitProvider></PrivacyProvider>
           </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

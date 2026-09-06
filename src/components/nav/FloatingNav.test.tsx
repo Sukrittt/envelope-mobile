@@ -81,7 +81,7 @@ describe('navStateFor', () => {
   })
 
   it('is visible with the add slot active on the log-expense path', () => {
-    expect(navStateFor('/modals/log-expense')).toEqual({ active: null, addActive: true, visible: true })
+    expect(navStateFor('/modals/log-expense', true)).toEqual({ active: null, addActive: true, visible: true })
   })
 
   it('is not visible on a path outside the tabs and log-expense', () => {

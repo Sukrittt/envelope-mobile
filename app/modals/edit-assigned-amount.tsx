@@ -1,25 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
-import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet, Animated, Easing } from 'react-native'
-import Reanimated, { FadeIn } from 'react-native-reanimated'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import * as Haptics from 'expo-haptics'
-import { X } from 'lucide-react-native'
-import { useTheme } from '@/src/theme/ThemeProvider'
-import { usePrivacy } from '@/src/context/PrivacyContext'
-import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency, formatINR, formatAmountInput } from '@/src/lib/format'
-import { splitEmoji, categoryEmoji } from '@/src/lib/emoji'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
-import { Numpad } from '@/src/components/ui/Numpad'
 import { AmountText } from '@/src/components/ui/AmountText'
-import { useBudgets, useUpdateBudget, useAddBudget } from '@/src/hooks/useBudgets'
-import { useExpenses } from '@/src/hooks/useExpenses'
+import { Numpad } from '@/src/components/ui/Numpad'
+import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
+import { usePrivacy } from '@/src/context/PrivacyContext'
+import { useAddBudget,useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
+import { useExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
-import { computeEnvelopeState, currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
-import type { ThemeTokens } from '@/src/theme/tokens'
 import { EMPTY } from '@/src/lib/constants'
+import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
+import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
+import { formatAmountInput,formatCurrency,formatINR } from '@/src/lib/format'
+import { fontFamily } from '@/src/theme/fonts'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import type { ThemeTokens } from '@/src/theme/tokens'
+import { useLocalSearchParams,useRouter } from 'expo-router'
+import { X } from 'lucide-react-native'
+import { useEffect,useState } from 'react'
+import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
+import Reanimated,{ FadeIn } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const QUICK_PICKS = [500, 1000, 2500]
 
@@ -109,7 +109,7 @@ function EditAmountBody({
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const emoji = isCreditCardPayment ? '💳' : categoryEmoji(category, group)
 
-  const [amountText, setAmountText] = useState(String(currentAssigned))
+  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(String(currentAssigned))
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -125,35 +125,6 @@ function EditAmountBody({
         : delta > 0
           ? `Pulls ${formatCurrency(delta, hideAmounts)} from Ready to Assign`
           : `Frees ${formatCurrency(-delta, hideAmounts)} back to Ready to Assign`
-
-  // Same digit/decimal math as move-money.tsx / log-expense's pushDigit: cap
-  // at a sane length and at most 2 decimal places.
-  function pushDigit(digit: string) {
-    setAmountText((prev) => {
-      if (digit === '.') return prev.includes('.') ? prev : prev === '' ? '0.' : prev + '.'
-      const dot = prev.indexOf('.')
-      if (dot !== -1 && prev.length - dot - 1 >= 2) return prev
-      const next = (prev + digit).replace(/^0+(?=\d)/, '')
-      return next.length > 9 ? prev : next
-    })
-  }
-
-  // Shake + haptic instead of a no-op backspace when there's nothing left to
-  // delete — same beat as move-money.tsx / log-expense.
-  const shake = useRef(new Animated.Value(0)).current
-  function handleBackspace() {
-    if (amountText === '') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
-      shake.setValue(0)
-      Animated.sequence([
-        Animated.timing(shake, { toValue: 1, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: -1, duration: 90, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: 0, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-      ]).start()
-      return
-    }
-    setAmountText((prev) => prev.slice(0, -1))
-  }
 
   async function submitEdit() {
     setSaving(true)

@@ -2,9 +2,17 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getUser } from '@/src/api/account'
 import { getExpenses } from '@/src/api/expenses'
-import { publishLogExpenseSubmit, resetLogExpenseSubmit } from '@/src/hooks/useLogExpenseSubmit'
-import { TabBar } from './TabBar'
+import { useEffect } from 'react'
+import { LogExpenseSubmitProvider, useLogExpenseSubmitPublisher, type LogExpenseSubmitSnapshot } from '@/src/features/log-expense/SubmitContext'
+import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
+let snapshot: LogExpenseSubmitSnapshot | undefined
+function NavigationHarness() {
+ const publish = useLogExpenseSubmitPublisher()
+ useEffect(() => { if (snapshot) publish(snapshot) }, [publish])
+ return <LogExpenseNavigation />
+}
 
+function TabBar() { return <LogExpenseSubmitProvider><NavigationHarness /></LogExpenseSubmitProvider> }
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn() }))
 jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
 
@@ -23,7 +31,7 @@ const mockGetExpenses = getExpenses as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
-  resetLogExpenseSubmit()
+  snapshot = undefined
   mockPathname = '/'
   mockGetUser.mockResolvedValue({ onboardedAt: '2026-01-01' })
   mockGetExpenses.mockResolvedValue([])
@@ -44,7 +52,7 @@ describe('on the log-expense screen', () => {
 
   it('submits (not router.back) when the add circle is tapped', async () => {
     const submit = jest.fn()
-    act(() => publishLogExpenseSubmit({ canSubmit: true, saving: false, success: false, submit }))
+    snapshot = { canSubmit: true, saving: false, success: false, submit }
 
     const { getByLabelText } = renderWithProviders(<TabBar />)
     await act(async () => {})
@@ -56,7 +64,7 @@ describe('on the log-expense screen', () => {
 
   it('disables the circle and blocks submit while saving', async () => {
     const submit = jest.fn()
-    act(() => publishLogExpenseSubmit({ canSubmit: true, saving: true, success: false, submit }))
+    snapshot = { canSubmit: true, saving: true, success: false, submit }
 
     const { getByLabelText } = renderWithProviders(<TabBar />)
     await act(async () => {})

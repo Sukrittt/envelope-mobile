@@ -1,42 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Animated,
-  Easing,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { ChevronDown } from "lucide-react-native";
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { fontFamily } from "@/src/theme/fonts";
-import { NAV_HEIGHT } from "@/src/theme/scale";
-import { useAddCategory, useCategories } from "@/src/hooks/useCategories";
-import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
-import {
-  useAddExpense,
-  useExpenses,
-  useUpdateExpense,
-} from "@/src/hooks/useExpenses";
-import {
-  publishLogExpenseSubmit,
-  resetLogExpenseSubmit,
-} from "@/src/hooks/useLogExpenseSubmit";
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
-import { formatAmountInput } from "@/src/lib/format";
 import { DatePicker } from "@/src/components/shared/DatePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
-import { useOnline } from "@/src/lib/netStatus";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Chip } from "@/src/components/ui/Chip";
 import { Numpad } from "@/src/components/ui/Numpad";
+import { useAmountEntry } from '@/src/components/ui/useAmountEntry';
+import {
+EMPTY_SUBMIT,
+useLogExpenseSubmitPublisher,
+} from "@/src/features/log-expense/SubmitContext";
+import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
+import { useCategoryMap } from "@/src/hooks/useCategoryMap";
+import {
+useAddExpense,
+useExpenses,
+useUpdateExpense,
+} from "@/src/hooks/useExpenses";
 import { todayIST } from "@/src/lib/date";
+import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
+import { formatAmountInput } from "@/src/lib/format";
+import { useOnline } from "@/src/lib/netStatus";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { fontFamily } from "@/src/theme/fonts";
+import { NAV_HEIGHT } from "@/src/theme/scale";
+import { useLocalSearchParams,useRouter } from "expo-router";
+import { ChevronDown } from "lucide-react-native";
+import { useCallback,useEffect,useMemo,useRef,useState } from "react";
+import {
+Animated,
+Pressable,
+ScrollView,
+StyleSheet,
+Text,
+TextInput,
+View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -100,12 +99,13 @@ export default function LogExpenseScreen() {
   const updateExpense = useUpdateExpense();
   const addCategory = useAddCategory();
 
+  const publishLogExpenseSubmit = useLogExpenseSubmitPublisher();
+  const addMutate = addExpense.mutate;
+  const updateMutate = updateExpense.mutate;
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data]);
 
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [amount, setAmount] = useState(
-    origAmountInr ? String(origAmountInr) : "",
-  );
+  const { amount, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(origAmountInr ? String(origAmountInr) : "", { shakeAtZero: true });
   const [item, setItem] = useState(origItem);
   const [category, setCategory] = useState(str(params.category));
   const [categoryTouched, setCategoryTouched] = useState(
@@ -195,53 +195,6 @@ export default function LogExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
 
-  // Cap at a sane length and at most 2 decimal places; the pad is the only
-  // input, so there is no other place to reject a bad value.
-  function pushDigit(digit: string) {
-    setAmount((prev) => {
-      if (digit === ".")
-        return prev.includes(".") ? prev : prev === "" ? "0." : prev + ".";
-      const dot = prev.indexOf(".");
-      if (dot !== -1 && prev.length - dot - 1 >= 2) return prev;
-      const next = (prev + digit).replace(/^0+(?=\d)/, "");
-      return next.length > 9 ? prev : next;
-    });
-  }
-
-  // Shake + haptic instead of a no-op backspace when there's nothing left to
-  // delete — tells the user the key registered without moving the amount.
-  const shake = useRef(new Animated.Value(0)).current;
-  function handleBackspace() {
-    if (parsedAmount === 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-        () => {},
-      );
-      shake.setValue(0);
-      Animated.sequence([
-        Animated.timing(shake, {
-          toValue: 1,
-          duration: 45,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shake, {
-          toValue: -1,
-          duration: 90,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shake, {
-          toValue: 0,
-          duration: 45,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      return;
-    }
-    setAmount((p) => p.slice(0, -1));
-  }
-
   function handleCreateCategory() {
     const name = newCategoryName.trim();
     if (!name || addCategory.isPending) return;
@@ -266,11 +219,11 @@ export default function LogExpenseScreen() {
     );
   }
 
-  function handleSubmit() {
+  const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     setError("");
     if (isEdit) {
-      updateExpense.mutate(
+      updateMutate(
         {
           id: origId,
           timestamp: origTimestamp,
@@ -290,7 +243,7 @@ export default function LogExpenseScreen() {
         },
       );
     } else {
-      addExpense.mutate(
+      addMutate(
         {
           item: item.trim(),
           amount_inr: String(parsedAmount),
@@ -346,11 +299,9 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }
+  }, [canSubmit, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
 
-  // Publishes on every render so the nav circle's submit closes over fresh
-  // form state; TabBar (a sibling, not a parent) reads this to drive its
-  // center-icon tap and loading/success visuals.
+  // Publish only when the action or its visible state changes.
   useEffect(() => {
     publishLogExpenseSubmit({
       canSubmit,
@@ -358,8 +309,8 @@ export default function LogExpenseScreen() {
       success: logSuccess,
       submit: handleSubmit,
     });
-  });
-  useEffect(() => () => resetLogExpenseSubmit(), []);
+  }, [canSubmit, saving, logSuccess, handleSubmit, publishLogExpenseSubmit]);
+  useEffect(() => () => publishLogExpenseSubmit(EMPTY_SUBMIT), [publishLogExpenseSubmit]);
 
   const onAccentDim = "rgba(255, 255, 255, 0.7)";
   const fieldBg = "rgba(255, 255, 255, 0.16)";
