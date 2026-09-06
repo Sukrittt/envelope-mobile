@@ -37,8 +37,16 @@ export async function readEncrypted<T>(key: string): Promise<T | null> {
     await writeEncrypted(key, value)
     return value
   }
-  const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(raw.slice(PREFIX.length)), await encryptionKey(), {
-    additionalData: new TextEncoder().encode(key),
-  })
-  return JSON.parse(new TextDecoder().decode(plaintext)) as T
+  try {
+    const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(raw.slice(PREFIX.length)), await encryptionKey(), {
+      additionalData: new TextEncoder().encode(key),
+    })
+    return JSON.parse(new TextDecoder().decode(plaintext)) as T
+  } catch {
+    // Undecryptable (key rotated under it, corrupt blob) — this is a
+    // best-effort cache/queue, not a source of truth. Drop it instead of
+    // wedging every future read behind the same throw.
+    await AsyncStorage.removeItem(key)
+    return null
+  }
 }
