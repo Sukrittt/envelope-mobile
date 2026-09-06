@@ -9,8 +9,9 @@ function groupIndian(intStr: string): string {
 
 export function formatINR(value: number): string {
   const abs = Math.abs(value)
-  const sign = value < 0 ? '-' : ''
   const [intStr, decStr] = abs.toFixed(2).split('.')
+  const isZero = intStr === '0' && decStr === '00'
+  const sign = value < 0 && !isZero ? '-' : ''
   const decimals = decStr === '00' ? '' : `.${decStr}`
   return `${sign}₹${groupIndian(intStr)}${decimals}`
 }

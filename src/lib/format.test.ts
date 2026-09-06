@@ -58,3 +58,5 @@ describe('date formatters', () => {
     expect(formatDateShort('2026-08-12')).toBe('12 Aug')
   })
 })
+
+it('suppresses negative zero', () => expect(formatINR(-0.004)).toBe('₹0'))

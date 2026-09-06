@@ -146,3 +146,8 @@ describe('computeEnvelopeState', () => {
     expect(state.groups).toEqual(['Home'])
   })
 })
+
+it('preserves paise in ready to assign', () => {
+ const state = computeEnvelopeState([budget('2026-08','__income__','1000'),budget('2026-08','Rent','600.25')], [], '2026-08', [{name:'Rent',group:'Home'}], ['Home'])
+ expect(state.readyToAssign).toBe(399.75)
+})
