@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
+  Animated,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -22,6 +23,7 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
 
@@ -154,6 +156,7 @@ export function FloatingNav({
   addActive = false,
   addSaving = false,
   addSuccess = false,
+  addInvalid = false,
   addDisabled = false,
   children,
 }: {
@@ -168,13 +171,24 @@ export function FloatingNav({
   addSaving?: boolean
   /** Meaningful only when addActive: submit just succeeded, briefly shows a check. */
   addSuccess?: boolean
-  /** Meaningful only when addActive: blocks the tap (invalid form, saving, or success). */
+  /** Meaningful only when addActive: keeps an incomplete submit tappable but shakes it instead of calling onAdd. */
+  addInvalid?: boolean
+  /** Meaningful only when addActive: blocks the tap while saving or after success. */
   addDisabled?: boolean
   children?: React.ReactNode
 }) {
   const { tokens, space, elevation, radius, scheme } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
+  const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
+
+  const handleAdd = useCallback(() => {
+    if (addActive && addInvalid) {
+      triggerInvalidFeedback()
+      return
+    }
+    onAdd()
+  }, [addActive, addInvalid, onAdd, triggerInvalidFeedback])
 
   // On log-expense the strip sits over the accent flood in both schemes, so
   // the idle circles stay white there too instead of dark-mode's near-black cardSolid.
@@ -234,13 +248,16 @@ export function FloatingNav({
       const idx = indexFromOffset(e.nativeEvent.contentOffset.x, NAV_SLOTS.length)
       if (idx === mountedIndexRef.current) return
       mountedIndexRef.current = idx
-      // Heavier than the drag ticks: this one means "landed", not "passing".
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
       const slot = NAV_SLOTS[idx]
-      if (slot.kind === 'add') onAdd()
+      // Heavier than the drag ticks: this one means "landed", not "passing".
+      // An invalid active add uses the error haptic from handleAdd instead.
+      if (!(slot.kind === 'add' && addActive && addInvalid)) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+      }
+      if (slot.kind === 'add') handleAdd()
       else onSelect(slot.name)
     },
-    [onAdd, onSelect],
+    [addActive, addInvalid, handleAdd, onSelect],
   )
 
   return (
@@ -281,32 +298,42 @@ export function FloatingNav({
       >
         {NAV_SLOTS.map((slot, i) =>
           slot.kind === 'add' ? (
-            <NavCircle
+            <Animated.View
               key="add"
-              glyph={PlusGlyph}
-              label="Log expense"
-              selected={addActive}
-              background={addActive ? activeFill : idle}
-              color={addActive ? activeIcon : idleIcon}
-              ringColor={tokens.accent}
-              onPress={onAdd}
-              onLongPress={addActive ? undefined : onAddLongPress}
-              disabled={addActive && (addDisabled || addSaving || addSuccess)}
-              overrideContent={
-                addActive && addSuccess ? (
-                  <View testID="nav-add-success">
-                    <AddCircleDone discColor={tokens.mint} checkColor={tokens.onAccent} />
-                  </View>
-                ) : addActive && addSaving ? (
-                  <View testID="nav-add-saving">
-                    <AddCircleLoad discColor={activeFill} iconColor={activeIcon} />
-                  </View>
-                ) : undefined
-              }
-              scrollX={scrollX}
-              index={i}
-              style={elevation.floating}
-            />
+              style={{
+                transform: [
+                  { translateX: invalidAddShake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) },
+                ],
+              }}
+            >
+              <NavCircle
+                glyph={PlusGlyph}
+                label="Log expense"
+                selected={addActive}
+                background={addActive ? activeFill : idle}
+                color={addActive ? activeIcon : idleIcon}
+                ringColor={tokens.accent}
+                onPress={handleAdd}
+                onLongPress={addActive ? undefined : onAddLongPress}
+                disabled={addActive && (addDisabled || addSaving || addSuccess)}
+                dimmed={addActive && (addInvalid || addDisabled || addSaving || addSuccess)}
+                pressHaptic={!(addActive && addInvalid)}
+                overrideContent={
+                  addActive && addSuccess ? (
+                    <View testID="nav-add-success">
+                      <AddCircleDone discColor={tokens.mint} checkColor={tokens.onAccent} />
+                    </View>
+                  ) : addActive && addSaving ? (
+                    <View testID="nav-add-saving">
+                      <AddCircleLoad discColor={activeFill} iconColor={activeIcon} />
+                    </View>
+                  ) : undefined
+                }
+                scrollX={scrollX}
+                index={i}
+                style={elevation.floating}
+              />
+            </Animated.View>
           ) : (
             <NavCircle
               key={slot.name}
@@ -397,6 +424,8 @@ function NavCircle({
   onPress,
   onLongPress,
   disabled = false,
+  dimmed = disabled,
+  pressHaptic = true,
   overrideContent,
   scrollX,
   index,
@@ -411,6 +440,8 @@ function NavCircle({
   onPress: () => void
   onLongPress?: () => void
   disabled?: boolean
+  dimmed?: boolean
+  pressHaptic?: boolean
   /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
   overrideContent?: React.ReactNode
   scrollX: SharedValue<number>
@@ -463,7 +494,7 @@ function NavCircle({
             pressScale.value = withSpring(1, motion.spring)
           }}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
             onPress()
           }}
           onLongPress={
@@ -479,7 +510,7 @@ function NavCircle({
             selected ? elevation.floating : elevation.card,
             style,
             circleStyle,
-            disabled ? styles.disabled : null,
+            dimmed ? styles.disabled : null,
           ]}
         >
           {overrideContent ?? <NavIcon icon={glyph} color={color} size={ICON} />}

@@ -74,6 +74,15 @@ describe('on the log-expense screen', () => {
     expect(submit).not.toHaveBeenCalled()
   })
 
+  it('keeps the circle tappable when required fields are missing', async () => {
+    snapshot = { canSubmit: false, saving: false, success: false, submit: jest.fn() }
+
+    const { getByLabelText } = renderWithProviders(<TabBar />)
+    await act(async () => {})
+
+    expect(getByLabelText('Log expense').props.accessibilityState.disabled).toBe(false)
+  })
+
   it('shows "Tap to add expense" when there are no transactions', async () => {
     const { findByText, queryByText } = renderWithProviders(<TabBar />)
     expect(await findByText('Tap to add expense')).toBeTruthy()

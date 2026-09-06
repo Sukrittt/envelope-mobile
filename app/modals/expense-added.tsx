@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { Animated, View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -22,10 +22,17 @@ import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { formatDateTimeLong } from "@/src/lib/format";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Button } from "@/src/components/ui/Button";
-import { DeltaBar, DELTA_DELAY } from "@/src/components/envelope/DeltaBar";
+import {
+  DeltaBar,
+  DELTA_DELAY,
+  DELTA_DURATION,
+  DELTA_EASING,
+} from "@/src/components/envelope/DeltaBar";
 import {
   fillColor,
+  fillColorStops,
   fillSoftColor,
+  fillSoftColorStops,
 } from "@/src/components/envelope/ProgressBar";
 import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 
@@ -39,7 +46,7 @@ const STAGGER = {
   detail: 300,
   card: 380,
   footer: 560,
-  cardFooter: 1500,
+  cardFooter: DELTA_DELAY + DELTA_DURATION + 150,
 };
 /** Bundled rather than remote (contrast expense-failed's ERROR_LOTTIE): this
  *  is the one animation every successful add plays, so it can't depend on a
@@ -48,6 +55,98 @@ const TICK = 200;
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
+}
+
+/** Counts in lockstep with DeltaBar's post-expense segment. It mounts only
+ * once the envelope is ready, so the captured range is the old/new pair for
+ * this confirmation rather than a placeholder from the screen's first paint. */
+function AnimatedUsedPercentage({
+  from,
+  to,
+  categoryName,
+}: {
+  from: number;
+  to: number;
+  categoryName: string;
+}) {
+  const { tokens, space, radius, type } = useTheme();
+  const range = useRef({ from, to }).current;
+  const progress = useRef(new Animated.Value(range.from)).current;
+  const [shown, setShown] = useState(Math.round(range.from));
+
+  useEffect(() => {
+    const listener = progress.addListener(({ value }) =>
+      setShown(Math.round(value)),
+    );
+    const animation = Animated.timing(progress, {
+      toValue: range.to,
+      delay: DELTA_DELAY,
+      duration: DELTA_DURATION,
+      easing: DELTA_EASING,
+      useNativeDriver: false,
+    });
+    animation.start();
+    return () => {
+      animation.stop();
+      progress.removeListener(listener);
+    };
+  }, [progress, range]);
+
+  const foregroundStops = fillColorStops(range.from, range.to, tokens);
+  const backgroundStops = fillSoftColorStops(range.from, range.to, tokens);
+  const foreground =
+    range.to > range.from
+      ? progress.interpolate(foregroundStops)
+      : fillColor(range.to, tokens);
+  const background =
+    range.to > range.from
+      ? progress.interpolate(backgroundStops)
+      : fillSoftColor(range.to, tokens);
+
+  return (
+    <View style={styles.cardHeaderRow}>
+      <View style={[styles.categoryRow, { gap: space.xs }]}>
+        <Animated.View
+          testID="envelope-category-dot"
+          style={[styles.categoryDot, { backgroundColor: foreground }]}
+        />
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.line,
+            {
+              color: tokens.text,
+              fontFamily: fontFamily.bodyExtraBold,
+              fontSize: type.caption,
+            },
+          ]}
+        >
+          {categoryName}
+        </Text>
+      </View>
+      <Animated.View
+        testID="percent-used-pill"
+        style={[
+          styles.usedPill,
+          {
+            backgroundColor: background,
+            borderRadius: radius.full,
+            paddingHorizontal: space.sm,
+          },
+        ]}
+      >
+        <Animated.Text
+          style={{
+            color: foreground,
+            fontFamily: fontFamily.bodyExtraBold,
+            fontSize: type.caption,
+          }}
+        >
+          {`${shown}% used`}
+        </Animated.Text>
+      </Animated.View>
+    </View>
+  );
 }
 
 /**
@@ -64,7 +163,7 @@ function str(v: string | string[] | undefined): string {
  * One tight vertical column, no floating clusters: tick, "Added ₹X", the item
  * name, then the budget card — the actual payoff, promoted above the fold
  * instead of held back. The card's `DeltaBar` grows to the *pre*-expense
- * position, pins a ghost marker there, then snaps in the delta segment; the
+ * position, pins a ghost marker there, then eases in the delta segment; the
  * "left" figure counts down from the pre-expense value on the same beat
  * (`DELTA_DELAY`). A days-left/pace row reveals last (`STAGGER.cardFooter`),
  * after the delta and its `+₹X` tag have landed — the final payoff, not part
@@ -140,7 +239,7 @@ export default function ExpenseAddedScreen() {
   const showEnvelope = !pending && envelope != null && funded > 0;
   const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 0;
   // Where the bar stood before this expense — the DeltaBar tweens its base
-  // fill to here, then snaps in the delta on top.
+  // fill to here, then eases in the delta on top.
   const prevPct =
     funded > 0 ? Math.min(100, ((spent - amount) / funded) * 100) : 0;
   // `left` is already the post-expense figure (see the hand-charge comment
@@ -313,56 +412,17 @@ export default function ExpenseAddedScreen() {
             style={[
               styles.card,
               {
-                backgroundColor: tokens.cardSolid,
                 borderRadius: radius.lg,
                 padding: space.lg + space.xs,
                 marginTop: space.xxl,
               },
             ]}
           >
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.categoryRow, { gap: space.xs }]}>
-                <View
-                  style={[
-                    styles.categoryDot,
-                    { backgroundColor: fillColor(spentPct, tokens) },
-                  ]}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.line,
-                    {
-                      color: tokens.text,
-                      fontFamily: fontFamily.bodyExtraBold,
-                      fontSize: type.caption,
-                    },
-                  ]}
-                >
-                  {categoryName}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.usedPill,
-                  {
-                    backgroundColor: fillSoftColor(spentPct, tokens),
-                    borderRadius: radius.full,
-                    paddingHorizontal: space.sm,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: fillColor(spentPct, tokens),
-                    fontFamily: fontFamily.bodyExtraBold,
-                    fontSize: type.caption,
-                  }}
-                >
-                  {`${Math.round(spentPct)}% used`}
-                </Text>
-              </View>
-            </View>
+            <AnimatedUsedPercentage
+              from={prevPct}
+              to={spentPct}
+              categoryName={categoryName}
+            />
 
             <View
               style={[styles.leftRow, { gap: space.xs, marginTop: space.md }]}

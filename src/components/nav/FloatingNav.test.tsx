@@ -1,4 +1,6 @@
-import { fireEvent } from '@testing-library/react-native'
+import { act, fireEvent } from '@testing-library/react-native'
+import * as Haptics from 'expo-haptics'
+import { Animated } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
@@ -8,6 +10,14 @@ import {
   addSlotShift,
   navStateFor,
 } from './FloatingNav'
+
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  NotificationFeedbackType: { Error: 'error' },
+}))
 
 // RNTL can't simulate a real drag/snap gesture, so drag-to-navigate is
 // covered by hand (see the plan's verification steps), not here.
@@ -134,6 +144,30 @@ describe('FloatingNav', () => {
     expect(onAdd).toHaveBeenCalled()
   })
 
+  it('shakes with an error haptic instead of submitting when the active add form is invalid', () => {
+    jest.mocked(Haptics.impactAsync).mockClear()
+    jest.mocked(Haptics.notificationAsync).mockClear()
+    const shakeAnimation = { start: jest.fn() }
+    const sequenceSpy = jest.spyOn(Animated, 'sequence').mockReturnValue(shakeAnimation as never)
+    const onAdd = jest.fn()
+    const { getByLabelText } = renderWithProviders(
+      <FloatingNav active={null} addActive addInvalid onSelect={jest.fn()} onAdd={onAdd} />,
+    )
+    const circle = getByLabelText('Log expense')
+
+    expect(circle.props.accessibilityState.disabled).toBe(false)
+    act(() => {
+      fireEvent.press(circle)
+    })
+
+    expect(onAdd).not.toHaveBeenCalled()
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith(Haptics.NotificationFeedbackType.Error)
+    expect(Haptics.impactAsync).not.toHaveBeenCalled()
+    expect(sequenceSpy).toHaveBeenCalled()
+    expect(shakeAnimation.start).toHaveBeenCalled()
+    sequenceSpy.mockRestore()
+  })
+
   it('disables and shows a spinner on the add circle while addSaving', () => {
     const onAdd = jest.fn()
     const { getByLabelText, getByTestId } = renderWithProviders(
@@ -148,7 +182,7 @@ describe('FloatingNav', () => {
 
   it('disables and shows a check on the add circle while addSuccess', () => {
     const onAdd = jest.fn()
-    const { getByLabelText, getByTestId } = renderWithProviders(
+    const { getByLabelText, getByTestId, getAllByTestId } = renderWithProviders(
       <FloatingNav active={null} addActive addSuccess onSelect={jest.fn()} onAdd={onAdd} />,
     )
     const circle = getByLabelText('Log expense')
@@ -156,5 +190,7 @@ describe('FloatingNav', () => {
     fireEvent.press(circle)
     expect(onAdd).not.toHaveBeenCalled()
     expect(getByTestId('nav-add-success')).toBeTruthy()
+    expect(getByTestId('success-confetti').props.pointerEvents).toBe('none')
+    expect(getAllByTestId(/^success-particle-/)).toHaveLength(8)
   })
 })

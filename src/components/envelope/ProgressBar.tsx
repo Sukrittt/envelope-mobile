@@ -15,6 +15,17 @@ const clamp = (n: number) => Math.max(0, Math.min(100, n))
  *  so the bar reddens on the way rather than starting out at its end state. */
 const THRESHOLDS = [75, 90, 100]
 
+function colorStops(
+  from: number,
+  to: number,
+  colorAt: (pct: number) => string,
+): { inputRange: number[]; outputRange: string[] } {
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  const inputRange = [lo, ...THRESHOLDS.filter((threshold) => threshold > lo && threshold < hi), hi]
+  return { inputRange, outputRange: inputRange.map(colorAt) }
+}
+
 // Exported for the Android widget (src/widgets/EnvelopeWidget.tsx), which
 // draws its own bars via RemoteViews primitives but wants the same thresholds.
 export function fillColor(pct: number, tokens: ThemeTokens): string {
@@ -25,6 +36,15 @@ export function fillColor(pct: number, tokens: ThemeTokens): string {
 // used" badge on the success card.
 export function fillSoftColor(pct: number, tokens: ThemeTokens): string {
   return pct === 100 ? tokens.borderStrong : pct > 90 ? tokens.coralSoft : pct > 75 ? tokens.warnSoft : tokens.mintSoft
+}
+
+/** Percentage-space color stops shared by every animated envelope surface. */
+export function fillColorStops(from: number, to: number, tokens: ThemeTokens) {
+  return colorStops(from, to, (pct) => fillColor(pct, tokens))
+}
+
+export function fillSoftColorStops(from: number, to: number, tokens: ThemeTokens) {
+  return colorStops(from, to, (pct) => fillSoftColor(pct, tokens))
 }
 
 /** Spend-vs-assigned bar.
@@ -75,12 +95,12 @@ function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trac
   // the fill passes each threshold instead of being fixed at the end state.
   const lo = Math.min(from, to)
   const hi = Math.max(from, to)
-  const stops = [lo, ...THRESHOLDS.filter((t) => t > lo && t < hi), hi]
+  const stops = fillColorStops(from, to, tokens)
   const color =
     hi > lo && trackWidth > 0
       ? width.interpolate({
-          inputRange: stops.map((s) => (s / 100) * trackWidth),
-          outputRange: stops.map((s) => fillColor(s, tokens)),
+          inputRange: stops.inputRange.map((pct) => (pct / 100) * trackWidth),
+          outputRange: stops.outputRange,
         })
       : fillColor(to, tokens)
 

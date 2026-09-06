@@ -7,7 +7,7 @@ import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen from './expense-added'
-import { DELTA_DELAY } from '@/src/components/envelope/DeltaBar'
+import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
 import { fontFamily } from '@/src/theme/fonts'
 import { type } from '@/src/theme/scale'
@@ -116,11 +116,18 @@ it('falls back to the category label only when there is no item name', async () 
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
-// The card is the payoff, not an afterthought: "% used" is the final,
-// post-expense figure the moment the card renders — no tween on this one.
-it('shows the budget card with the final percent-used figure once the envelope loads', async () => {
-  const { getByText } = setup()
-  await waitFor(() => expect(getByText('6% used')).toBeTruthy())
+// The card first establishes the old envelope state, then the percentage and
+// new bar segment move together after a short hold.
+it('counts percentage used from the old value to the new value', async () => {
+  const { getByText, queryByText } = setup({}, [
+    { date: TODAY, amount_inr: '3200', category: '🛒 Groceries', timestamp: 'other' },
+  ])
+  await waitFor(() => expect(getByText('40% used')).toBeTruthy())
+  expect(queryByText('46% used')).toBeNull()
+  await waitFor(
+    () => expect(getByText('46% used')).toBeTruthy(),
+    { timeout: DELTA_DELAY + DELTA_DURATION + 1500 },
+  )
   expect(getByText('left of ₹8,000')).toBeTruthy()
   // Category header (dot + name) and the days-left/pace footer. Not
   // hardcoded: daysLeftInMonth() reads the real wall-clock date, same as the
@@ -131,27 +138,49 @@ it('shows the budget card with the final percent-used figure once the envelope l
   expect(getByText(days === 0 ? 'Less than 24 hrs' : `${days} days left`)).toBeTruthy()
 })
 
+it('moves the percentage badge colors through the same old-to-new thresholds', async () => {
+  const { getByText, getByTestId } = setup(
+    { amount: '3760' },
+    [{ date: TODAY, amount_inr: '4000', category: '🛒 Groceries', timestamp: 'other' }],
+  )
+  await waitFor(() => expect(getByText('50% used')).toBeTruthy())
+
+  const dot = getByTestId('envelope-category-dot')
+  const pill = getByTestId('percent-used-pill')
+  expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(0, 132, 53, 1)')
+  expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(0, 132, 53, 0.18)')
+
+  await waitFor(
+    () => {
+      expect(getByText('97% used')).toBeTruthy()
+      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(215, 14, 58, 1)')
+      expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(215, 14, 58, 0.18)')
+    },
+    COUNTDOWN_SLOW,
+  )
+})
+
 it('uses the emphasized typography hierarchy from the confirmation design', async () => {
   const { getByText } = setup({ item: 'Apples' })
-  await waitFor(() => expect(getByText('6% used')).toBeTruthy())
+  await waitFor(() => expect(getByText('6% used')).toBeTruthy(), COUNTDOWN_SLOW)
 
   const days = daysLeftInMonth()
   const daysLabel = days === 0 ? 'Less than 24 hrs' : `${days} days left`
   const perDay = days > 0 ? Math.round(7550 / days) : 7550
 
-  expect(StyleSheet.flatten(getByText('Apples').props.style)).toMatchObject({ fontFamily: fontFamily.bodySemiBold })
-  expect(StyleSheet.flatten(getByText('Groceries').props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
-  expect(StyleSheet.flatten(getByText('6% used').props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
+  expect(StyleSheet.flatten(getByText('Apples').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
+  expect(StyleSheet.flatten(getByText('Groceries').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
+  expect(StyleSheet.flatten(getByText('6% used').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
   expect(StyleSheet.flatten(getByText('left of ₹8,000').props.style)).toMatchObject({
     fontFamily: fontFamily.bodyBold,
     fontSize: type.caption,
   })
-  expect(StyleSheet.flatten(getByText(daysLabel).props.style)).toMatchObject({ fontFamily: fontFamily.bodyBold })
+  expect(StyleSheet.flatten(getByText(daysLabel).props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
   expect(StyleSheet.flatten(getByText(`₹${perDay.toLocaleString('en-IN')}/day to stay on track`).props.style)).toMatchObject({
-    fontFamily: fontFamily.bodyBold,
+    fontFamily: fontFamily.bodyExtraBold,
   })
   expect(StyleSheet.flatten(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`).props.style)).toMatchObject({
-    fontFamily: fontFamily.bodySemiBold,
+    fontFamily: fontFamily.bodyExtraBold,
   })
 })
 

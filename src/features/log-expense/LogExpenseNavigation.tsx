@@ -31,7 +31,8 @@ export function LogExpenseNavigation() {
   const pathname = usePathname()
   const { active, addActive, visible } = navStateFor(pathname, pathname === LOG_EXPENSE_PATH)
   const submitState = useLogExpenseSubmitState()
-  const addDisabled = !submitState.canSubmit || submitState.saving || submitState.success
+  const addInvalid = !submitState.canSubmit
+  const addDisabled = submitState.saving || submitState.success
 
   return (
     <TabBar visible={visible} overrideContent={
@@ -40,6 +41,7 @@ export function LogExpenseNavigation() {
         addActive={addActive}
         addSaving={addActive && submitState.saving}
         addSuccess={addActive && submitState.success}
+        addInvalid={addActive && addInvalid}
         addDisabled={addActive && addDisabled}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
@@ -48,7 +50,7 @@ export function LogExpenseNavigation() {
         {visible ? (
           <>
             <FirstExpenseHintGate active={active} />
-            {addActive ? <LogExpenseHintGate onSubmit={submitState.submit} disabled={addDisabled} /> : null}
+            {addActive ? <LogExpenseHintGate onSubmit={submitState.submit} disabled={addInvalid || addDisabled} /> : null}
           </>
         ) : null}
       </FloatingNav>

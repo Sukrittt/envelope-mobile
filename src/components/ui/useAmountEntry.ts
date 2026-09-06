@@ -1,11 +1,10 @@
-import * as Haptics from 'expo-haptics';
-import { useCallback, useRef, useState } from 'react';
-import { Animated, Easing } from 'react-native';
+import { useCallback, useState } from 'react';
+import { useInvalidFeedback } from './useInvalidFeedback';
 
 /** Shared numpad editing; screens can reset dependent allocation state after an edit. */
 export function useAmountEntry(initial = '', options: { onChange?: () => void; shakeAtZero?: boolean } = {}) {
   const [amount, setAmount] = useState(initial)
-  const shake = useRef(new Animated.Value(0)).current
+  const { shake, triggerInvalidFeedback } = useInvalidFeedback()
   const { onChange, shakeAtZero = false } = options
   const pushDigit = useCallback((digit: string) => {
     setAmount(prev => {
@@ -19,17 +18,11 @@ export function useAmountEntry(initial = '', options: { onChange?: () => void; s
   }, [onChange])
   const handleBackspace = useCallback(() => {
     if (shakeAtZero ? Number(amount) === 0 : amount === '') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => { })
-      shake.setValue(0)
-      Animated.sequence([
-        Animated.timing(shake, { toValue: 1, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: -1, duration: 90, easing: Easing.linear, useNativeDriver: true }),
-        Animated.timing(shake, { toValue: 0, duration: 45, easing: Easing.linear, useNativeDriver: true }),
-      ]).start()
+      triggerInvalidFeedback()
       return
     }
     setAmount(prev => prev.slice(0, -1))
     onChange?.()
-  }, [amount, onChange, shake, shakeAtZero])
+  }, [amount, onChange, shakeAtZero, triggerInvalidFeedback])
   return { amount, setAmount, pushDigit, handleBackspace, shake }
 }
