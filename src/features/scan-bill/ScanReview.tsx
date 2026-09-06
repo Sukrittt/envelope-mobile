@@ -1,0 +1,645 @@
+import { BottomSheet } from "@/src/components/shared/Modal";
+import { PopIn } from "@/src/components/shared/PopIn";
+import { AmountText } from "@/src/components/ui/AmountText";
+import { Card } from "@/src/components/ui/Card";
+import { Chip } from "@/src/components/ui/Chip";
+import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { formatINR } from "@/src/lib/format";
+import {
+  round2,
+} from "@/src/lib/split";
+import { fontFamily } from "@/src/theme/fonts";
+import {
+  Check,
+  Plus,
+  Search,
+  Trash2
+} from "lucide-react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View
+} from "react-native";
+
+
+import { RevealBar } from "./ScanAnimations";
+import { BLOCK_STAGGER_MS, DIVISORS, ITEM_STAGGER_CAP_INDEX, ITEM_STAGGER_MS, MOUNT_START_DELAY_MS, PEOPLE_COUNTS, splitLabel } from "./presentation";
+import { styles } from "./styles";
+import type { useScanBillController } from "./useScanBillController";
+type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "insets" | "categories" | "setPhase" | "merchant" | "setMerchant" | "category" | "setCategory" | "items" | "peopleCount" | "feeItems" | "feeAggregate" | "hasFee" | "feeShare" | "billTotal" | "myShare" | "sharePct" | "updateItem" | "removeItem" | "addBlankItem" | "setAllMine" | "setPeopleCount" | "query" | "setQuery" | "selecting" | "selected" | "setSelected" | "categoryPickerOpen" | "setCategoryPickerOpen" | "selectedCategory" | "visibleItems" | "canProceed" | "toggleSelected" | "applyBulkDivisor">;
+export function ScanReview({ tokens, space, radius, type, insets, categories, setPhase, merchant, setMerchant, category, setCategory, items, peopleCount, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelected, applyBulkDivisor }: Props) {
+  return (<>
+    <View
+      style={{
+        paddingHorizontal: space.lg,
+        paddingTop: 8,
+        gap: space.md,
+      }}
+    >
+      <PopIn play delay={MOUNT_START_DELAY_MS}>
+        <Card elevated={false} style={{ gap: space.xs }}>
+          <Text style={[styles.microLabel, { color: tokens.text3 }]}>
+            YOUR SHARE
+          </Text>
+          <AmountText
+            value={myShare}
+            size={type.display}
+            color={tokens.accentInk}
+            animate
+            ignoreHide
+          />
+          <View style={styles.spaceBetween}>
+            <View style={{ flex: 1 }}>
+              <RevealBar
+                pct={sharePct}
+                color={tokens.accent}
+                trackColor={tokens.borderStrong}
+                height={6}
+              />
+            </View>
+          </View>
+          <View style={styles.spaceBetween}>
+            <Text
+              style={{
+                color: tokens.text3,
+                fontFamily: fontFamily.bodySemiBold,
+                fontSize: type.caption,
+              }}
+            >
+              of {formatINR(billTotal)} bill
+            </Text>
+            <Text
+              style={{
+                color: tokens.text3,
+                fontFamily: fontFamily.bodyBold,
+                fontSize: type.caption,
+              }}
+            >
+              {sharePct}% yours
+            </Text>
+          </View>
+        </Card>
+      </PopIn>
+
+      <PopIn
+        play
+        delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS}
+        style={[styles.row, { gap: space.sm }]}
+      >
+        <View
+          style={[
+            styles.searchRow,
+            {
+              flex: 1,
+              gap: space.sm,
+              backgroundColor: tokens.inputBg,
+              borderColor: tokens.border,
+            },
+          ]}
+        >
+          <Search size={16} color={tokens.text3} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search items"
+            placeholderTextColor={tokens.text3}
+            style={[
+              styles.searchInput,
+              {
+                color: tokens.text,
+                fontFamily: fontFamily.bodyMedium,
+                fontSize: type.body,
+              },
+            ]}
+          />
+          {query.length > 0 && (
+            <Pressable
+              onPress={() => setQuery("")}
+              style={[
+                styles.clearButton,
+                { backgroundColor: tokens.border },
+              ]}
+            >
+              <Text style={{ color: tokens.text2, fontSize: 11 }}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+        <Pressable
+          onPress={setAllMine}
+          style={[
+            styles.allMineButton,
+            {
+              backgroundColor: tokens.inputBg,
+              borderColor: tokens.border,
+              borderRadius: radius.md,
+            },
+          ]}
+        >
+          <Text
+            style={{
+              color: tokens.text2,
+              fontFamily: fontFamily.bodyBold,
+              fontSize: type.caption,
+            }}
+          >
+            All mine
+          </Text>
+        </Pressable>
+      </PopIn>
+    </View>
+
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[
+        styles.body,
+        { paddingHorizontal: space.lg, gap: space.md },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {visibleItems.length === 0 && items.length > 0 && (
+        <Text
+          style={{
+            color: tokens.text3,
+            fontFamily: fontFamily.bodyMedium,
+            fontSize: type.body,
+            textAlign: "center",
+            paddingVertical: space.lg,
+          }}
+        >
+          No items match &quot;{query}&quot;
+        </Text>
+      )}
+
+      {visibleItems.map((it, i) => {
+        const isSelected = selected.includes(it.key);
+        return (
+          <PopIn
+            key={it.key}
+            play
+            delay={
+              MOUNT_START_DELAY_MS +
+              2 * BLOCK_STAGGER_MS +
+              Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS
+            }
+            style={[
+              styles.itemCard,
+              {
+                gap: space.sm,
+                backgroundColor: tokens.card,
+                borderRadius: radius.md,
+              },
+            ]}
+          >
+            {selecting ? (
+              <Pressable
+                onPress={() => toggleSelected(it.key)}
+                style={[styles.row, { gap: space.sm }]}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    {
+                      borderRadius: radius.sm,
+                      borderColor: isSelected
+                        ? tokens.accentInk
+                        : tokens.border,
+                      backgroundColor: isSelected
+                        ? tokens.accentInk
+                        : "transparent",
+                    },
+                  ]}
+                >
+                  {isSelected && (
+                    <Check
+                      size={13}
+                      color={tokens.onAccent}
+                      strokeWidth={3}
+                    />
+                  )}
+                </View>
+                <Text
+                  style={{
+                    flex: 1,
+                    color: tokens.text,
+                    fontFamily: fontFamily.bodyBold,
+                    fontSize: type.body,
+                  }}
+                  numberOfLines={1}
+                >
+                  {it.name || "Item"}
+                </Text>
+                <Text
+                  style={{
+                    color: tokens.text2,
+                    fontFamily: fontFamily.bodySemiBold,
+                    fontSize: type.body,
+                  }}
+                >
+                  {formatINR(it.price)}
+                </Text>
+              </Pressable>
+            ) : (
+              <>
+                <View
+                  style={[
+                    styles.row,
+                    { justifyContent: "space-between" },
+                  ]}
+                >
+                  <TextInput
+                    value={it.name}
+                    onChangeText={(v) => updateItem(it.key, { name: v })}
+                    placeholder="Item"
+                    placeholderTextColor={tokens.text3}
+                    style={[
+                      styles.itemNameInput,
+                      {
+                        flex: 1,
+                        color: tokens.text,
+                        fontFamily: fontFamily.bodyBold,
+                        fontSize: type.body,
+                      },
+                    ]}
+                  />
+                  <TextInput
+                    value={String(round2(it.price / (it.divisor || 1)))}
+                    onChangeText={(v) => {
+                      const enteredShare =
+                        Number(v.replace(/[^0-9.]/g, "")) || 0;
+                      updateItem(it.key, {
+                        price: round2(enteredShare * (it.divisor || 1)),
+                      });
+                    }}
+                    keyboardType="decimal-pad"
+                    style={{
+                      color: tokens.accentInk,
+                      fontFamily: fontFamily.bodyBold,
+                      fontSize: type.body,
+                      padding: 0,
+                      minWidth: 40,
+                      textAlign: "right",
+                    }}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.row,
+                    { justifyContent: "space-between" },
+                  ]}
+                >
+                  <View style={styles.row}>
+                    <Text
+                      style={{
+                        color: tokens.text3,
+                        fontFamily: fontFamily.bodySemiBold,
+                        fontSize: type.caption,
+                        marginRight: 6,
+                      }}
+                    >
+                      ₹{it.price}
+                    </Text>
+                    <Text
+                      style={{
+                        color: tokens.text3,
+                        fontFamily: fontFamily.bodySemiBold,
+                        fontSize: type.caption,
+                      }}
+                    >
+                      {it.divisor === 1
+                        ? "· all yours"
+                        : `· split ${it.divisor} ways`}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[styles.microLabel, { color: tokens.text3 }]}
+                  >
+                    YOURS
+                  </Text>
+                </View>
+                <View style={[styles.row, { gap: space.xs }]}>
+                  {DIVISORS.map((d) => (
+                    <Chip
+                      key={d}
+                      label={splitLabel(d)}
+                      selected={it.divisor === d}
+                      onPress={() => updateItem(it.key, { divisor: d })}
+                      style={styles.itemSplitChip}
+                    />
+                  ))}
+                  <Pressable
+                    onPress={() => removeItem(it.key)}
+                    hitSlop={8}
+                    style={styles.deleteButton}
+                    accessibilityLabel={`Remove ${it.name || "item"}`}
+                  >
+                    <Trash2 size={16} color={tokens.text3} />
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </PopIn>
+        );
+      })}
+
+      <Pressable
+        onPress={addBlankItem}
+        style={[styles.addItem, { paddingVertical: space.sm }]}
+      >
+        <Plus size={16} color={tokens.accent} />
+        <Text
+          style={{
+            color: tokens.accent,
+            fontFamily: fontFamily.bodySemiBold,
+            fontSize: type.body,
+          }}
+        >
+          Add item
+        </Text>
+      </Pressable>
+
+      {hasFee && (
+        <PopIn play delay={MOUNT_START_DELAY_MS + 3 * BLOCK_STAGGER_MS}>
+          <Card elevated={false} style={{ gap: space.sm }}>
+            <View style={styles.spaceBetween}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: tokens.text,
+                    fontFamily: fontFamily.displaySemiBold,
+                    fontSize: type.body,
+                  }}
+                >
+                  Fees &amp; discount
+                </Text>
+                <Text
+                  style={{
+                    color: tokens.text3,
+                    fontFamily: fontFamily.bodySemiBold,
+                    fontSize: type.caption,
+                  }}
+                >
+                  Split equally across everyone on the bill
+                </Text>
+              </View>
+              <Text
+                style={{
+                  color: tokens.text2,
+                  fontFamily: fontFamily.bodySemiBold,
+                  fontSize: type.body,
+                }}
+              >
+                {formatINR(feeAggregate)}
+              </Text>
+            </View>
+            {feeItems.length > 0 && (
+              <View style={{ gap: space.xs }}>
+                {feeItems.map((it) => (
+                  <View key={it.key} style={styles.spaceBetween}>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontFamily: fontFamily.bodyMedium,
+                        fontSize: type.caption,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {it.name || "Fee"}
+                    </Text>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontFamily: fontFamily.bodySemiBold,
+                        fontSize: type.caption,
+                      }}
+                    >
+                      {formatINR(it.price)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <View style={styles.spaceBetween}>
+              <Text
+                style={{
+                  color: tokens.text2,
+                  fontFamily: fontFamily.bodyBold,
+                  fontSize: type.caption,
+                }}
+              >
+                People on this bill
+              </Text>
+              <View style={{ flexDirection: "row", gap: space.xs }}>
+                {PEOPLE_COUNTS.map((n) => (
+                  <Chip
+                    key={n}
+                    label={String(n)}
+                    selected={peopleCount === n}
+                    onPress={() => setPeopleCount(n)}
+                  />
+                ))}
+              </View>
+            </View>
+            <View style={styles.spaceBetween}>
+              <Text
+                style={{
+                  color: tokens.text2,
+                  fontFamily: fontFamily.bodyBold,
+                  fontSize: type.caption,
+                }}
+              >
+                Your reconciled share
+              </Text>
+              <Text
+                style={{
+                  color: tokens.accentInk,
+                  fontFamily: fontFamily.bodyBold,
+                  fontSize: type.caption,
+                }}
+              >
+                {formatINR(feeShare)}
+              </Text>
+            </View>
+          </Card>
+        </PopIn>
+      )}
+
+      <View
+        style={[styles.divider, { backgroundColor: tokens.border }]}
+      />
+
+      <PopIn
+        play
+        delay={MOUNT_START_DELAY_MS + 4 * BLOCK_STAGGER_MS}
+        style={[
+          styles.row,
+          { justifyContent: "space-between", gap: space.sm },
+        ]}
+      >
+        <TextInput
+          value={merchant}
+          onChangeText={setMerchant}
+          placeholder="Merchant"
+          placeholderTextColor={tokens.text3}
+          style={[
+            styles.nameInput,
+            {
+              backgroundColor: tokens.inputBg,
+              borderRadius: radius.md,
+              color: tokens.text,
+              fontFamily: fontFamily.bodyMedium,
+              fontSize: type.body,
+            },
+          ]}
+        />
+
+        <Pressable
+          onPress={() => setCategoryPickerOpen(true)}
+          style={[
+            styles.categoryPill,
+            {
+              backgroundColor: tokens.cardSolid,
+              borderRadius: radius.full,
+              borderWidth: 1,
+              borderColor: tokens.border,
+            },
+          ]}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              color: tokens.text,
+              fontFamily: fontFamily.bodySemiBold,
+              fontSize: type.caption,
+            }}
+          >
+            {selectedCategory
+              ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}`
+              : "Category"}
+          </Text>
+        </Pressable>
+      </PopIn>
+    </ScrollView>
+
+    <View
+      style={[
+        styles.footer,
+        {
+          paddingHorizontal: space.lg,
+          paddingBottom: insets.bottom + space.lg,
+          gap: space.sm,
+        },
+      ]}
+    >
+      {selecting && (
+        <View
+          style={[
+            styles.bulkBar,
+            {
+              gap: space.sm,
+              backgroundColor: tokens.card,
+              borderRadius: radius.md,
+            },
+          ]}
+        >
+          <View style={styles.spaceBetween}>
+            <Text
+              style={{
+                color: tokens.text,
+                fontFamily: fontFamily.bodyBold,
+                fontSize: type.caption,
+              }}
+            >
+              {selected.length === 0
+                ? "Tap rows to select"
+                : `${selected.length} selected · set split to`}
+            </Text>
+            <Pressable onPress={() => setSelected([])}>
+              <Text
+                style={{
+                  color: tokens.text3,
+                  fontFamily: fontFamily.bodyBold,
+                  fontSize: type.caption,
+                }}
+              >
+                Clear
+              </Text>
+            </Pressable>
+          </View>
+          <View
+            style={{
+              flexDirection: "row",
+              gap: space.xs,
+              flexWrap: "wrap",
+            }}
+          >
+            {DIVISORS.map((d) => (
+              <Chip
+                key={d}
+                label={splitLabel(d)}
+                onPress={() => applyBulkDivisor(d)}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+      <Pressable
+        onPress={() => canProceed && setPhase("confirm")}
+        disabled={!canProceed}
+        style={[
+          styles.confirm,
+          {
+            backgroundColor: tokens.accent,
+            borderRadius: radius.full,
+            paddingVertical: space.md + 2,
+            opacity: canProceed ? 1 : 0.5,
+          },
+        ]}
+      >
+        <Text
+          style={{
+            color: tokens.onAccent,
+            fontFamily: fontFamily.bodyBold,
+            fontSize: type.bodyLg,
+          }}
+        >
+          Review {formatINR(myShare)} →
+        </Text>
+      </Pressable>
+    </View>
+
+    <BottomSheet
+      visible={categoryPickerOpen}
+      onClose={() => setCategoryPickerOpen(false)}
+    >
+      <Text
+        style={[
+          styles.sheetTitle,
+          {
+            color: tokens.text,
+            fontFamily: fontFamily.displaySemiBold,
+            fontSize: type.bodyLg,
+          },
+        ]}
+      >
+        Choose a category
+      </Text>
+      <View
+        style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
+      >
+        {categories.map((c) => (
+          <Chip
+            key={c.name}
+            selected={category === c.name}
+            label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
+            onPress={() => {
+              setCategory(c.name);
+              setCategoryPickerOpen(false);
+            }}
+          />
+        ))}
+      </View>
+    </BottomSheet>
+  </>);
+}
