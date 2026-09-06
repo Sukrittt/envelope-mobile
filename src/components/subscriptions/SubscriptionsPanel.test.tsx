@@ -80,11 +80,9 @@ describe('active / cancelled split', () => {
 })
 
 describe('empty state', () => {
-  it('shows a quiet prompt and an add button when there are no subscriptions', () => {
+  it('shows a quiet prompt when there are no subscriptions', () => {
     const { getByText } = renderWithProviders(<SubscriptionsPanel subscriptions={[]} />)
     expect(getByText('No subscriptions tracked yet.')).toBeTruthy()
-    fireEvent.press(getByText('Add subscription'))
-    expect(mockPush).toHaveBeenCalledWith('/modals/subscription')
   })
 })
 

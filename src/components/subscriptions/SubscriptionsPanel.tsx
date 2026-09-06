@@ -429,11 +429,6 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
         >
           No subscriptions tracked yet.
         </Text>
-        <Button
-          label="Add subscription"
-          variant="secondary"
-          onPress={() => openModal()}
-        />
       </View>
     );
   }
