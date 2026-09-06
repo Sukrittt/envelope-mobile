@@ -19,14 +19,14 @@ const REFRESH_MARGIN_MS = 60 * 1000
 let mode: AccessMode = 'guest'
 let session: WorkOSTokens | null = null
 const subs = new Set<(m: AccessMode) => void>()
-const logoutSubs = new Set<() => void>()
+const logoutSubs = new Set<(token: string | null) => void | Promise<void>>()
 
 export const accessMode = {
   subscribe(fn: (m: AccessMode) => void): () => void {
     subs.add(fn)
     return () => subs.delete(fn)
   },
-  subscribeLogout(fn: () => void): () => void {
+  subscribeLogout(fn: (token: string | null) => void | Promise<void>): () => void {
     logoutSubs.add(fn)
     return () => logoutSubs.delete(fn)
   },
@@ -40,7 +40,7 @@ async function store(next: WorkOSTokens | null): Promise<void> {
   session = next
   mode = next ? 'real' : 'guest'
   try {
-    if (next) await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next))
+    if (next) await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next), { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY })
     else await SecureStore.deleteItemAsync(STORAGE_KEY)
   } catch {
     // Storage unavailable — the session just won't survive a relaunch.
@@ -137,7 +137,7 @@ export function sessionId(): string | null {
 }
 
 /**
- * Log out locally: drop the stored session, fall back to guest, re-lock the app.
+ * Log out locally: drop the stored session, fall back to guest.
  * Always succeeds — a user must be able to sign out of this device regardless
  * of network.
  *
@@ -151,6 +151,7 @@ export function sessionId(): string | null {
  * throws following it, which reported every single sign-out as a failure.
  */
 export async function clearAccess(): Promise<void> {
+  const token = currentAccessToken()
   await store(null)
-  for (const fn of logoutSubs) fn()
+  await Promise.allSettled([...logoutSubs].map(fn => fn(token)))
 }

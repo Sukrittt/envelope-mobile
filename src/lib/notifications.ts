@@ -1,3 +1,4 @@
+import { currentAccessToken } from '@/src/api/accessMode'
 import { Platform } from 'react-native'
 import * as Device from 'expo-device'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
@@ -31,7 +32,10 @@ export function configureNotificationHandler(): void {
   })
 }
 
+let devicePushToken: string | null = null
+
 async function registerToken(token: string): Promise<void> {
+  devicePushToken = token
   await registerPushToken(token, Platform.OS === 'android' ? 'android' : 'ios')
 }
 
@@ -83,12 +87,12 @@ function routeFromNotificationResponse(response: NotificationsType.NotificationR
   const data = response.notification.request.content.data
   const route = data?.route
   if (typeof route === 'string' && route) {
-    router.push(route as Parameters<typeof router.push>[0])
+    if (route === '/wrapped' || route === '/activity' || route === '/investments') router.push(route)
     return
   }
   const date = data?.date
   if (typeof date === 'string' && date) {
-    router.push(`/(tabs)/activity?date=${date}`)
+    router.push(`/(tabs)/activity?date=${encodeURIComponent(date)}`)
   }
 }
 
@@ -112,4 +116,19 @@ export async function checkColdStartNotification(): Promise<void> {
   if (!response) return
   routeFromNotificationResponse(response)
   await Notifications.clearLastNotificationResponseAsync()
+}
+
+/** Best effort, using the captured credential without refreshing a revoked session. */
+export async function unregisterDevicePushToken(accessToken = currentAccessToken()): Promise<void> {
+  const token = devicePushToken
+  if (!token || !accessToken) return
+  try {
+    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notifications/register`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      signal: AbortSignal.timeout(5000),
+    })
+    if (response.ok && devicePushToken === token) devicePushToken = null
+  } catch { /* Offline sign-out must still clear local data. */ }
 }

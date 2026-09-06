@@ -1,3 +1,4 @@
+import { readEncrypted, writeEncrypted } from './encryptedStorage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { CategoryRow } from '@/src/types'
@@ -13,18 +14,29 @@ function key(): string | null {
 export async function readCategoryCache(): Promise<CategoryRow[] | null> {
   const k = key()
   if (!k) return null
-  const raw = await AsyncStorage.getItem(k)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as CategoryRow[]
-  } catch {
-    return null
-  }
+  try { return await readEncrypted<CategoryRow[]>(k) } catch { return null }
 }
 
 /** Written on every successful fetch and every category mutation, so cache and server never drift. */
-export async function writeCategoryCache(categories: CategoryRow[]): Promise<void> {
+async function writeCategories(categories: CategoryRow[]): Promise<void> {
   const k = key()
   if (!k) return
-  await AsyncStorage.setItem(k, JSON.stringify(categories))
+  await writeEncrypted(k, categories)
+}
+
+async function clearCategories(): Promise<void> {
+  const keys = (await AsyncStorage.getAllKeys()).filter(k => k.startsWith(`${PREFIX}:`))
+  await AsyncStorage.multiRemove(keys)
+}
+
+let chain: Promise<unknown> = Promise.resolve()
+export function writeCategoryCache(categories: CategoryRow[]): Promise<void> {
+  const operation = chain.then(() => writeCategories(categories))
+  chain = operation.catch(() => {})
+  return operation
+}
+export function clearCategoryCache(): Promise<void> {
+  const operation = chain.then(clearCategories)
+  chain = operation.catch(() => {})
+  return operation
 }

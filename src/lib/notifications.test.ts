@@ -91,3 +91,16 @@ describe('notification tap routing', () => {
     expect(mockClearLastNotificationResponseAsync).not.toHaveBeenCalled()
   })
 })
+
+it.each(['/account/security', 'https://evil.example', '/wrapped?redirect=evil'])('drops untrusted route %s', route => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route}}}}})
+ expect(mockPush).not.toHaveBeenCalled()
+})
+it('encodes notification dates as a single parameter', () => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{date:'2026-01-01&evil=yes'}}}}})
+ expect(mockPush).toHaveBeenCalledWith('/(tabs)/activity?date=2026-01-01%26evil%3Dyes')
+})

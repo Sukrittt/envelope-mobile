@@ -87,3 +87,17 @@ it('bumpAttempts moves an entry to the failed list once it hits the cap', async 
   expect(await pending.list()).toHaveLength(0)
   expect(await pending.listFailed()).toHaveLength(1)
 })
+
+it('never persists expense fields in plaintext', async () => {
+ await pending.enqueue(payload('secret-client'))
+ const raw = await AsyncStorage.getItem('mc-pending-expenses:user_a')
+ expect(raw).not.toContain('Coffee')
+ expect(raw).not.toContain('secret-client')
+})
+it('clears pending and failed queues for every cached account', async () => {
+ await pending.enqueue(payload('c1'))
+ await pending.bumpAttempts('c1',1)
+ await pending.clearAll()
+ expect(await pending.listFailed()).toEqual([])
+ expect(await pending.list()).toEqual([])
+})

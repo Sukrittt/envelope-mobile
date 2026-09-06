@@ -47,7 +47,31 @@ jest.mock('expo-auth-session', () => ({
 // several places (src/api/expenses.ts, the pending-expense queue).
 jest.mock('expo-crypto', () => {
   let counter = 0
-  return { randomUUID: jest.fn(() => `test-uuid-${++counter}`) }
+  const crypto = require('node:crypto')
+  class Key {
+    constructor(bytes) { this.bytes = bytes }
+    static async generate() { return new Key(crypto.randomBytes(32)) }
+    static async import(value, encoding) { return new Key(Buffer.from(value, encoding)) }
+    async encoded(encoding) { return this.bytes.toString(encoding) }
+  }
+  return {
+    randomUUID: jest.fn(() => `test-uuid-${++counter}`),
+    AESEncryptionKey: Key,
+    AESSealedData: { fromCombined: value => Buffer.from(value, 'base64') },
+    aesEncryptAsync: async (plaintext, key, options) => {
+      const iv = crypto.randomBytes(12)
+      const cipher = crypto.createCipheriv('aes-256-gcm', key.bytes, iv)
+      cipher.setAAD(Buffer.from(options.additionalData))
+      const data = Buffer.concat([iv, cipher.update(plaintext), cipher.final(), cipher.getAuthTag()])
+      return { combined: async encoding => data.toString(encoding) }
+    },
+    aesDecryptAsync: async (data, key, options) => {
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key.bytes, data.subarray(0,12))
+      decipher.setAAD(Buffer.from(options.additionalData))
+      decipher.setAuthTag(data.subarray(-16))
+      return Buffer.concat([decipher.update(data.subarray(12,-16)), decipher.final()])
+    },
+  }
 })
 
 // @react-native-async-storage/async-storage's native module is unavailable

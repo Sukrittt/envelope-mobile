@@ -1,3 +1,5 @@
+import { unregisterDevicePushToken } from '@/src/lib/notifications'
+import { sessionId } from './accessMode'
 // User profile, notifications and data-management calls — all post-auth, so
 // they ride apiFetch's automatic bearer-token attachment (unlike magicAuth.ts,
 // which talks to the API before any session exists).
@@ -44,6 +46,7 @@ export async function updateUser(patch: Partial<UserProfile>): Promise<UserProfi
 }
 
 export async function deleteAccount(email: string): Promise<void> {
+  await unregisterDevicePushToken()
   const resp = await apiFetch('/api/user', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -175,11 +178,13 @@ export async function getSessions(): Promise<SessionRow[]> {
 }
 
 export async function revokeSession(id: string): Promise<void> {
+  if (id === sessionId()) await unregisterDevicePushToken()
   const resp = await apiFetch(`/api/user/sessions?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
   if (!resp.ok) throw new Error(`Failed to revoke session: ${resp.status}`)
 }
 
 export async function revokeAllSessions(): Promise<void> {
+  await unregisterDevicePushToken()
   const resp = await apiFetch('/api/user/sessions', { method: 'DELETE' })
   if (!resp.ok) throw new Error(`Failed to sign out everywhere: ${resp.status}`)
 }

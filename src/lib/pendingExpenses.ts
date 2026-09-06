@@ -1,3 +1,4 @@
+import { readEncrypted, writeEncrypted } from './encryptedStorage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { ExpensePayload } from '@/src/api/expenses'
@@ -18,17 +19,11 @@ function failedKey(): string | null {
 }
 
 async function read(k: string): Promise<PendingExpense[]> {
-  const raw = await AsyncStorage.getItem(k)
-  if (!raw) return []
-  try {
-    return JSON.parse(raw) as PendingExpense[]
-  } catch {
-    return []
-  }
+  return (await readEncrypted<PendingExpense[]>(k)) ?? []
 }
 
 async function write(k: string, entries: PendingExpense[]): Promise<void> {
-  await AsyncStorage.setItem(k, JSON.stringify(entries))
+  await writeEncrypted(k, entries)
 }
 
 // Every mutation is serialized through one promise chain — an enqueue racing
@@ -104,5 +99,13 @@ export function listFailed(): Promise<PendingExpense[]> {
   return serialize(async () => {
     const fk = failedKey()
     return fk ? read(fk) : []
+  })
+}
+
+/** Serialized after queued writes so sign-out cannot leave a late write behind. */
+export function clearAll(): Promise<void> {
+  return serialize(async () => {
+    const keys = (await AsyncStorage.getAllKeys()).filter(k => k.startsWith(`${PREFIX}:`) || k.startsWith(`${FAILED_PREFIX}:`))
+    await AsyncStorage.multiRemove(keys)
   })
 }
