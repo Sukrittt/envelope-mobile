@@ -1,4 +1,5 @@
 import { act, fireEvent } from '@testing-library/react-native'
+import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getUser } from '@/src/api/account'
 import { getExpenses } from '@/src/api/expenses'
@@ -82,23 +83,13 @@ describe('on the log-expense screen', () => {
 
     expect(getByLabelText('Log expense').props.accessibilityState.disabled).toBe(false)
   })
-
-  it('shows "Tap to add expense" when there are no transactions', async () => {
-    const { findByText, queryByText } = renderWithProviders(<TabBar />)
-    expect(await findByText('Tap to add expense')).toBeTruthy()
-    expect(queryByText('Log your first expense here')).toBeNull()
-  })
-
-  it('hides the hint once transactions exist', async () => {
-    mockGetExpenses.mockResolvedValue([{ item: 'Coffee' }])
-    const { findByLabelText, queryByText } = renderWithProviders(<TabBar />)
-    await findByLabelText('Log expense')
-    expect(queryByText('Tap to add expense')).toBeNull()
-  })
 })
 
 it('shows the Home-tab hint, not the log-expense one, on Home with no transactions', async () => {
-  const { findByText, queryByText } = renderWithProviders(<TabBar />)
-  expect(await findByText('Log your first expense here')).toBeTruthy()
-  expect(queryByText('Tap to add expense')).toBeNull()
+  const { findByTestId, queryByTestId } = renderWithProviders(<TabBar />)
+  expect(await findByTestId('first-expense-hint')).toBeTruthy()
+  expect(queryByTestId('first-expense-hint-arrow')).toBeTruthy()
+
+  const arrowStyle = StyleSheet.flatten((await findByTestId('first-expense-hint-arrow')).props.style)
+  expect(arrowStyle.transform).toContainEqual({ translateX: 144 })
 })

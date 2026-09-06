@@ -3,11 +3,10 @@ import { TabBar } from '@/src/components/nav/TabBar'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useUser } from '@/src/hooks/useUser'
 import { useTheme } from '@/src/theme/ThemeProvider'
-import { fontFamily } from '@/src/theme/fonts'
 import { usePathname, useRouter } from 'expo-router'
 import { ArrowDown } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet } from 'react-native'
 import Reanimated, {
   Easing,
   runOnJS,
@@ -50,7 +49,6 @@ export function LogExpenseNavigation() {
         {visible ? (
           <>
             <FirstExpenseHintGate active={active} />
-            {addActive ? <LogExpenseHintGate onSubmit={submitState.submit} disabled={addInvalid || addDisabled} /> : null}
           </>
         ) : null}
       </FloatingNav>
@@ -81,55 +79,27 @@ function FirstExpenseHintGate({ active }: { active: NavRoute | null }) {
   return (
     <FirstExpenseHint
       show={show}
-      label="Log your first expense here"
       onPress={() => router.push(LOG_EXPENSE_PATH)}
       shiftX={addSlotShift(active)}
     />
   )
 }
 
-// Same coach mark, shown instead while already on log-expense with zero
-// transactions: the add slot is now the submit trigger, so the pill points at
-// it as "tap to submit" rather than "tap to navigate here". Queries dedupe
-// against FirstExpenseHintGate's identical calls via React Query's cache.
-function LogExpenseHintGate({ onSubmit, disabled }: { onSubmit: () => void; disabled: boolean }) {
-  const userQ = useUser()
-  const expensesQ = useExpenses()
-
-  const show = !!userQ.data?.onboardedAt && expensesQ.isSuccess && (expensesQ.data?.length ?? 0) === 0
-
-  // The add slot is already centred whenever addActive, regardless of which
-  // tab route is "active" underneath (it's null here) — unlike
-  // FirstExpenseHintGate, no addSlotShift offset applies.
-  return (
-    <FirstExpenseHint
-      show={show}
-      label="Tap to add expense"
-      onPress={() => {
-        if (!disabled) onSubmit()
-      }}
-      shiftX={0}
-    />
-  )
-}
-
-// Pill + bobbing arrow pointing at the add slot. Only shown once onboarding
-// is complete and no expense has been logged yet (server-derived, so it
-// survives restarts and disappears the moment the first expense exists). The
-// pill stays centred on the active slot; only the arrow shifts to keep
-// pointing at the add slot as the carousel moves.
+// Bobbing arrow pointing at the add slot. Only shown once onboarding is
+// complete and no expense has been logged yet (server-derived, so it survives
+// restarts and disappears the moment the first expense exists). On Home the
+// add slot is near the right edge, so the arrow is shifted to meet it there
+// instead of translating off-screen.
 function FirstExpenseHint({
   show,
-  label,
   onPress,
   shiftX,
 }: {
   show: boolean
-  label: string
   onPress: () => void
   shiftX: number
 }) {
-  const { tokens, radius, space } = useTheme()
+  const { tokens } = useTheme()
   const [mounted, setMounted] = useState(show)
   // entrance: 0 -> 1 fade/scale/slide-up on show, reverse on hide (unmounts after finishing).
   const entrance = useSharedValue(show ? 1 : 0)
@@ -171,11 +141,12 @@ function FirstExpenseHint({
 
   return (
     <Pressable onPress={onPress} style={styles.anchor} pointerEvents="box-none" hitSlop={6}>
-      <Reanimated.View style={[styles.wrap, { gap: space.xs }, containerStyle]} pointerEvents="box-none">
-        <View style={[styles.pill, { backgroundColor: tokens.text, borderRadius: radius.md, paddingVertical: 9, paddingHorizontal: 15 }]}>
-          <Text style={[styles.label, { color: tokens.bg, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
-        </View>
-        <Reanimated.View style={arrowStyle} pointerEvents="none">
+      <Reanimated.View
+        testID="first-expense-hint"
+        style={[styles.wrap, containerStyle]}
+        pointerEvents="box-none"
+      >
+        <Reanimated.View testID="first-expense-hint-arrow" style={arrowStyle} pointerEvents="none">
           <ArrowDown size={22} color={tokens.text} strokeWidth={2.4} />
         </Reanimated.View>
       </Reanimated.View>
@@ -185,7 +156,5 @@ function FirstExpenseHint({
 
 const styles = StyleSheet.create({
   anchor: { position: 'absolute', bottom: '100%', left: 0, right: 0, alignItems: 'center', zIndex: 10, elevation: 10 },
-  wrap: { alignItems: 'center' },
-  pill: {},
-  label: { fontSize: 12 },
+  wrap: { width: '100%', alignItems: 'center' },
 })
