@@ -1,21 +1,22 @@
-import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, Check } from 'lucide-react-native'
-import { Alert } from '@/src/components/ui/AlertHost'
+import { clearAccess } from '@/src/api/accessMode'
+import { deleteAccount,resendEmailCode,revokeAllSessions,revokeSession } from '@/src/api/account'
+import { useLinkGoogle } from '@/src/api/useLinkGoogle'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { Icon } from '@/src/components/shared/Icon'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
+import { Alert } from '@/src/components/ui/AlertHost'
+import { useIdentities,usePrivacyProof,useRestoreAccount,useSessions,useUpdateUser,useUser } from '@/src/hooks/useUser'
+import { daysUntil } from '@/src/lib/format'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
-import { CheckIcon } from '@/src/components/shared/CheckIcon'
-import { BottomSheet } from '@/src/components/shared/Modal'
-import { clearAccess } from '@/src/api/accessMode'
-import { deleteAccount, resendEmailCode, revokeAllSessions, revokeSession } from '@/src/api/account'
-import { useUser, useUpdateUser, useSessions, useIdentities, useRestoreAccount, usePrivacyProof } from '@/src/hooks/useUser'
-import { useLinkGoogle } from '@/src/api/useLinkGoogle'
-import { daysUntil } from '@/src/lib/format'
+import { useRouter } from 'expo-router'
+import { ArrowLeft,Check } from 'lucide-react-native'
+import { useEffect,useState } from 'react'
+import { Image,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -145,12 +146,11 @@ export default function SecurityScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Account & security</Text>
-      </View>
+      <ScreenHeader title="Account & security" onLeft={() => router.back()} leftIcon={ArrowLeft}
+        includeSafeArea={false}
+        style={[styles.header, {borderBottomColor: tokens.border, paddingTop: 0}]}
+        titleStyle={styles.headerTitle}
+        leftStyle={[styles.backButton, {backgroundColor: tokens.card, borderColor: tokens.border}]} />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
