@@ -10,7 +10,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { currentUserId } from '@/src/api/accessMode'
 import type { FeedbackType } from '@/src/api/feedback'
 
-const REPO = 'Sukrittt/ynab-replacement'
+const REPO = 'Sukrittt/envelope-mobile'
 
 const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',

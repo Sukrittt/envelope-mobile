@@ -281,7 +281,7 @@ export default function MoreScreen() {
                   Plan & billing
                 </Text>
                 <Pressable
-                  onPress={() => Linking.openURL('https://github.com/Sukrittt/ynab-replacement')}
+                  onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
                   style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
                 >
                   <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Free & open source</Text>

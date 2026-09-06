@@ -19,6 +19,7 @@ export function todayIST(): string {
  * server-minted one. Used so an offline expense is stamped with the day it
  * was actually logged, not the day the queue happens to flush.
  */
+// Keep in sync with Web/lib/http.ts.
 export function nowIST(): { date: string; timestamp: string } {
   const iso = new Date(Date.now() + IST_OFFSET_MS).toISOString()
   return { date: iso.slice(0, 10), timestamp: `${iso.slice(0, 19)}+05:30` }
