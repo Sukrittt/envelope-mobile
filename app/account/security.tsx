@@ -15,8 +15,9 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useRouter } from 'expo-router'
 import { ArrowLeft,Check } from 'lucide-react-native'
 import { useEffect,useState } from 'react'
-import { Image,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
+import { Image,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRefresh } from '@/src/hooks/useRefresh'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -29,6 +30,7 @@ export default function SecurityScreen() {
   const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const { refreshing, onRefresh } = useRefresh()
 
   const userQuery = useUser()
   const updateUser = useUpdateUser()
@@ -152,7 +154,12 @@ export default function SecurityScreen() {
         titleStyle={styles.headerTitle}
         leftStyle={[styles.backButton, {backgroundColor: tokens.card, borderColor: tokens.border}]} />
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
+        }
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+      >
         <View style={[styles.profileCard, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
           {user?.avatarUrl ? (
             <Image source={{ uri: user.avatarUrl }} style={[styles.avatar, { borderColor: tokens.accent }]} />

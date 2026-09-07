@@ -4,6 +4,7 @@ import {
   Text,
   Pressable,
   ScrollView,
+  RefreshControl,
   Switch,
   Linking,
   StyleSheet,
@@ -35,6 +36,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { formatDateTime } from "@/src/lib/format";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
+import { useRefresh } from "@/src/hooks/useRefresh";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import {
   clearTransactions,
@@ -118,6 +120,7 @@ export default function DataScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const { refreshing, onRefresh } = useRefresh();
   const exportsQuery = useQuery({
     queryKey: exportsKey,
     queryFn: getExports,
@@ -234,6 +237,14 @@ export default function DataScreen() {
       </View>
 
       <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tokens.accent}
+            colors={[tokens.accent]}
+          />
+        }
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 32 },

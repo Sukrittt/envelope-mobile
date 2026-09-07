@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Switch, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, Pressable, Switch, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
@@ -8,6 +8,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import type { UserProfile } from '@/src/api/account'
 
 const CADENCE_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label: string }[] = [
@@ -23,6 +24,7 @@ export default function NotificationsScreen() {
   const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const { refreshing, onRefresh } = useRefresh()
 
   const userQuery = useUser()
   const updateUser = useUpdateUser()
@@ -46,7 +48,12 @@ export default function NotificationsScreen() {
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Notifications</Text>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
+        }
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+      >
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>CADENCE</Text>
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
