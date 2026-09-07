@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { SlidersHorizontal } from "lucide-react-native";
+import { SlidersHorizontal, X } from "lucide-react-native";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
@@ -36,7 +36,7 @@ import { toISTDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 
-type PeriodKey = "week" | "month" | "custom";
+type PeriodKey = "all" | "week" | "month" | "custom";
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -78,6 +78,14 @@ function formatShortDate(iso: string): string {
   const month = d.toLocaleDateString("en-IN", { month: "short" });
   const year = String(d.getFullYear()).slice(2);
   return `${day} ${month} '${year}`;
+}
+
+function formatRangeFilter(range: DateRange): string | null {
+  if (range.from && range.to)
+    return `${formatShortDate(range.from)} – ${formatShortDate(range.to)}`;
+  if (range.from) return `From ${formatShortDate(range.from)}`;
+  if (range.to) return `Until ${formatShortDate(range.to)}`;
+  return null;
 }
 
 // Category avatars cycle through the existing soft-hue tokens (hash of the name) so
@@ -168,6 +176,29 @@ export default function ActivityScreen() {
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
+
+  const timeFilterLabel = useMemo(() => {
+    if (selectedDate) return formatDateHeader(selectedDate);
+    if (period === "week") return "This week";
+    if (period === "month") return "This month";
+    if (period === "custom") return formatRangeFilter(customRange);
+    return null;
+  }, [customRange, period, selectedDate]);
+  const categoryFilterLabel = selectedCategory
+    ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
+    : null;
+  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel);
+
+  const clearTimeFilter = useCallback(() => {
+    setSelectedDate("");
+    setPeriod("all");
+    setCustomRange({ from: "", to: "" });
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    clearTimeFilter();
+    setSelectedCategory("");
+  }, [clearTimeFilter]);
   // Currently swiped-open row's close/reset fns + key — snapped shut on blur so the
   // edit/delete panel is never left revealed when the user returns to this tab. Blur uses
   // `reset` (instant, no spring) rather than `close` (animated) — an animated close still
@@ -216,7 +247,7 @@ export default function ActivityScreen() {
       if (customRange.from)
         rows = rows.filter((e) => e.date >= customRange.from);
       if (customRange.to) rows = rows.filter((e) => e.date <= customRange.to);
-    } else {
+    } else if (period !== "all") {
       // Compare as IST calendar-date strings (like the customRange branch above) rather than
       // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight IST.
       const endStr = toISTDateString(latestDate);
@@ -351,28 +382,6 @@ export default function ActivityScreen() {
       >
         {/* No "Log expense" button here: the nav's centre action is always on
             screen and is the single entry point for the app's primary verb. */}
-        {selectedDate ? (
-          <Pressable
-            onPress={() => setSelectedDate("")}
-            style={[
-              styles.dateChip,
-              {
-                backgroundColor: tokens.chipActiveBg,
-                borderColor: tokens.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
-              ]}
-            >
-              {formatDateHeader(selectedDate)} ✕
-            </Text>
-          </Pressable>
-        ) : null}
-
         <View style={styles.searchRow}>
           <TextInput
             value={search}
@@ -395,6 +404,55 @@ export default function ActivityScreen() {
             onPress={() => setCategorySheetOpen(true)}
           />
         </View>
+
+        {hasActiveFilters ? (
+          <View style={styles.appliedFilters}>
+            <View style={styles.appliedFiltersHeader}>
+              <Text
+                style={[
+                  styles.appliedFiltersLabel,
+                  { color: tokens.text3, fontFamily: fontFamily.bodyBold },
+                ]}
+              >
+                APPLIED FILTERS
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear all filters"
+                hitSlop={8}
+                onPress={clearAllFilters}
+              >
+                <Text
+                  style={[
+                    styles.clearFiltersText,
+                    {
+                      color: tokens.accentInk,
+                      fontFamily: fontFamily.bodySemiBold,
+                    },
+                  ]}
+                >
+                  Clear all
+                </Text>
+              </Pressable>
+            </View>
+            <View style={styles.appliedFilterRow}>
+              {timeFilterLabel ? (
+                <AppliedFilterChip
+                  label={timeFilterLabel}
+                  accessibilityLabel="Remove date filter"
+                  onRemove={clearTimeFilter}
+                />
+              ) : null}
+              {categoryFilterLabel ? (
+                <AppliedFilterChip
+                  label={categoryFilterLabel}
+                  accessibilityLabel="Remove category filter"
+                  onRemove={() => setSelectedCategory("")}
+                />
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
@@ -603,18 +661,25 @@ export default function ActivityScreen() {
             Filter
           </Text>
           <View style={styles.periodRow}>
-            {(["week", "month", "custom"] as PeriodKey[]).map((key) => (
+            {(["all", "week", "month", "custom"] as PeriodKey[]).map((key) => (
               <Chip
                 key={key}
                 selected={period === key}
                 label={
-                  key === "week"
-                    ? "This week"
+                  key === "all"
+                    ? "All time"
+                    : key === "week"
+                      ? "This week"
                     : key === "month"
                       ? "This month"
                       : "Custom range"
                 }
-                onPress={() => setPeriod(key)}
+                onPress={() => {
+                  setSelectedDate("");
+                  setPeriod(key);
+                  if (key === "all")
+                    setCustomRange({ from: "", to: "" });
+                }}
               />
             ))}
           </View>
@@ -750,6 +815,45 @@ export default function ActivityScreen() {
   );
 }
 
+function AppliedFilterChip({
+  label,
+  accessibilityLabel,
+  onRemove,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  onRemove: () => void;
+}) {
+  const { tokens } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onRemove}
+      style={({ pressed }) => [
+        styles.appliedFilterChip,
+        {
+          backgroundColor: tokens.chipActiveBg,
+          borderColor: tokens.borderStrong,
+          opacity: pressed ? 0.72 : 1,
+        },
+      ]}
+    >
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.appliedFilterChipText,
+          { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+        ]}
+      >
+        {label}
+      </Text>
+      <X size={13} strokeWidth={2.5} color={tokens.text2} />
+    </Pressable>
+  );
+}
+
 function SheetOption({
   label,
   color,
@@ -776,21 +880,50 @@ function SheetOption({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { gap: 4 },
-  dateChip: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderRadius: 100,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  periodRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+  appliedFilters: {
+    gap: 7,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  appliedFiltersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  appliedFiltersLabel: {
+    fontSize: 10,
+    letterSpacing: 0.7,
+  },
+  clearFiltersText: { fontSize: 12 },
+  appliedFilterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  appliedFilterChip: {
+    maxWidth: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 100,
+    paddingLeft: 12,
+    paddingRight: 9,
+    paddingVertical: 7,
+  },
+  appliedFilterChipText: { flexShrink: 1, fontSize: 12 },
+  periodRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
   categorySheetScroll: { height: 420 },
   categorySearch: {
     borderWidth: 1,
@@ -820,7 +953,6 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   customRangeWrap: { marginBottom: 10 },
-  chipText: { fontSize: 12 },
   search: {
     flex: 1,
     borderRadius: 100,

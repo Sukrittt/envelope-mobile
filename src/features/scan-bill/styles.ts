@@ -51,6 +51,8 @@ export const styles = StyleSheet.create({
   addItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   divider: { height: StyleSheet.hairlineWidth },
   categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 10,
     justifyContent: "center",

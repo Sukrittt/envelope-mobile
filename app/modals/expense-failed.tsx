@@ -73,13 +73,17 @@ export default function ExpenseFailedScreen() {
   }, [])
 
   const categoryName = splitEmoji(category).text
-  const categoryLabel = category ? `${categoryEmoji(category)} ${categoryName}` : ''
+  const categoryIcon = category ? categoryEmoji(category) : ''
   // Same de-dupe as the success screen: an item named after its category reads
   // as a repeated line, not as two facts.
   const sameAsCategory = item.trim().toLowerCase() === categoryName.trim().toLowerCase()
-  const detail = item !== '' && categoryLabel !== '' && !sameAsCategory
-    ? `${item} · ${categoryLabel}`
-    : categoryLabel || item
+  // Icon is rendered separately (see below) — everything here is plain text.
+  const detail = item !== '' && categoryName !== '' && !sameAsCategory
+    ? `${item} · ${categoryName}`
+    : categoryName || item
+  // The icon leads `detail` whenever a category actually contributed to it —
+  // i.e. every case except "item only, no category".
+  const detailShowsIcon = category !== '' && detail !== ''
 
   function handleRetry() {
     if (addExpense.isPending) return
@@ -162,21 +166,33 @@ export default function ExpenseFailedScreen() {
         </Reanimated.View>
 
         {detail !== '' && (
-          <Reanimated.Text
+          <Reanimated.View
             entering={FadeIn.delay(STAGGER.detail).duration(350)}
-            numberOfLines={1}
-            style={[
-              styles.line,
-              {
-                color: tokens.text,
-                fontFamily: fontFamily.bodySemiBold,
-                fontSize: type.bodyLg,
-                marginTop: space.md,
-              },
-            ]}
+            style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}
           >
-            {detail}
-          </Reanimated.Text>
+            {detailShowsIcon && (
+              // Separate Text node, no custom fontFamily: a ZWJ+variation-selector
+              // emoji sharing one custom-font Text run with the label can make
+              // Android silently drop the rest of that run.
+              <Text style={{ color: tokens.text, fontSize: type.bodyLg, marginRight: space.xs }}>
+                {categoryIcon}
+              </Text>
+            )}
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.line,
+                {
+                  flexShrink: 1,
+                  color: tokens.text,
+                  fontFamily: fontFamily.bodySemiBold,
+                  fontSize: type.bodyLg,
+                },
+              ]}
+            >
+              {detail}
+            </Text>
+          </Reanimated.View>
         )}
       </View>
 

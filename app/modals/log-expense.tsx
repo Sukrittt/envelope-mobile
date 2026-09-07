@@ -442,20 +442,42 @@ export default function LogExpenseScreen() {
               },
             ]}
           >
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.categoryPillText,
-                {
-                  color: tokens.onAccent,
-                  fontFamily: fontFamily.bodySemiBold,
-                },
-              ]}
-            >
-              {selectedCategory
-                ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}`
-                : "Category"}
-            </Text>
+            {selectedCategory ? (
+              <>
+                {/* Separate Text node, no custom fontFamily: a ZWJ+variation-selector
+                    emoji sharing one custom-font Text run with the label can make
+                    Android silently drop the rest of that run. */}
+                <Text style={{ color: tokens.onAccent, fontSize: type.caption }}>
+                  {categoryEmoji(selectedCategory.name, selectedCategory.group)}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.categoryPillText,
+                    {
+                      flexShrink: 1,
+                      marginLeft: space.xs,
+                      color: tokens.onAccent,
+                      fontFamily: fontFamily.bodySemiBold,
+                    },
+                  ]}
+                >
+                  {splitEmoji(selectedCategory.name).text}
+                </Text>
+              </>
+            ) : (
+              <Text
+                style={[
+                  styles.categoryPillText,
+                  {
+                    color: tokens.onAccent,
+                    fontFamily: fontFamily.bodySemiBold,
+                  },
+                ]}
+              >
+                Category
+              </Text>
+            )}
           </Pressable>
         </View>
 
@@ -490,7 +512,8 @@ export default function LogExpenseScreen() {
               <Chip
                 key={c.name}
                 selected={category === c.name}
-                label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
+                icon={categoryEmoji(c.name, c.group)}
+                label={splitEmoji(c.name).text}
                 onPress={() => {
                   setCategory(c.name);
                   setCategoryTouched(true);
@@ -657,6 +680,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 6,
     maxWidth: 108,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 7,
   },

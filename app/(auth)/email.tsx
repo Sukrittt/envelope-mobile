@@ -59,7 +59,11 @@ export default function EmailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
-      <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <Pressable
+        onPress={() => (isChangeEmail ? router.back() : router.replace('/(auth)/welcome'))}
+        hitSlop={12}
+        style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+      >
         <Icon icon={ArrowLeft} size={20} color={tokens.text} />
       </Pressable>
 

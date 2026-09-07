@@ -275,10 +275,10 @@ export default function ExpenseAddedScreen() {
   // it here as "item · category" read as a duplicate, so the line under the
   // headline is the item name alone.
   const categoryName = splitEmoji(category).text;
-  const categoryLabel = category
-    ? `${categoryEmoji(category, envelope?.group)} ${categoryName}`
-    : "";
-  const subtitle = item || categoryLabel;
+  const categoryIcon = category ? categoryEmoji(category, envelope?.group) : "";
+  // Falls back to the category name when the logged item has no name of its own.
+  const subtitle = item || categoryName;
+  const subtitleIsCategory = !item && !!category;
 
   const [undoingPending, setUndoingPending] = useState(false);
 
@@ -371,21 +371,33 @@ export default function ExpenseAddedScreen() {
           </Reanimated.View>
 
           {subtitle !== "" && (
-            <Reanimated.Text
+            <Reanimated.View
               entering={FadeInDown.delay(STAGGER.detail).duration(420)}
-              numberOfLines={1}
-              style={[
-                styles.line,
-                {
-                  color: tokens.text2,
-                  fontFamily: fontFamily.bodyExtraBold,
-                  fontSize: type.bodyLg,
-                  marginTop: space.sm,
-                },
-              ]}
+              style={{ flexDirection: "row", alignItems: "center", marginTop: space.sm }}
             >
-              {subtitle}
-            </Reanimated.Text>
+              {subtitleIsCategory && (
+                // Separate Text node, no custom fontFamily: a ZWJ+variation-selector
+                // emoji sharing one custom-font Text run with the label can make
+                // Android silently drop the rest of that run.
+                <Text style={{ color: tokens.text2, fontSize: type.bodyLg, marginRight: space.xs }}>
+                  {categoryIcon}
+                </Text>
+              )}
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.line,
+                  {
+                    flexShrink: 1,
+                    color: tokens.text2,
+                    fontFamily: fontFamily.bodyExtraBold,
+                    fontSize: type.bodyLg,
+                  },
+                ]}
+              >
+                {subtitle}
+              </Text>
+            </Reanimated.View>
           )}
         </View>
 

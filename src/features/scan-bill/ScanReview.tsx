@@ -506,18 +506,38 @@ export function ScanReview({ tokens, space, radius, type, insets, categories, se
             },
           ]}
         >
-          <Text
-            numberOfLines={1}
-            style={{
-              color: tokens.text,
-              fontFamily: fontFamily.bodySemiBold,
-              fontSize: type.caption,
-            }}
-          >
-            {selectedCategory
-              ? `${categoryEmoji(selectedCategory.name, selectedCategory.group)} ${splitEmoji(selectedCategory.name).text}`
-              : "Category"}
-          </Text>
+          {selectedCategory ? (
+            <>
+              {/* Separate Text node, no custom fontFamily: a ZWJ+variation-selector
+                  emoji sharing one custom-font Text run with the label can make
+                  Android silently drop the rest of that run. */}
+              <Text style={{ color: tokens.text, fontSize: type.caption }}>
+                {categoryEmoji(selectedCategory.name, selectedCategory.group)}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={{
+                  flexShrink: 1,
+                  marginLeft: space.xs,
+                  color: tokens.text,
+                  fontFamily: fontFamily.bodySemiBold,
+                  fontSize: type.caption,
+                }}
+              >
+                {splitEmoji(selectedCategory.name).text}
+              </Text>
+            </>
+          ) : (
+            <Text
+              style={{
+                color: tokens.text,
+                fontFamily: fontFamily.bodySemiBold,
+                fontSize: type.caption,
+              }}
+            >
+              Category
+            </Text>
+          )}
         </Pressable>
       </PopIn>
     </ScrollView>
@@ -632,7 +652,8 @@ export function ScanReview({ tokens, space, radius, type, insets, categories, se
           <Chip
             key={c.name}
             selected={category === c.name}
-            label={`${categoryEmoji(c.name, c.group)} ${splitEmoji(c.name).text}`}
+            icon={categoryEmoji(c.name, c.group)}
+            label={splitEmoji(c.name).text}
             onPress={() => {
               setCategory(c.name);
               setCategoryPickerOpen(false);

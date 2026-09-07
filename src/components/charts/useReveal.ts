@@ -25,12 +25,19 @@ const SETTLE_MS = 320
  * 3. Mount happens once, so nothing replays when the data underneath is swapped
  *    out (category vs group, or a different month).
  *
- * Returns 0 until the reveal is armed, then a nonce that bumps on every new
- * `scope`. Callers use it both as the "play now" flag (`> 0`) and inside a child
- * `key`, which remounts the mount-only animators (PopIn, BudgetBar) so they
- * replay without having to be rewritten as reactive.
+ * Returns an explicit readiness flag plus a nonce that bumps on every new
+ * `scope`. The flag prevents pre-reveal content from flashing; the nonce
+ * remounts mount-only animators (PopIn, BudgetBar) for a clean replay.
  */
-export function useReveal(scope: string, ready: boolean): number {
+export interface RevealState {
+  revealKey: number
+  /** False during the screen transition and for the render where a new scope
+   * first arrives. Callers keep their laid-out content transparent until this
+   * flips, avoiding a visible -> hidden -> reveal flash. */
+  revealReady: boolean
+}
+
+export function useReveal(scope: string, ready: boolean): RevealState {
   const isFocused = useIsFocused()
   const [settled, setSettled] = useState(false)
   const [nonce, setNonce] = useState(0)
@@ -49,5 +56,8 @@ export function useReveal(scope: string, ready: boolean): number {
     setNonce((n) => n + 1)
   }, [settled, ready, scope])
 
-  return nonce
+  return {
+    revealKey: nonce,
+    revealReady: settled && ready && lastScope.current === scope && nonce > 0,
+  }
 }

@@ -21,12 +21,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * and the usual card/border colors would disappear into it.
  */
 export function Chip({
+  icon,
   label,
   selected,
   onPress,
   onAccent,
   style,
 }: {
+  icon?: string;
   label: string;
   selected?: boolean;
   onPress: () => void;
@@ -79,6 +81,14 @@ export function Chip({
         style,
       ]}
     >
+      {icon ? (
+        // Separate Text node, no custom fontFamily: a ZWJ+variation-selector emoji
+        // (e.g. person + gender modifier) sharing one custom-font Text run with the
+        // label can make Android silently drop the rest of that run.
+        <Text style={{ color: fg, fontSize: type.caption, marginRight: space.xs }}>
+          {icon}
+        </Text>
+      ) : null}
       <Text
         style={{
           color: fg,

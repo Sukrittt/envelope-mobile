@@ -1,11 +1,22 @@
-import { useEffect, useRef } from 'react'
-import { View, Text, Animated, Easing, StyleSheet } from 'react-native'
-import Svg, { Path, Circle, G } from 'react-native-svg'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, StyleSheet } from 'react-native'
+import Svg, { Path, G } from 'react-native-svg'
+import Reanimated, {
+  Easing,
+  cancelAnimation,
+  interpolate,
+  useAnimatedProps,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-const AnimatedPath = Animated.createAnimatedComponent(Path)
-const AnimatedCircle = Animated.createAnimatedComponent(Circle)
+const AnimatedPath = Reanimated.createAnimatedComponent(Path)
 
 export interface DonutSegment {
   key: string
@@ -21,110 +32,186 @@ interface Props {
   onSelect: (key: string | null) => void
   size?: number
   thickness?: number
-  /** Bumped by the caller's useReveal() to (re)play the wipe — on the screen's
-   *  first settled paint, and again whenever the segments are swapped out. */
+  /** Bumped for entrance and scope-change wipes. Ordinary segment updates
+   * morph from their previous angular layout. */
   revealKey?: number
   children?: React.ReactNode
 }
 
 const DEFAULT_SIZE = 200
 const DEFAULT_THICKNESS = 28
-
 const SWEEP_DELAY = 80
 const SWEEP_DURATION = 450
-/** How far the selected wedge pushes out of the ring, along its own bisector. */
+export const DONUT_MORPH_DURATION = 420
 const LIFT = 6
 
-/** Point on a circle of `r` centered at (cx, cy), at `angleDeg` clockwise from the top. */
 function pointOnCircle(cx: number, cy: number, r: number, angleDeg: number) {
+  'worklet'
   const rad = ((angleDeg - 90) * Math.PI) / 180
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
 }
 
-/** Arc path (stroke only, no fill) from `startDeg` to `endDeg` clockwise from the top. */
 function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+  'worklet'
   const start = pointOnCircle(cx, cy, r, startDeg)
   const end = pointOnCircle(cx, cy, r, endDeg)
   const largeArc = endDeg - startDeg > 180 ? 1 : 0
-  return `M${start.x.toFixed(2)},${start.y.toFixed(2)} A${r},${r} 0 ${largeArc} 1 ${end.x.toFixed(2)},${end.y.toFixed(2)}`
+  return `M${start.x},${start.y} A${r},${r} 0 ${largeArc} 1 ${end.x},${end.y}`
 }
 
-interface SliceProps {
+export interface DonutArcLayout {
+  key: string
   seg: DonutSegment
   startDeg: number
   endDeg: number
+}
+
+export interface DonutArcTransition {
+  key: string
+  seg: DonutSegment
+  fromStartDeg: number
+  fromEndDeg: number
+  toStartDeg: number
+  toEndDeg: number
+  fromOpacity: number
+  toOpacity: number
+  exiting: boolean
+}
+
+/** Pure helpers keep angle and enter/exit behavior testable without native frames. */
+export function layoutDonutSegments(segments: DonutSegment[]): DonutArcLayout[] {
+  const total = segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0)
+  if (total <= 0) return []
+  let cursor = 0
+  return segments
+    .filter((segment) => segment.value > 0)
+    .map((seg) => {
+      const startDeg = cursor
+      const endDeg = cursor + (seg.value / total) * 360
+      cursor = endDeg
+      return { key: seg.key, seg, startDeg, endDeg }
+    })
+}
+
+export function buildDonutTransition(previous: DonutArcLayout[], next: DonutArcLayout[]): DonutArcTransition[] {
+  const previousByKey = new Map(previous.map((arc) => [arc.key, arc]))
+  const nextByKey = new Map(next.map((arc) => [arc.key, arc]))
+
+  const enteringAndSurviving = next.map((target) => {
+    const source = previousByKey.get(target.key)
+    return {
+      key: target.key,
+      seg: target.seg,
+      fromStartDeg: source?.startDeg ?? target.startDeg,
+      fromEndDeg: source?.endDeg ?? target.startDeg,
+      toStartDeg: target.startDeg,
+      toEndDeg: target.endDeg,
+      fromOpacity: source ? 1 : 0,
+      toOpacity: 1,
+      exiting: false,
+    }
+  })
+
+  const exiting = previous
+    .filter((source) => !nextByKey.has(source.key))
+    .map((source) => ({
+      key: source.key,
+      seg: source.seg,
+      fromStartDeg: source.startDeg,
+      fromEndDeg: source.endDeg,
+      toStartDeg: source.startDeg,
+      toEndDeg: source.startDeg,
+      fromOpacity: 1,
+      toOpacity: 0,
+      exiting: true,
+    }))
+
+  return [...enteringAndSurviving, ...exiting]
+}
+
+interface SliceProps extends DonutArcTransition {
   cx: number
   cy: number
   r: number
   thickness: number
-  /** 0..1 clockwise wipe driving every wedge off one timeline. */
-  sweep: Animated.Value
+  entranceSweep: SharedValue<number>
   isSelected: boolean
   anySelected: boolean
+  reducedMotion: boolean
   onPress: () => void
 }
 
-/**
- * One wedge. Its own emphasis value carries three states at once — 0 dimmed,
- * 1 neutral, 2 selected — so the width bump, the fade of its neighbours and
- * the lift out of the ring all spring off a single driver instead of three.
- */
-function DonutSlice({ seg, startDeg, endDeg, cx, cy, r, thickness, sweep, isSelected, anySelected, onPress }: SliceProps) {
+function DonutSlice({
+  seg,
+  fromStartDeg,
+  fromEndDeg,
+  toStartDeg,
+  toEndDeg,
+  cx,
+  cy,
+  r,
+  thickness,
+  entranceSweep,
+  isSelected,
+  anySelected,
+  reducedMotion,
+  exiting,
+  fromOpacity,
+  toOpacity,
+  onPress,
+}: SliceProps) {
   const { motion } = useTheme()
+  const morph = useSharedValue(reducedMotion ? 1 : 0)
   const state = isSelected ? 2 : anySelected ? 0 : 1
-  const emphasis = useRef(new Animated.Value(state)).current
+  const emphasis = useSharedValue(state)
 
   useEffect(() => {
-    Animated.spring(emphasis, { toValue: state, useNativeDriver: false, ...motion.spring }).start()
-  }, [emphasis, state, motion.spring])
+    morph.value = reducedMotion
+      ? 1
+      : withTiming(1, { duration: DONUT_MORPH_DURATION, easing: Easing.inOut(Easing.cubic) })
+  }, [morph, reducedMotion])
 
-  // Stroke length of this arc, so dasharray/dashoffset can draw it on — the
-  // same trick CheckIcon uses for its checkmark, scaled to each wedge's sweep.
-  const len = 2 * Math.PI * r * ((endDeg - startDeg) / 360)
-  // A zero-value segment has no range to interpolate over; render it drawn.
-  const dashoffset =
-    endDeg > startDeg
-      ? sweep.interpolate({
-          inputRange: [startDeg / 360, endDeg / 360],
-          outputRange: [len, 0],
-          extrapolate: 'clamp',
-        })
-      : 0
+  useEffect(() => {
+    emphasis.value = reducedMotion ? state : withSpring(state, motion.spring)
+  }, [emphasis, motion.spring, reducedMotion, state])
 
-  // Unit vector along the wedge's bisector, so it lifts straight outward.
-  const mid = (startDeg + endDeg) / 2
-  const dir = pointOnCircle(0, 0, 1, mid)
-  // The spring overshoots past its target, so every output range clamps.
-  const lift = (axis: number) =>
-    emphasis.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 0, axis * LIFT], extrapolate: 'clamp' })
+  const animatedProps = useAnimatedProps(() => {
+    const startDeg = interpolate(morph.value, [0, 1], [fromStartDeg, toStartDeg])
+    const rawEndDeg = interpolate(morph.value, [0, 1], [fromEndDeg, toEndDeg])
+    const endDeg = Math.min(rawEndDeg, startDeg + 359.999)
+    const span = Math.max(0.001, endDeg - startDeg)
+    const len = 2 * Math.PI * r * (span / 360)
+    const revealedAngle = entranceSweep.value * 360
+    const revealedFraction = Math.max(0, Math.min(1, (revealedAngle - startDeg) / span))
+    const mid = (startDeg + endDeg) / 2
+    const direction = pointOnCircle(0, 0, 1, mid)
+    const lift = interpolate(emphasis.value, [0, 1, 2], [0, 0, LIFT])
+    const selectionOpacity = interpolate(emphasis.value, [0, 1, 2], [0.35, 1, 1])
+    const morphOpacity = interpolate(morph.value, [0, 1], [fromOpacity, toOpacity])
+
+    return {
+      d: arcPath(cx, cy, r, startDeg, endDeg),
+      strokeWidth: interpolate(emphasis.value, [0, 1, 2], [thickness, thickness, thickness + 4]),
+      strokeOpacity: selectionOpacity * morphOpacity,
+      strokeDasharray: [len, len],
+      strokeDashoffset: len * (1 - revealedFraction),
+      translateX: direction.x * lift,
+      translateY: direction.y * lift,
+    }
+  })
 
   return (
     <AnimatedPath
-      d={arcPath(cx, cy, r, startDeg, Math.min(endDeg, startDeg + 359.999))}
+      animatedProps={animatedProps}
       fill="none"
       stroke={seg.color}
-      strokeWidth={emphasis.interpolate({
-        inputRange: [0, 1, 2],
-        outputRange: [thickness, thickness, thickness + 4],
-        extrapolate: 'clamp',
-      })}
-      strokeOpacity={emphasis.interpolate({
-        inputRange: [0, 1, 2],
-        outputRange: [0.35, 1, 1],
-        extrapolate: 'clamp',
-      })}
-      strokeDasharray={[len, len]}
-      strokeDashoffset={dashoffset}
-      translateX={lift(dir.x)}
-      translateY={lift(dir.y)}
       strokeLinecap="butt"
-      onPress={onPress}
+      onPress={exiting ? undefined : onPress}
     />
   )
 }
 
-/** Interactive donut: tap a slice (or a legend row driving the same `selectedKey`)
- *  to highlight it. Hand-rolled on react-native-svg, matching TrendChart/AllocationBar. */
+/** Interactive donut whose segment changes morph in place. */
 export function DonutChart({
   segments,
   selectedKey,
@@ -135,37 +222,47 @@ export function DonutChart({
   children,
 }: Props) {
   const { tokens } = useTheme()
-  const total = segments.reduce((s, seg) => s + seg.value, 0)
-  const hasData = total > 0
+  const reducedMotion = useReducedMotion()
+  const nextLayout = useMemo(() => layoutDonutSegments(segments), [segments])
+  const nextSignature = nextLayout.map((arc) => `${arc.key}:${arc.seg.value}:${arc.seg.color}`).join('|')
+  const previousLayout = useRef(nextLayout)
+  const [transitionKey, setTransitionKey] = useState(0)
+  const [renderedArcs, setRenderedArcs] = useState<DonutArcTransition[]>(() =>
+    buildDonutTransition(nextLayout, nextLayout),
+  )
+  const entranceSweep = useSharedValue(revealKey == null || reducedMotion ? 1 : 0)
 
-  // Hooks must run unconditionally — declared above the `total <= 0` bail-out
-  // below (same call as AllocationBar). A caller that drives no reveal gets the
-  // ring drawn outright rather than an invisible one waiting for a cue.
-  const sweep = useRef(new Animated.Value(revealKey == null ? 1 : 0)).current
   useEffect(() => {
-    // Nothing to wipe open yet. Running here anyway is what used to spend the
-    // whole sweep on the empty state while the queries were still in flight.
-    if (!hasData || !revealKey) return
-    sweep.setValue(0)
-    // ponytail: a swapped-out dataset re-wipes rather than morphing wedge
-    // angles from their old positions. Morphing needs enter/exit handling for
-    // segments that only exist in one of the two sets (category vs group);
-    // upgrade there if the re-wipe ever reads as too heavy a reset.
-    const anim = Animated.timing(sweep, {
-      toValue: 1,
-      duration: SWEEP_DURATION,
-      delay: SWEEP_DELAY,
-      // Eased at both ends, same call as ProgressBar's fill: an out-only curve
-      // left the wipe at full speed from the first frame.
-      easing: Easing.inOut(Easing.cubic),
-      // strokeDashoffset is an SVG prop, not native-driver-friendly.
-      useNativeDriver: false,
-    })
-    anim.start()
-    return () => anim.stop()
-  }, [sweep, hasData, revealKey])
+    const transition = buildDonutTransition(previousLayout.current, nextLayout)
+    previousLayout.current = nextLayout
+    setRenderedArcs(transition)
+    setTransitionKey((key) => key + 1)
 
-  if (total <= 0) {
+    if (reducedMotion || !transition.some((arc) => arc.exiting)) return
+    const id = setTimeout(() => {
+      setRenderedArcs(buildDonutTransition(nextLayout, nextLayout))
+    }, DONUT_MORPH_DURATION + 30)
+    return () => clearTimeout(id)
+    // nextSignature is a value-based detector; array identity alone would
+    // retrigger this effect on unrelated renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextSignature, reducedMotion])
+
+  useEffect(() => {
+    if (revealKey == null || reducedMotion) {
+      entranceSweep.value = 1
+      return
+    }
+    if (!nextLayout.length || !revealKey) return
+    cancelAnimation(entranceSweep)
+    entranceSweep.value = 0
+    entranceSweep.value = withDelay(
+      SWEEP_DELAY,
+      withTiming(1, { duration: SWEEP_DURATION, easing: Easing.inOut(Easing.cubic) }),
+    )
+  }, [entranceSweep, nextLayout.length, reducedMotion, revealKey])
+
+  if (!nextLayout.length) {
     return (
       <View style={[styles.empty, { width: size, height: size }]}>
         <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>
@@ -177,25 +274,7 @@ export function DonutChart({
 
   const cx = size / 2
   const cy = size / 2
-  // Selected slices draw at thickness+4 and push LIFT px outward; shrink the
-  // base radius by both so neither one clips against the SVG canvas edge.
   const r = (size - thickness) / 2 - (LIFT + 2)
-
-  // A single 100% segment is a full 360deg arc, which the M/A path syntax
-  // can't express as one arc (start === end). Draw a plain ring instead.
-  const singleSegment = segments.length === 1 ? segments[0] : null
-  const ringLength = 2 * Math.PI * r
-
-  let cursor = 0
-  const arcs = singleSegment
-    ? []
-    : segments.map((seg) => {
-        const sweepDeg = (seg.value / total) * 360
-        const startDeg = cursor
-        const endDeg = cursor + sweepDeg
-        cursor = endDeg
-        return { seg, startDeg, endDeg }
-      })
 
   function toggle(key: string) {
     onSelect(selectedKey === key ? null : key)
@@ -205,36 +284,21 @@ export function DonutChart({
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <G>
-          {singleSegment ? (
-            <AnimatedCircle
+          {renderedArcs.map((arc) => (
+            <DonutSlice
+              {...arc}
+              key={`${transitionKey}:${arc.key}`}
               cx={cx}
               cy={cy}
               r={r}
-              fill="none"
-              stroke={singleSegment.color}
-              strokeWidth={thickness}
-              strokeDasharray={[ringLength, ringLength]}
-              strokeDashoffset={sweep.interpolate({ inputRange: [0, 1], outputRange: [ringLength, 0] })}
-              onPress={() => toggle(singleSegment.key)}
+              thickness={thickness}
+              entranceSweep={entranceSweep}
+              isSelected={!arc.exiting && selectedKey === arc.key}
+              anySelected={selectedKey != null}
+              reducedMotion={reducedMotion}
+              onPress={() => toggle(arc.key)}
             />
-          ) : (
-            arcs.map(({ seg, startDeg, endDeg }) => (
-              <DonutSlice
-                key={seg.key}
-                seg={seg}
-                startDeg={startDeg}
-                endDeg={endDeg}
-                cx={cx}
-                cy={cy}
-                r={r}
-                thickness={thickness}
-                sweep={sweep}
-                isSelected={selectedKey === seg.key}
-                anySelected={selectedKey != null}
-                onPress={() => toggle(seg.key)}
-              />
-            ))
-          )}
+          ))}
         </G>
       </Svg>
       <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="box-none">

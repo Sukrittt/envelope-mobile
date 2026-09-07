@@ -17,6 +17,7 @@ import { AllocationBar, type AllocationSegment } from '@/src/components/charts/A
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
@@ -95,6 +96,11 @@ export default function InvestmentsScreen() {
   const deleteHolding = useDeleteHolding()
 
   const [sheetHolding, setSheetHolding] = useState<HoldingRow | null>(null)
+  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
+  // animation in DeletingRow. The actual mutate() call is deferred until that
+  // animation finishes (see its onDone), so the refetch-driven removal never
+  // pops a still-visible row. Mirrors app/(tabs)/activity.tsx's pendingDelete.
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
   const holdings = holdingsQuery.data ?? EMPTY
   const events = eventsQuery.data ?? EMPTY
@@ -137,8 +143,15 @@ export default function InvestmentsScreen() {
     setSheetHolding(null)
     Alert.alert('Delete holding', `Remove "${name}"? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteHolding.mutate(name) },
+      { text: 'Delete', style: 'destructive', onPress: () => setPendingDelete(name) },
     ])
+  }
+
+  function runDelete(name: string) {
+    // Left set on success so the row stays collapsed until the refetch drops
+    // it — clearing it here springs the row back to full height for a whole
+    // round trip. On failure the row does come back, which is the signal.
+    deleteHolding.mutate(name, { onError: () => setPendingDelete(null) })
   }
 
   if (!online) return <OfflineScreen />
@@ -203,39 +216,46 @@ export default function InvestmentsScreen() {
           ) : (
             <View style={{ gap: 10 }}>
               {holdings.map((h, i) => (
-                <PopIn
+                <DeletingRow
                   key={h.name}
-                  play
-                  delay={HOLDINGS_MOUNT_DELAY_MS + Math.min(i, HOLDINGS_ITEM_STAGGER_CAP_INDEX) * HOLDINGS_ITEM_STAGGER_MS}
-                  style={[styles.holdingRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+                  active={pendingDelete === h.name}
+                  onDone={() => {
+                    if (pendingDelete) runDelete(pendingDelete)
+                  }}
                 >
-                  <Pressable
-                    onPress={() => setSheetHolding(h)}
-                    style={styles.holdingRowInner}
+                  <PopIn
+                    play
+                    delay={HOLDINGS_MOUNT_DELAY_MS + Math.min(i, HOLDINGS_ITEM_STAGGER_CAP_INDEX) * HOLDINGS_ITEM_STAGGER_MS}
+                    style={[styles.holdingRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
-                        numberOfLines={1}
-                      >
-                        {h.name}
-                      </Text>
-                      <Text
-                        style={[styles.holdingMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
-                      >
-                        {h.type} · Updated {formatDateTime(h.updated_at)}
-                      </Text>
-                      {h.is_recurring === 'true' && (
-                        <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-                          Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                    <Pressable
+                      onPress={() => setSheetHolding(h)}
+                      style={styles.holdingRowInner}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.holdingName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+                          numberOfLines={1}
+                        >
+                          {h.name}
                         </Text>
-                      )}
-                    </View>
-                    <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                      {formatCurrency(Number(h.value) || 0, hideAmounts)}
-                    </Text>
-                  </Pressable>
-                </PopIn>
+                        <Text
+                          style={[styles.holdingMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+                        >
+                          {h.type} · Updated {formatDateTime(h.updated_at)}
+                        </Text>
+                        {h.is_recurring === 'true' && (
+                          <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+                            Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.holdingValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+                        {formatCurrency(Number(h.value) || 0, hideAmounts)}
+                      </Text>
+                    </Pressable>
+                  </PopIn>
+                </DeletingRow>
               ))}
             </View>
           )}

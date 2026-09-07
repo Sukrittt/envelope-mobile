@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { Play } from 'lucide-react-native'
+import { Check, ListFilter, Play } from 'lucide-react-native'
 import Reanimated, {
   Easing,
+  FadeOut,
+  LinearTransition,
   useSharedValue,
   useAnimatedStyle,
   withDelay,
@@ -15,6 +17,8 @@ import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { BottomSheet } from '@/src/components/shared/Modal'
+import { Button } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { DonutChart } from './DonutChart'
 import { useReveal } from './useReveal'
@@ -50,6 +54,8 @@ const ROW_STAGGER_CAP = 6
 /** Each bar fills just after its own row has settled into place. */
 const BAR_OFFSET_MS = 60
 const BAR_DURATION = 450
+const FILTER_APPLY_DELAY_MS = 220
+const LIST_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
 
 /** Spend-vs-own-budget bar: 100% of the track is "fully spent this
  *  category's budget", so the fill length is self-explanatory with no
@@ -116,14 +122,33 @@ export function CategoryBreakdown({
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [sortBy, setSortBy] = useState<'spend' | 'budget'>('spend')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [excludedKeys, setExcludedKeys] = useState<Set<string>>(() => new Set())
+  const [draftIncludedKeys, setDraftIncludedKeys] = useState<Set<string> | null>(null)
+  const [pendingExcludedKeys, setPendingExcludedKeys] = useState<Set<string> | null>(null)
+
+  // A filter describes one concrete month + breakdown shape. Variable-only is
+  // deliberately absent: toggling that quick filter must not forget a user's
+  // explicit choices for the categories that remain eligible.
+  useEffect(() => {
+    setFilterOpen(false)
+    setExcludedKeys(new Set())
+    setDraftIncludedKeys(null)
+    setPendingExcludedKeys(null)
+  }, [monthLabel, mode])
 
   const canFilterVariable = mode === 'category' && rows.some((r) => fixedCategories.has(r.key))
 
+  const eligibleRows = useMemo(
+    () => (canFilterVariable && variableOnly ? rows.filter((r) => !fixedCategories.has(r.key)) : rows),
+    [rows, canFilterVariable, variableOnly, fixedCategories],
+  )
+
   const displayRows = useMemo(() => {
-    const filtered = canFilterVariable && variableOnly ? rows.filter((r) => !fixedCategories.has(r.key)) : rows
+    const filtered = eligibleRows.filter((row) => !excludedKeys.has(row.key))
     const total = filtered.reduce((s, r) => s + r.spent, 0) || 1
     return filtered.map((r) => ({ ...r, pct: (r.spent / total) * 100 }))
-  }, [rows, canFilterVariable, variableOnly, fixedCategories])
+  }, [eligibleRows, excludedKeys])
 
   const displayTotal = useMemo(() => displayRows.reduce((s, r) => s + r.spent, 0), [displayRows])
 
@@ -131,14 +156,14 @@ export function CategoryBreakdown({
   // its push transition and there are real rows to show. Bumps again whenever
   // the rows are swapped out (month, mode, or the variable-only filter), which
   // is what makes a mode switch re-wipe the donut and refill the bars from 0.
-  const revealKey = useReveal(`${monthLabel}|${mode}|${variableOnly}`, displayRows.length > 0)
-  const play = revealKey > 0
+  const { revealKey, revealReady } = useReveal(`${monthLabel}|${mode}|${variableOnly}`, displayRows.length > 0)
+  const play = revealReady
 
   const colorByKey = useMemo(() => {
     const map = new Map<string, string>()
-    displayRows.forEach((row, i) => map.set(row.key, tokens[CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]]))
+    rows.forEach((row, i) => map.set(row.key, tokens[CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]]))
     return map
-  }, [displayRows, tokens])
+  }, [rows, tokens])
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT)
@@ -179,9 +204,45 @@ export function CategoryBreakdown({
   }, [displayRows, sortBy])
 
   const visibleRows = expanded ? sortedRows : sortedRows.slice(0, VISIBLE_ROWS)
-  const hiddenCount = sortedRows.length - VISIBLE_ROWS
+  const collapsedCount = sortedRows.length - VISIBLE_ROWS
+  const filterHiddenCount = eligibleRows.filter((row) => excludedKeys.has(row.key)).length
+  const hasCustomFilter = filterHiddenCount > 0
 
   const centerDelta = comparison && comparison.baseline != null && comparison.deltaPct != null ? comparison : null
+
+  useEffect(() => {
+    if (filterOpen || pendingExcludedKeys == null) return
+    const id = setTimeout(() => {
+      setExcludedKeys(pendingExcludedKeys)
+      setPendingExcludedKeys(null)
+      if (selectedKey != null && pendingExcludedKeys.has(selectedKey)) onSelectKey(null)
+    }, FILTER_APPLY_DELAY_MS)
+    return () => clearTimeout(id)
+  }, [filterOpen, onSelectKey, pendingExcludedKeys, selectedKey])
+
+  function openFilter() {
+    setDraftIncludedKeys(new Set(eligibleRows.filter((row) => !excludedKeys.has(row.key)).map((row) => row.key)))
+    setFilterOpen(true)
+  }
+
+  function toggleDraftKey(key: string) {
+    setDraftIncludedKeys((current) => {
+      const next = new Set(current ?? [])
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function applyFilter() {
+    if (!draftIncludedKeys?.size) return
+    const candidateKeys = new Set(eligibleRows.map((row) => row.key))
+    const next = new Set([...excludedKeys].filter((key) => !candidateKeys.has(key)))
+    for (const row of eligibleRows) if (!draftIncludedKeys.has(row.key)) next.add(row.key)
+    setPendingExcludedKeys(next)
+    setDraftIncludedKeys(null)
+    setFilterOpen(false)
+  }
 
   return (
     <View>
@@ -204,6 +265,24 @@ export function CategoryBreakdown({
         </View>
 
         <View style={styles.controlsRight}>
+          {eligibleRows.length > 1 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={hasCustomFilter ? `Filter, ${filterHiddenCount} hidden` : 'Filter chart'}
+              onPress={openFilter}
+              style={[
+                styles.filterChip,
+                styles.filterAction,
+                { borderRadius: radius.full, borderColor: tokens.borderStrong },
+                hasCustomFilter && { backgroundColor: tokens.chipActiveBg, borderColor: tokens.chipActiveBg },
+              ]}
+            >
+              <ListFilter size={14} color={tokens.text} />
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                {hasCustomFilter ? `${filterHiddenCount} hidden` : 'Filter'}
+              </Text>
+            </Pressable>
+          )}
           {canFilterVariable && (
             <Pressable
               accessibilityLabel="Variable spend only"
@@ -236,8 +315,9 @@ export function CategoryBreakdown({
         </View>
       </View>
 
+      <View testID="breakdown-reveal-content" style={[styles.revealContent, !revealReady && styles.preReveal]}>
       <View style={styles.donutWrap}>
-        <DonutChart segments={segments} selectedKey={donutSelectedKey} onSelect={onSelectKey} revealKey={revealKey}>
+        <DonutChart key={revealKey} segments={segments} selectedKey={donutSelectedKey} onSelect={onSelectKey} revealKey={revealKey}>
           {/* Held back until the reveal fires, so the label never sits alone in
               an undrawn ring. Keyed so each swap is a genuine remount, and
               driven by PopIn rather than an `entering` prop: this deep inside a
@@ -259,6 +339,19 @@ export function CategoryBreakdown({
               <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
                 {selectedRow.pct.toFixed(0)}%
               </Text>
+            </>
+          ) : hasCustomFilter ? (
+            <>
+              <Text style={{ color: tokens.text2, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
+                Filtered total
+              </Text>
+              <AmountText
+                value={displayTotal}
+                size={type.body}
+                weight="bodySemiBold"
+                animate
+                id="insights-donut-center"
+              />
             </>
           ) : centerDelta ? (
             <>
@@ -322,6 +415,7 @@ export function CategoryBreakdown({
             // The revealKey prefix is what makes the row remount on a replay:
             // PopIn and BudgetBar both read `play`/`delay` on their own mount
             // only, so a fresh instance is how they run again.
+            <Reanimated.View key={row.key} layout={LIST_TRANSITION} exiting={FadeOut.duration(160)}>
             <PopIn key={`${revealKey}:${row.key}`} play={play} delay={rowDelay}>
             <Pressable
               onPress={() => onSelectKey(isSelected ? null : row.key)}
@@ -393,15 +487,17 @@ export function CategoryBreakdown({
               )}
             </Pressable>
             </PopIn>
+            </Reanimated.View>
           )
         })}
-        {!expanded && hiddenCount > 0 && (
+        {!expanded && collapsedCount > 0 && (
           <Pressable onPress={() => setExpanded(true)}>
             <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-              Other ({hiddenCount})
+              Other ({collapsedCount})
             </Text>
           </Pressable>
         )}
+      </View>
       </View>
 
       <View
@@ -417,6 +513,92 @@ export function CategoryBreakdown({
           {formatCurrency(leftover, hideAmounts)}
         </Text>
       </View>
+
+      <BottomSheet
+        visible={filterOpen}
+        onClose={() => {
+          setFilterOpen(false)
+          setDraftIncludedKeys(null)
+        }}
+      >
+        <View style={styles.sheetHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>
+              Filter {mode === 'category' ? 'categories' : 'groups'}
+            </Text>
+            <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium, marginTop: 3 }}>
+              Choose what appears in this chart
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Select all ${mode === 'category' ? 'categories' : 'groups'}`}
+            onPress={() => setDraftIncludedKeys(new Set(eligibleRows.map((row) => row.key)))}
+            hitSlop={8}
+          >
+            <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+              Select all
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.filterList, { borderColor: tokens.border }]}>
+          {eligibleRows.map((row, index) => {
+            const checked = draftIncludedKeys?.has(row.key) ?? false
+            return (
+              <Pressable
+                key={row.key}
+                accessibilityRole="checkbox"
+                accessibilityLabel={row.label}
+                accessibilityState={{ checked }}
+                onPress={() => toggleDraftKey(row.key)}
+                style={[
+                  styles.filterOption,
+                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+                ]}
+              >
+                <View style={[styles.legendDot, { backgroundColor: colorByKey.get(row.key) ?? tokens.text3 }]} />
+                {row.emoji ? <Text style={{ fontSize: 16 }}>{row.emoji}</Text> : null}
+                <Text style={{ flex: 1, color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodyMedium }}>
+                  {row.label}
+                </Text>
+                <View
+                  style={[
+                    styles.checkbox,
+                    { borderColor: checked ? tokens.accentInk : tokens.borderStrong },
+                    checked && { backgroundColor: tokens.accentInk },
+                  ]}
+                >
+                  {checked ? <Check size={14} color={tokens.onAccent} strokeWidth={3} /> : null}
+                </View>
+              </Pressable>
+            )
+          })}
+        </View>
+
+        {draftIncludedKeys?.size === 0 && (
+          <Text style={{ color: tokens.coral, fontSize: 11, fontFamily: fontFamily.bodyMedium, marginTop: 8 }}>
+            Keep at least one item in the chart.
+          </Text>
+        )}
+        <View style={styles.sheetActions}>
+          <Button
+            label="Cancel"
+            variant="secondary"
+            style={styles.sheetButton}
+            onPress={() => {
+              setFilterOpen(false)
+              setDraftIncludedKeys(null)
+            }}
+          />
+          <Button
+            label="Apply"
+            style={styles.sheetButton}
+            disabled={!draftIncludedKeys?.size}
+            onPress={applyFilter}
+          />
+        </View>
+      </BottomSheet>
     </View>
   )
 }
@@ -427,9 +609,12 @@ const styles = StyleSheet.create({
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   controlsRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
+  filterAction: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   measureToggle: { flexDirection: 'row', width: 64, padding: 3, gap: 2 },
   measureCell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 5 },
   donutWrap: { alignItems: 'center', marginTop: 16 },
+  revealContent: { opacity: 1 },
+  preReveal: { opacity: 0 },
   centerBlock: { alignItems: 'center' },
   legendTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLabel: { flex: 1 },
@@ -437,4 +622,10 @@ const styles = StyleSheet.create({
   barTrack: { height: 6, borderRadius: 100, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 100 },
   leftoverRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 14 },
+  filterList: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, overflow: 'hidden' },
+  filterOption: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
+  checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  sheetActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  sheetButton: { flex: 1 },
 })
