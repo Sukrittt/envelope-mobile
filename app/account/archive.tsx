@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
   Pressable,
   ScrollView,
+  RefreshControl,
   StyleSheet,
 } from "react-native";
 import Animated, {
@@ -25,6 +26,8 @@ import {
   FolderOpen,
   Repeat,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
 import { Alert } from "@/src/components/ui/AlertHost";
@@ -36,6 +39,7 @@ import { Icon } from "@/src/components/shared/Icon";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
+import { useRefresh } from "@/src/hooks/useRefresh";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { daysUntil, formatCurrency, formatDateShort } from "@/src/lib/format";
 import {
@@ -107,6 +111,7 @@ const LOADING_PHRASES = [
   "Almost there…",
 ];
 const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
+const PAGE_SIZE = 10;
 
 export default function ArchiveScreen() {
   const { tokens } = useTheme();
@@ -115,9 +120,12 @@ export default function ArchiveScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const scrollRef = useRef<ScrollView>(null);
+  const { refreshing, onRefresh } = useRefresh();
   const archiveQuery = useQuery({ queryKey: archiveKey, queryFn: getArchive });
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [page, setPage] = useState(0);
   const [pending, setPending] = useState<{
     id: string;
     kind: "restore" | "purge";
@@ -137,7 +145,20 @@ export default function ArchiveScreen() {
   );
   const shown =
     filter === "all" ? sorted : sorted.filter((i) => i.collection === filter);
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageItems = shown.slice(
+    currentPage * PAGE_SIZE,
+    (currentPage + 1) * PAGE_SIZE,
+  );
   const next = sorted[0];
+
+  const changePage = (nextPage: number, scrollToTop = false) => {
+    setPage(nextPage);
+    if (scrollToTop) {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  };
 
   const counts: Record<Filter, number> = { all: items.length } as Record<
     Filter,
@@ -306,7 +327,10 @@ export default function ArchiveScreen() {
                 return (
                   <Pressable
                     key={f}
-                    onPress={() => setFilter(f)}
+                    onPress={() => {
+                      setFilter(f);
+                      setPage(0);
+                    }}
                     style={[
                       styles.chip,
                       {
@@ -345,6 +369,15 @@ export default function ArchiveScreen() {
       ) : null}
 
       <ScrollView
+        ref={scrollRef}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tokens.accent}
+            colors={[tokens.accent]}
+          />
+        }
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 32 },
@@ -494,12 +527,18 @@ export default function ArchiveScreen() {
           </Text>
         ) : null}
 
-        {shown.map((item, idx) => {
+        {pageItems.map((item, idx) => {
           const days = daysUntil(item.purgesAt);
           const band = bandFor(days);
           const showBand = band !== lastBand;
           lastBand = band;
           const color = urgencyColor(days, tokens);
+          const clockTextColor =
+            days <= 1
+              ? tokens.coral
+              : days <= 3
+                ? tokens.warnInk
+                : tokens.text2;
           const pct = Math.max(6, Math.round((days / 7) * 100));
           const isPending = pending?.id === item.id;
           const isSuccess = success?.id === item.id;
@@ -594,7 +633,15 @@ export default function ArchiveScreen() {
                 </View>
 
                 <View style={styles.cardBottom}>
-                  <Text style={[styles.clockLabel, { color }]}>
+                  <Text
+                    style={[
+                      styles.clockLabel,
+                      {
+                        color: clockTextColor,
+                        fontFamily: fontFamily.bodySemiBold,
+                      },
+                    ]}
+                  >
                     {days === 1 ? "1 day left" : `${days} days left`}
                   </Text>
                   <View
@@ -626,7 +673,6 @@ export default function ArchiveScreen() {
                         backgroundColor: isSuccess
                           ? tokens.mintSoft
                           : tokens.accentSoft,
-                        borderColor: isSuccess ? tokens.mint : tokens.accent,
                         opacity: isPending && !isSuccess ? 0.6 : 1,
                       },
                     ]}
@@ -654,6 +700,65 @@ export default function ArchiveScreen() {
             </Animated.View>
           );
         })}
+
+        {shown.length > PAGE_SIZE ? (
+          <View style={styles.pagination}>
+            <Pressable
+              onPress={() => changePage(currentPage - 1)}
+              disabled={currentPage === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Previous archive page"
+              accessibilityState={{ disabled: currentPage === 0 }}
+              style={[
+                styles.pageButton,
+                {
+                  backgroundColor: tokens.card,
+                  borderColor: tokens.border,
+                  opacity: currentPage === 0 ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Icon icon={ChevronLeft} size={17} color={tokens.text2} />
+            </Pressable>
+            <View style={styles.pageStatus}>
+              <Text
+                style={[
+                  styles.pageLabel,
+                  { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                ]}
+              >
+                Page {currentPage + 1} of {pageCount}
+              </Text>
+              <Text
+                style={[
+                  styles.pageRange,
+                  { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
+                ]}
+              >
+                {currentPage * PAGE_SIZE + 1}–
+                {Math.min((currentPage + 1) * PAGE_SIZE, shown.length)} of{" "}
+                {shown.length}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => changePage(currentPage + 1, true)}
+              disabled={currentPage === pageCount - 1}
+              accessibilityRole="button"
+              accessibilityLabel="Next archive page"
+              accessibilityState={{ disabled: currentPage === pageCount - 1 }}
+              style={[
+                styles.pageButton,
+                {
+                  backgroundColor: tokens.card,
+                  borderColor: tokens.border,
+                  opacity: currentPage === pageCount - 1 ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Icon icon={ChevronRight} size={17} color={tokens.text2} />
+            </Pressable>
+          </View>
+        ) : null}
 
         {items.length > 0 ? (
           <Text
@@ -832,7 +937,7 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12.5 },
   chipCount: { fontSize: 11 },
   scrollContent: { padding: 16, gap: 9 },
-  intro: { fontSize: 12, lineHeight: 17 },
+  intro: { fontSize: 12, lineHeight: 17, textAlign: "center" },
   nextCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -917,11 +1022,28 @@ const styles = StyleSheet.create({
     minWidth: 68,
     paddingHorizontal: 13,
     borderRadius: 100,
-    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   restoreButtonText: { fontSize: 12.5 },
+  pagination: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+    paddingTop: 8,
+  },
+  pageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pageStatus: { minWidth: 92, alignItems: "center", gap: 1 },
+  pageLabel: { fontSize: 12.5 },
+  pageRange: { fontSize: 10.5 },
   footnote: {
     fontSize: 11,
     textAlign: "center",
