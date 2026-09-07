@@ -25,11 +25,11 @@ export function feeDiff(total: number, items: { price: number }[]): number {
 }
 
 const FEE_KEYWORDS = ['fee', 'discount', 'offer', 'coupon', 'charge', 'tip']
+const FEE_PATTERN = new RegExp(`\\b(?:${FEE_KEYWORDS.join('|')})\\b`, 'i')
 
-/** True if an item's name reads as a pooled fee/discount line (delivery fee, coupon, tip…) rather than a real product — case-insensitive substring match. */
+/** True if an item's name contains a fee/discount keyword as a complete word. */
 export function isFeeLine(name: string): boolean {
-  const n = name.toLowerCase()
-  return FEE_KEYWORDS.some((kw) => n.includes(kw))
+  return FEE_PATTERN.test(name)
 }
 
 /** Groups non-skipped items by their divisor, ascending, for the confirm screen's breakdown. */

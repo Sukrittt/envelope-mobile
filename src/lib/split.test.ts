@@ -1,4 +1,4 @@
-import { computeShare, feeDiff, groupByDivisor, type ScanItem } from './split'
+import { computeShare, feeDiff, groupByDivisor, isFeeLine, type ScanItem } from './split'
 
 describe('computeShare', () => {
   it('counts a "mine" item (divisor 1) in full', () => {
@@ -52,6 +52,19 @@ describe('feeDiff', () => {
 
   it('returns a negative gap when the total is less than the item sum (a discount)', () => {
     expect(feeDiff(50, [{ price: 60 }])).toBe(-10)
+  })
+})
+
+describe('isFeeLine', () => {
+  it('matches fee and discount labels as words', () => {
+    expect(isFeeLine('Delivery Fee')).toBe(true)
+    expect(isFeeLine('Offer Discount')).toBe(true)
+    expect(isFeeLine('Small-cart charge')).toBe(true)
+  })
+
+  it('does not treat product names containing fee as fee lines', () => {
+    expect(isFeeLine('Bevzilla Café Coffee Kit Assorted')).toBe(false)
+    expect(isFeeLine('Coffee Beans')).toBe(false)
   })
 })
 
