@@ -19,6 +19,11 @@ export function LoadingPhrase({ phrases, color, style }: { phrases: string[]; co
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: 22, overflow: 'hidden', justifyContent: 'center' },
+  // `alignSelf: 'stretch'` is load-bearing. The text is absolutely positioned,
+  // so it contributes nothing to this View's measured width; under a parent
+  // with `alignItems: 'center'` the View would measure zero wide and
+  // `overflow: 'hidden'` would clip the phrase to nothing. Stretching is a
+  // no-op under a default (stretch) parent, so every call site is safe.
+  wrap: { alignSelf: 'stretch', height: 22, overflow: 'hidden', justifyContent: 'center' },
   text: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, textAlignVertical: 'center' },
 })
