@@ -2,51 +2,51 @@
 // from, into the small shape the widgets need. No network, no auth, no
 // storage here — that's what makes this the only part of the widgets worth
 // unit-testing.
-import { splitEmoji } from '@/src/lib/emoji'
-import { formatINR } from '@/src/lib/format'
-import type { Envelope, EnvelopeState } from '@/src/lib/envelope'
-import type { ExpenseRow } from '@/src/types'
+import { splitEmoji } from "@/src/lib/emoji";
+import { formatINR } from "@/src/lib/format";
+import type { Envelope, EnvelopeState } from "@/src/lib/envelope";
+import type { ExpenseRow } from "@/src/types";
 
 export interface WidgetRow {
-  icon: string
-  name: string
-  pct: number
-  available: string
-  overspent: boolean
+  icon: string;
+  name: string;
+  pct: number;
+  available: string;
+  overspent: boolean;
 }
 
 export interface WidgetChip {
-  category: string
-  label: string
-  uri: string
+  category: string;
+  label: string;
+  uri: string;
 }
 
 export interface WidgetToday {
-  item: string
-  amount: string
+  item: string;
+  amount: string;
 }
 
 export interface WeeklyTrend {
-  pct: number
-  dir: 'up' | 'down' | 'flat'
+  pct: number;
+  dir: "up" | "down" | "flat";
 }
 
 export interface WidgetData {
-  totalLeft: string
-  daysLeft: number
-  updatedAt: number
-  rows: WidgetRow[]
-  chips: WidgetChip[]
-  today: WidgetToday[]
-  weeklyTrend: WeeklyTrend | null
+  totalLeft: string;
+  daysLeft: number;
+  updatedAt: number;
+  rows: WidgetRow[];
+  chips: WidgetChip[];
+  today: WidgetToday[];
+  weeklyTrend: WeeklyTrend | null;
 }
 
-const ROW_COUNT = 5
-const CHIP_COUNT = 3
-const TODAY_COUNT = 3
+const ROW_COUNT = 5;
+const CHIP_COUNT = 3;
+const TODAY_COUNT = 3;
 
 function isReal(e: Envelope): boolean {
-  return !e.isCreditCardPayment && e.assigned > 0
+  return !e.isCreditCardPayment && e.assigned > 0;
 }
 
 /** Worst-off envelopes first — the ones worth a glance without opening the app. */
@@ -56,15 +56,15 @@ export function selectRows(state: EnvelopeState): WidgetRow[] {
     .sort((a, b) => b.spentPct - a.spentPct)
     .slice(0, ROW_COUNT)
     .map((e) => {
-      const { icon, text } = splitEmoji(e.category)
+      const { icon, text } = splitEmoji(e.category);
       return {
         icon,
         name: text,
         pct: e.spentPct,
         available: formatINR(Math.round(e.available)),
         overspent: e.isOverspent,
-      }
-    })
+      };
+    });
 }
 
 /** Most-used categories this month — the ones worth a one-tap shortcut.
@@ -76,18 +76,21 @@ export function selectChips(state: EnvelopeState): WidgetChip[] {
     .sort((a, b) => b.spent - a.spent)
     .slice(0, CHIP_COUNT)
     .map((e) => {
-      const { text } = splitEmoji(e.category)
+      const { text } = splitEmoji(e.category);
       return {
         category: e.category,
         label: text,
         uri: `envelope://modals/log-expense?category=${encodeURIComponent(e.category)}`,
-      }
-    })
+      };
+    });
 }
 
 /** Today's spends, most recent first — the one thing here not already
  *  glanceable from the Home tab. */
-export function selectToday(expenses: ExpenseRow[], todayDate: string): WidgetToday[] {
+export function selectToday(
+  expenses: ExpenseRow[],
+  todayDate: string,
+): WidgetToday[] {
   return expenses
     .filter((e) => e.date === todayDate)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
@@ -95,29 +98,35 @@ export function selectToday(expenses: ExpenseRow[], todayDate: string): WidgetTo
     .map((e) => ({
       item: e.item,
       amount: formatINR(Math.round(Number(e.amount_inr) || 0)),
-    }))
+    }));
 }
 
-const DAY_MS = 86_400_000
+const DAY_MS = 86_400_000;
 
 /** "N days left" while the snapshot is fresh, matching Home's "12 days left";
  *  once the app hasn't run in over a day, flip wholesale to how stale the
  *  numbers are rather than let a silently-frozen snapshot pass as live. */
-export function headerRightLabel(daysLeft: number, updatedAt: number, now: number = Date.now()): string {
-  const ageMs = now - updatedAt
+export function headerRightLabel(
+  daysLeft: number,
+  updatedAt: number,
+  now: number = Date.now(),
+): string {
+  const ageMs = now - updatedAt;
   if (ageMs < DAY_MS) {
-    if (daysLeft === 0) return 'Less than 24 hrs'
-    return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
+    if (daysLeft === 0) return "Less than 24 hrs";
+    return daysLeft === 1 ? "1 day left" : `${daysLeft} days left`;
   }
-  const staleDays = Math.floor(ageMs / DAY_MS)
-  return staleDays === 1 ? 'Updated 1 day ago' : `Updated ${staleDays} days ago`
+  const staleDays = Math.floor(ageMs / DAY_MS);
+  return staleDays === 1
+    ? "Updated 1 day ago"
+    : `Updated ${staleDays} days ago`;
 }
 
 export interface WidgetLayout {
-  rows: number
-  today: number
-  buttons: number
-  actionHeight: number
+  rows: number;
+  today: number;
+  buttons: number;
+  actionHeight: number;
 }
 
 /** Breakpoints for the large (resizable) widget, driven by the dp size Android
@@ -130,54 +139,73 @@ export interface WidgetLayout {
  *  shortest bands is a deliberate concession — the widget itself is only
  *  165-210dp tall there, and 48 would eat a quarter of it. */
 export function layoutFor(width: number, height: number): WidgetLayout {
-  let rows: number
-  let today: number
-  let actionHeight: number
+  let rows: number;
+  let today: number;
+  let actionHeight: number;
   if (height >= 320) {
-    rows = 5
-    today = 3
-    actionHeight = 48
+    rows = 5;
+    today = 3;
+    actionHeight = 48;
   } else if (height >= 260) {
-    rows = 4
-    today = 2
-    actionHeight = 48
+    rows = 4;
+    today = 2;
+    actionHeight = 48;
   } else if (height >= 210) {
-    rows = 3
-    today = 0
-    actionHeight = 40
+    rows = 3;
+    today = 0;
+    actionHeight = 40;
   } else if (height >= 165) {
-    rows = 2
-    today = 0
-    actionHeight = 40
+    rows = 2;
+    today = 0;
+    actionHeight = 40;
   } else {
-    rows = 0
-    today = 0
-    actionHeight = 40
+    rows = 0;
+    today = 0;
+    actionHeight = 40;
   }
-  return { rows, today, buttons: width < 200 ? 2 : 3, actionHeight }
+  return { rows, today, buttons: width < 200 ? 2 : 3, actionHeight };
 }
+
+/** Past this, the number stops carrying information and starts breaking the
+ *  layout: a quiet week followed by rent read 10002%, which wrapped onto a
+ *  second line in the mini widget and shoved the Log button off the card. */
+const PCT_CAP = 999;
 
 /** Week-over-week change in total spending, as a whole percent. The trailing
  *  7 calendar days (incl. today) vs the 7 before them — "this week" vs "last
- *  week". Positive means we spent more (bad, red), negative less (good, green). */
-export function weeklyTrend(expenses: ExpenseRow[], todayDate: string): WeeklyTrend | null {
-  const today = Date.parse(`${todayDate}T00:00:00Z`)
-  let thisWeek = 0
-  let lastWeek = 0
+ *  week". Positive means we spent more (bad, red), negative less (good, green).
+ *  Clamped to +/-999. */
+export function weeklyTrend(
+  expenses: ExpenseRow[],
+  todayDate: string,
+): WeeklyTrend | null {
+  const today = Date.parse(`${todayDate}T00:00:00Z`);
+  let thisWeek = 0;
+  let lastWeek = 0;
   for (const e of expenses) {
-    if (!e.date || e.date.length !== 10) continue
-    const offset = Math.round((today - Date.parse(`${e.date}T00:00:00Z`)) / DAY_MS)
-    if (offset >= 0 && offset < 7) thisWeek += Number(e.amount_inr) || 0
-    else if (offset >= 7 && offset < 14) lastWeek += Number(e.amount_inr) || 0
+    if (!e.date || e.date.length !== 10) continue;
+    const offset = Math.round(
+      (today - Date.parse(`${e.date}T00:00:00Z`)) / DAY_MS,
+    );
+    if (offset >= 0 && offset < 7) thisWeek += Number(e.amount_inr) || 0;
+    else if (offset >= 7 && offset < 14) lastWeek += Number(e.amount_inr) || 0;
   }
-  if (thisWeek === 0 && lastWeek === 0) return null
-  if (lastWeek === 0) return { pct: 100, dir: 'up' }
-  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
-  return { pct, dir: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' }
+  if (thisWeek === 0 && lastWeek === 0) return null;
+  if (lastWeek === 0) return { pct: 100, dir: "up" };
+  const raw = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+  const pct = Math.max(-PCT_CAP, Math.min(PCT_CAP, raw));
+  return { pct, dir: pct > 0 ? "up" : pct < 0 ? "down" : "flat" };
 }
 
-export function toWidgetData(state: EnvelopeState, expenses: ExpenseRow[], daysLeft: number, todayDate: string): WidgetData {
-  const totalLeft = state.envelopes.filter((e) => !e.isCreditCardPayment).reduce((sum, e) => sum + e.available, 0)
+export function toWidgetData(
+  state: EnvelopeState,
+  expenses: ExpenseRow[],
+  daysLeft: number,
+  todayDate: string,
+): WidgetData {
+  const totalLeft = state.envelopes
+    .filter((e) => !e.isCreditCardPayment)
+    .reduce((sum, e) => sum + e.available, 0);
   return {
     totalLeft: formatINR(Math.round(totalLeft)),
     daysLeft,
@@ -186,5 +214,5 @@ export function toWidgetData(state: EnvelopeState, expenses: ExpenseRow[], daysL
     chips: selectChips(state),
     today: selectToday(expenses, todayDate),
     weeklyTrend: weeklyTrend(expenses, todayDate),
-  }
+  };
 }

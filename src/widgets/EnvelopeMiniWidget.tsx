@@ -68,30 +68,36 @@ export function EnvelopeMiniWidget({
             alignItems: "center",
           }}
         >
-          <TextWidget
-            text={headerRightLabel(data.daysLeft, data.updatedAt)}
-            style={{
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
-              color: color(tokens.text2),
-            }}
-          />
+          <FlexWidget style={{ flex: 1 }}>
+            <TextWidget
+              text={headerRightLabel(data.daysLeft, data.updatedAt)}
+              truncate="END"
+              maxLines={1}
+              style={{
+                fontSize: 11,
+                fontFamily: fontFamily.bodyMedium,
+                color: color(tokens.text2),
+              }}
+            />
+          </FlexWidget>
           {!flat && trendColor && (
             <FlexWidget
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                marginLeft: 8,
+                marginLeft: 6,
               }}
             >
               <SvgWidget
                 svg={trendingSvg(trendDir, trendColor)}
-                style={{ width: 11, height: 11, marginRight: 3 }}
+                style={{ width: 10, height: 10, marginRight: 3 }}
               />
               <TextWidget
                 text={`${data.weeklyTrend!.pct}%`}
+                truncate="END"
+                maxLines={1}
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontFamily: fontFamily.bodySemiBold,
                   color: color(trendColor),
                 }}
