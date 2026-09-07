@@ -228,6 +228,19 @@ describe('More tab · Scan a bill sheet', () => {
   })
 })
 
+describe('More tab · feature shortcuts', () => {
+  it.each([
+    ['Recurring expenses', '/account/recurring'],
+    ['Archive', '/account/archive'],
+  ])('opens %s from the feature grid', (label, route) => {
+    const { getByText } = renderWithProviders(<MoreScreen />)
+
+    fireEvent.press(getByText(label))
+
+    expect(mockPush).toHaveBeenCalledWith(route)
+  })
+})
+
 it('opens the guided tour from the account list', async () => {
   const { getByText } = renderWithProviders(<MoreScreen />)
   await flushCategories()

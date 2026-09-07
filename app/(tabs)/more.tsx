@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { View, Text, Image, Pressable, Switch, Linking, Platform, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, RefreshControl, Switch, Linking, Platform, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
@@ -22,6 +22,7 @@ import { BASE_URL } from '@/src/api/client'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import { useCategories } from '@/src/hooks/useCategories'
+import { useRefresh } from '@/src/hooks/useRefresh'
 import { useOnline } from '@/src/lib/netStatus'
 import { count as pendingCount } from '@/src/lib/pendingExpenses'
 import type { UserProfile } from '@/src/api/account'
@@ -44,6 +45,7 @@ export default function MoreScreen() {
   const { tokens, preference, setPreference } = useTheme()
   const { hideAmounts, setHideAmounts } = usePrivacy()
   const router = useRouter()
+  const { refreshing, onRefresh } = useRefresh()
 
   const [signingOut, setSigningOut] = useState(false)
   const [scanPickerOpen, setScanPickerOpen] = useState(false)
@@ -134,7 +136,13 @@ export default function MoreScreen() {
 
   return (
     <AnimatedTabContent>
-      <Screen title="You" contentContainerStyle={styles.container}>
+      <Screen
+        title="You"
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
+        }
+      >
           {/* Profile */}
           <Pressable
             onPress={() => router.push('/account/security')}
@@ -199,7 +207,22 @@ export default function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={openScanPicker}
               />
-
+              <FeatureCard
+                icon={Repeat}
+                label="Recurring expenses"
+                blurb="Plan upcoming payments"
+                iconBg={tokens.violetSoft}
+                iconColor={tokens.violet}
+                onPress={() => router.push('/account/recurring')}
+              />
+              <FeatureCard
+                icon={Archive}
+                label="Archive"
+                blurb="Restore deleted items"
+                iconBg={tokens.blueSoft}
+                iconColor={tokens.blue}
+                onPress={() => router.push('/account/archive')}
+              />
             </View>
           </View>
 
@@ -259,10 +282,6 @@ export default function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={Repeat} label="Recurring expenses" onPress={() => router.push('/account/recurring')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={Archive} label="Archive" onPress={() => router.push('/account/archive')} tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
