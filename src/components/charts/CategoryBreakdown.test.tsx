@@ -15,13 +15,32 @@ const rows: BreakdownRow[] = [
   { key: 'Travel', label: 'Travel', emoji: '🛵', spent: 2000, assigned: 3000, assignedIsCarried: false, pct: 4 },
 ]
 
-function renderBreakdown(monthLabel = 'September 2026', selectedKey: string | null = null) {
+const groupRows: BreakdownRow[] = [
+  { key: 'Savings', label: 'Savings', emoji: '💰', spent: 40000, assigned: 40000, assignedIsCarried: false, pct: 80 },
+  { key: 'Everyday', label: 'Everyday', emoji: '🧺', spent: 10000, assigned: 11000, assignedIsCarried: false, pct: 20 },
+]
+
+const categoryGroupMap = new Map([
+  ['Investments', 'Savings'],
+  ['Cook', 'Everyday'],
+  ['Travel', 'Everyday'],
+])
+
+function renderBreakdown(
+  monthLabel = 'September 2026',
+  selectedKey: string | null = null,
+  mode: 'category' | 'group' = 'category',
+) {
   const onSelectKey = jest.fn()
+  const onModeChange = jest.fn()
   const result = renderWithProviders(
     <CategoryBreakdown
-      rows={rows}
-      mode="category"
-      onModeChange={jest.fn()}
+      rows={mode === 'category' ? rows : groupRows}
+      categoryRows={rows}
+      groupRows={groupRows}
+      categoryGroupMap={categoryGroupMap}
+      mode={mode}
+      onModeChange={onModeChange}
       fixedCategories={new Set()}
       variableOnly={false}
       onToggleVariableOnly={jest.fn()}
@@ -33,7 +52,7 @@ function renderBreakdown(monthLabel = 'September 2026', selectedKey: string | nu
     />,
   )
   act(() => jest.advanceTimersByTime(500))
-  return { ...result, onSelectKey }
+  return { ...result, onSelectKey, onModeChange }
 }
 
 beforeEach(() => {
@@ -49,6 +68,9 @@ describe('CategoryBreakdown filtering', () => {
     const screen = renderWithProviders(
       <CategoryBreakdown
         rows={rows}
+        categoryRows={rows}
+        groupRows={groupRows}
+        categoryGroupMap={categoryGroupMap}
         mode="category"
         onModeChange={jest.fn()}
         fixedCategories={new Set()}
@@ -113,6 +135,31 @@ describe('CategoryBreakdown filtering', () => {
     fireEvent.press(screen.getByLabelText('Select all categories'))
     expect(screen.getByRole('checkbox', { name: 'Investments' }).props.accessibilityState.checked).toBe(true)
     expect(screen.getByText('Deselect all')).toBeTruthy()
+  })
+
+  it('filters categories by category group from the group tab', () => {
+    const screen = renderBreakdown()
+    fireEvent.press(screen.getByLabelText('Filter chart'))
+    fireEvent.press(screen.getByRole('tab', { name: 'Groups' }))
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Everyday' }))
+    fireEvent.press(screen.getByRole('button', { name: 'Apply' }))
+    act(() => jest.advanceTimersByTime(250))
+
+    expect(screen.onModeChange).toHaveBeenCalledWith('group')
+    expect(screen.getByLabelText('Filter chart, 1 category active')).toBeTruthy()
+    expect(screen.queryByText('Cook')).toBeNull()
+    expect(screen.queryByText('Travel')).toBeNull()
+    expect(screen.getAllByText('Investments').length).toBeGreaterThan(0)
+  })
+
+  it('switches to the category view when applying a category filter', () => {
+    const screen = renderBreakdown('September 2026', null, 'group')
+    fireEvent.press(screen.getByLabelText('Filter chart'))
+    fireEvent.press(screen.getByRole('tab', { name: 'Categories' }))
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Investments' }))
+    fireEvent.press(screen.getByRole('button', { name: 'Apply' }))
+
+    expect(screen.onModeChange).toHaveBeenCalledWith('category')
   })
 
   it('clears a highlighted category when Apply excludes it', () => {

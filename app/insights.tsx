@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -12,6 +12,7 @@ import { useExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
 import { useSubscriptions } from "@/src/hooks/useSubscriptions";
+import { useRefresh } from "@/src/hooks/useRefresh";
 import {
   currentMonthKey,
   monthAbbrev,
@@ -223,6 +224,7 @@ export default function InsightsScreen() {
   const { tokens, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
+  const { refreshing, onRefresh } = useRefresh();
 
   const online = useOnline();
   const budgets = useBudgets().data ?? EMPTY;
@@ -320,37 +322,54 @@ export default function InsightsScreen() {
     [expenses, insightMonth],
   );
 
-  const prevBreakdownRows = useMemo(
-    () =>
-      categoryBreakdown(
-        budgets,
-        expenses,
-        categories,
-        groups,
-        prevMonthKey(insightMonth),
-        breakdownMode,
-      ),
-    [budgets, expenses, categories, groups, insightMonth, breakdownMode],
-  );
-  const breakdownRows = useMemo(() => {
+  const categoryRows = useMemo(() => {
     const rows = categoryBreakdown(
       budgets,
       expenses,
       categories,
       groups,
       insightMonth,
-      breakdownMode,
+      "category",
     );
-    return withDelta(rows, prevBreakdownRows);
+    const previous = categoryBreakdown(
+      budgets,
+      expenses,
+      categories,
+      groups,
+      prevMonthKey(insightMonth),
+      "category",
+    );
+    return withDelta(rows, previous);
   }, [
     budgets,
     expenses,
     categories,
     groups,
     insightMonth,
-    breakdownMode,
-    prevBreakdownRows,
   ]);
+
+  const groupRows = useMemo(() => {
+    const rows = categoryBreakdown(
+      budgets,
+      expenses,
+      categories,
+      groups,
+      insightMonth,
+      "group",
+    );
+    const previous = categoryBreakdown(
+      budgets,
+      expenses,
+      categories,
+      groups,
+      prevMonthKey(insightMonth),
+      "group",
+    );
+    return withDelta(rows, previous);
+  }, [budgets, expenses, categories, groups, insightMonth]);
+
+  const breakdownRows =
+    breakdownMode === "category" ? categoryRows : groupRows;
 
   const insightMonthLeftover = useMemo(
     () => leftoverFor(budgets, expenses, categories, groups, insightMonth),
@@ -442,6 +461,14 @@ export default function InsightsScreen() {
   return (
     <Screen
       floatingNav={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={tokens.accent}
+          colors={[tokens.accent]}
+        />
+      }
       subheader={
         <MonthStepper
           month={insightMonth}
@@ -564,6 +591,9 @@ export default function InsightsScreen() {
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <CategoryBreakdown
           rows={breakdownRows}
+          categoryRows={categoryRows}
+          groupRows={groupRows}
+          categoryGroupMap={categoryGroupMap}
           mode={breakdownMode}
           onModeChange={handleModeChange}
           fixedCategories={fixedCategorySet}

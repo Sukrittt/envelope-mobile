@@ -27,6 +27,9 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 
 interface Props {
   rows: BreakdownRow[];
+  categoryRows: BreakdownRow[];
+  groupRows: BreakdownRow[];
+  categoryGroupMap: ReadonlyMap<string, string>;
   mode: "category" | "group";
   onModeChange: (mode: "category" | "group") => void;
   fixedCategories: Set<string>;
@@ -56,6 +59,13 @@ const BAR_OFFSET_MS = 60;
 const BAR_DURATION = 450;
 const FILTER_APPLY_DELAY_MS = 220;
 const LIST_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
+
+function groupForCategory(
+  categoryGroupMap: ReadonlyMap<string, string>,
+  key: string,
+): string {
+  return categoryGroupMap.get(key) || "Other";
+}
 
 /** Spend-vs-own-budget bar: 100% of the track is "fully spent this
  *  category's budget", so the fill length is self-explanatory with no
@@ -121,6 +131,9 @@ function BudgetBar({
 
 export function CategoryBreakdown({
   rows,
+  categoryRows,
+  groupRows,
+  categoryGroupMap,
   mode,
   onModeChange,
   fixedCategories,
@@ -138,41 +151,113 @@ export function CategoryBreakdown({
   const [expanded, setExpanded] = useState(false);
   const [sortBy, setSortBy] = useState<"spend" | "budget">("spend");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [excludedKeys, setExcludedKeys] = useState<Set<string>>(
+  const [filterTab, setFilterTab] = useState<"category" | "group">(
+    "category",
+  );
+  const [excludedCategoryKeys, setExcludedCategoryKeys] = useState<Set<string>>(
     () => new Set(),
   );
-  const [draftIncludedKeys, setDraftIncludedKeys] =
+  const [excludedGroupKeys, setExcludedGroupKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [draftIncludedCategoryKeys, setDraftIncludedCategoryKeys] =
     useState<Set<string> | null>(null);
-  const [pendingExcludedKeys, setPendingExcludedKeys] =
+  const [draftIncludedGroupKeys, setDraftIncludedGroupKeys] =
     useState<Set<string> | null>(null);
+  const [pendingFilters, setPendingFilters] = useState<{
+    categories: Set<string>;
+    groups: Set<string>;
+  } | null>(null);
 
-  // A filter describes one concrete month + breakdown shape. Variable-only is
+  // A filter describes one concrete month. Variable-only is
   // deliberately absent: toggling that quick filter must not forget a user's
   // explicit choices for the categories that remain eligible.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local filter UI to an incoming month/mode prop, not derivable from render
     setFilterOpen(false);
-    setExcludedKeys(new Set());
-    setDraftIncludedKeys(null);
-    setPendingExcludedKeys(null);
-  }, [monthLabel, mode]);
+    setExcludedCategoryKeys(new Set());
+    setExcludedGroupKeys(new Set());
+    setDraftIncludedCategoryKeys(null);
+    setDraftIncludedGroupKeys(null);
+    setPendingFilters(null);
+  }, [monthLabel]);
 
   const canFilterVariable =
     mode === "category" && rows.some((r) => fixedCategories.has(r.key));
 
-  const eligibleRows = useMemo(
+  const eligibleCategoryRows = useMemo(
     () =>
       canFilterVariable && variableOnly
-        ? rows.filter((r) => !fixedCategories.has(r.key))
-        : rows,
-    [rows, canFilterVariable, variableOnly, fixedCategories],
+        ? categoryRows.filter((r) => !fixedCategories.has(r.key))
+        : categoryRows,
+    [categoryRows, canFilterVariable, variableOnly, fixedCategories],
   );
 
+  const eligibleGroupRows = useMemo(() => {
+    const groupsWithCategories = new Set(
+      eligibleCategoryRows.map((row) =>
+        groupForCategory(categoryGroupMap, row.key),
+      ),
+    );
+    return groupRows.filter((row) => groupsWithCategories.has(row.key));
+  }, [eligibleCategoryRows, groupRows, categoryGroupMap]);
+
   const displayRows = useMemo(() => {
-    const filtered = eligibleRows.filter((row) => !excludedKeys.has(row.key));
+    const includedCategories = eligibleCategoryRows.filter(
+      (row) =>
+        !excludedCategoryKeys.has(row.key) &&
+        !excludedGroupKeys.has(groupForCategory(categoryGroupMap, row.key)),
+    );
+    const filtered =
+      mode === "category"
+        ? includedCategories
+        : eligibleGroupRows
+            .map((group) => {
+              const members = includedCategories.filter(
+                (row) =>
+                  groupForCategory(categoryGroupMap, row.key) === group.key,
+              );
+              if (members.length === 0) return null;
+              if (
+                members.length ===
+                eligibleCategoryRows.filter(
+                  (row) =>
+                    groupForCategory(categoryGroupMap, row.key) === group.key,
+                ).length
+              )
+                return group;
+              const spent = members.reduce((sum, row) => sum + row.spent, 0);
+              const previousSpent = members.reduce((sum, row) => {
+                if (row.deltaPct == null) return sum;
+                return sum + row.spent / (1 + row.deltaPct / 100);
+              }, 0);
+              return {
+                ...group,
+                spent,
+                assigned: members.reduce(
+                  (sum, row) => sum + row.assigned,
+                  0,
+                ),
+                assignedIsCarried: members.every(
+                  (row) => row.assignedIsCarried,
+                ),
+                deltaPct:
+                  previousSpent > 0
+                    ? ((spent - previousSpent) / previousSpent) * 100
+                    : null,
+              };
+            })
+            .filter((row): row is BreakdownRow => row != null);
     const total = filtered.reduce((s, r) => s + r.spent, 0) || 1;
     return filtered.map((r) => ({ ...r, pct: (r.spent / total) * 100 }));
-  }, [eligibleRows, excludedKeys]);
+  }, [
+    eligibleCategoryRows,
+    eligibleGroupRows,
+    excludedCategoryKeys,
+    excludedGroupKeys,
+    mode,
+    categoryGroupMap,
+  ]);
 
   const displayTotal = useMemo(
     () => displayRows.reduce((s, r) => s + r.spent, 0),
@@ -245,11 +330,10 @@ export function CategoryBreakdown({
 
   const visibleRows = expanded ? sortedRows : sortedRows.slice(0, VISIBLE_ROWS);
   const collapsedCount = sortedRows.length - VISIBLE_ROWS;
-  const filterHiddenCount = eligibleRows.filter((row) =>
-    excludedKeys.has(row.key),
-  ).length;
+  const baseRows = mode === "category" ? eligibleCategoryRows : eligibleGroupRows;
+  const filterHiddenCount = baseRows.length - displayRows.length;
   const hasCustomFilter = filterHiddenCount > 0;
-  const filterActiveCount = eligibleRows.length - filterHiddenCount;
+  const filterActiveCount = displayRows.length;
   const activeFilterNoun =
     mode === "category"
       ? filterActiveCount === 1
@@ -258,9 +342,22 @@ export function CategoryBreakdown({
       : filterActiveCount === 1
         ? "group"
         : "groups";
+  const filterRows =
+    filterTab === "category" ? eligibleCategoryRows : eligibleGroupRows;
+  const draftIncludedKeys =
+    filterTab === "category"
+      ? draftIncludedCategoryKeys
+      : draftIncludedGroupKeys;
   const allDraftItemsSelected =
-    eligibleRows.length > 0 &&
-    eligibleRows.every((row) => draftIncludedKeys?.has(row.key));
+    filterRows.length > 0 &&
+    filterRows.every((row) => draftIncludedKeys?.has(row.key));
+  const hasDraftVisibleCategory = eligibleCategoryRows.some(
+    (row) =>
+      draftIncludedCategoryKeys?.has(row.key) &&
+      draftIncludedGroupKeys?.has(
+        groupForCategory(categoryGroupMap, row.key),
+      ),
+  );
 
   const centerDelta =
     comparison && comparison.baseline != null && comparison.deltaPct != null
@@ -268,21 +365,51 @@ export function CategoryBreakdown({
       : null;
 
   useEffect(() => {
-    if (filterOpen || pendingExcludedKeys == null) return;
+    if (filterOpen || pendingFilters == null) return;
     const id = setTimeout(() => {
-      setExcludedKeys(pendingExcludedKeys);
-      setPendingExcludedKeys(null);
-      if (selectedKey != null && pendingExcludedKeys.has(selectedKey))
-        onSelectKey(null);
+      setExcludedCategoryKeys(pendingFilters.categories);
+      setExcludedGroupKeys(pendingFilters.groups);
+      setPendingFilters(null);
+      if (selectedKey == null) return;
+      const selectionWasExcluded =
+        mode === "category"
+          ? pendingFilters.categories.has(selectedKey) ||
+            pendingFilters.groups.has(
+              groupForCategory(categoryGroupMap, selectedKey),
+            )
+          : pendingFilters.groups.has(selectedKey) ||
+            eligibleCategoryRows
+              .filter(
+                (row) =>
+                  groupForCategory(categoryGroupMap, row.key) === selectedKey,
+              )
+              .every((row) => pendingFilters.categories.has(row.key));
+      if (selectionWasExcluded) onSelectKey(null);
     }, FILTER_APPLY_DELAY_MS);
     return () => clearTimeout(id);
-  }, [filterOpen, onSelectKey, pendingExcludedKeys, selectedKey]);
+  }, [
+    filterOpen,
+    onSelectKey,
+    pendingFilters,
+    selectedKey,
+    mode,
+    eligibleCategoryRows,
+    categoryGroupMap,
+  ]);
 
   function openFilter() {
-    setDraftIncludedKeys(
+    setFilterTab(mode);
+    setDraftIncludedCategoryKeys(
       new Set(
-        eligibleRows
-          .filter((row) => !excludedKeys.has(row.key))
+        eligibleCategoryRows
+          .filter((row) => !excludedCategoryKeys.has(row.key))
+          .map((row) => row.key),
+      ),
+    );
+    setDraftIncludedGroupKeys(
+      new Set(
+        eligibleGroupRows
+          .filter((row) => !excludedGroupKeys.has(row.key))
           .map((row) => row.key),
       ),
     );
@@ -290,6 +417,10 @@ export function CategoryBreakdown({
   }
 
   function toggleDraftKey(key: string) {
+    const setDraftIncludedKeys =
+      filterTab === "category"
+        ? setDraftIncludedCategoryKeys
+        : setDraftIncludedGroupKeys;
     setDraftIncludedKeys((current) => {
       const next = new Set(current ?? []);
       if (next.has(key)) next.delete(key);
@@ -299,23 +430,39 @@ export function CategoryBreakdown({
   }
 
   function toggleAllDraftKeys() {
+    const setDraftIncludedKeys =
+      filterTab === "category"
+        ? setDraftIncludedCategoryKeys
+        : setDraftIncludedGroupKeys;
     setDraftIncludedKeys(
       allDraftItemsSelected
         ? new Set()
-        : new Set(eligibleRows.map((row) => row.key)),
+        : new Set(filterRows.map((row) => row.key)),
     );
   }
 
   function applyFilter() {
-    if (!draftIncludedKeys?.size) return;
-    const candidateKeys = new Set(eligibleRows.map((row) => row.key));
-    const next = new Set(
-      [...excludedKeys].filter((key) => !candidateKeys.has(key)),
+    if (!hasDraftVisibleCategory) return;
+    const categoryKeys = new Set(eligibleCategoryRows.map((row) => row.key));
+    const groupKeys = new Set(eligibleGroupRows.map((row) => row.key));
+    const nextCategories = new Set(
+      [...excludedCategoryKeys].filter((key) => !categoryKeys.has(key)),
     );
-    for (const row of eligibleRows)
-      if (!draftIncludedKeys.has(row.key)) next.add(row.key);
-    setPendingExcludedKeys(next);
-    setDraftIncludedKeys(null);
+    const nextGroups = new Set(
+      [...excludedGroupKeys].filter((key) => !groupKeys.has(key)),
+    );
+    for (const row of eligibleCategoryRows)
+      if (!draftIncludedCategoryKeys?.has(row.key)) nextCategories.add(row.key);
+    for (const row of eligibleGroupRows)
+      if (!draftIncludedGroupKeys?.has(row.key)) nextGroups.add(row.key);
+    setPendingFilters({ categories: nextCategories, groups: nextGroups });
+    const hasActiveFilterForTab =
+      filterTab === "category"
+        ? nextCategories.size > 0
+        : nextGroups.size > 0;
+    if (hasActiveFilterForTab && mode !== filterTab) onModeChange(filterTab);
+    setDraftIncludedCategoryKeys(null);
+    setDraftIncludedGroupKeys(null);
     setFilterOpen(false);
   }
 
@@ -331,7 +478,7 @@ export function CategoryBreakdown({
         >
           Where it went
         </Text>
-        {eligibleRows.length > 1 && (
+        {baseRows.length > 1 && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
@@ -880,7 +1027,8 @@ export function CategoryBreakdown({
         visible={filterOpen}
         onClose={() => {
           setFilterOpen(false);
-          setDraftIncludedKeys(null);
+          setDraftIncludedCategoryKeys(null);
+          setDraftIncludedGroupKeys(null);
         }}
       >
         <View style={styles.sheetHeader}>
@@ -892,7 +1040,7 @@ export function CategoryBreakdown({
                 fontFamily: fontFamily.displaySemiBold,
               }}
             >
-              Filter {mode === "category" ? "categories" : "groups"}
+              Filter chart
             </Text>
             <Text
               style={{
@@ -907,13 +1055,13 @@ export function CategoryBreakdown({
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${allDraftItemsSelected ? "Deselect" : "Select"} all ${mode === "category" ? "categories" : "groups"}`}
+            accessibilityLabel={`${allDraftItemsSelected ? "Deselect" : "Select"} all ${filterTab === "category" ? "categories" : "groups"}`}
             onPress={toggleAllDraftKeys}
             hitSlop={8}
           >
             <Text
               style={{
-                color: tokens.accentInk,
+                color: tokens.accent,
                 fontSize: type.caption,
                 fontFamily: fontFamily.bodySemiBold,
               }}
@@ -923,8 +1071,52 @@ export function CategoryBreakdown({
           </Pressable>
         </View>
 
-        <View style={[styles.filterList, { borderColor: tokens.border }]}>
-          {eligibleRows.map((row, index) => {
+        <View
+          accessibilityRole="tablist"
+          style={[
+            styles.filterTabs,
+            { backgroundColor: tokens.inputBg, borderRadius: radius.full },
+          ]}
+        >
+          {(
+            [
+              ["category", "Categories"],
+              ["group", "Groups"],
+            ] as const
+          ).map(([tab, label]) => {
+            const active = filterTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => setFilterTab(tab)}
+                style={[
+                  styles.filterTab,
+                  { borderRadius: radius.full },
+                  active && { backgroundColor: tokens.chipActiveBg },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: active ? tokens.text : tokens.text2,
+                    fontSize: type.caption,
+                    fontFamily: active
+                      ? fontFamily.bodySemiBold
+                      : fontFamily.bodyMedium,
+                  }}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View
+          style={[styles.filterList, { borderColor: tokens.border }]}
+        >
+          {filterRows.map((row, index) => {
             const checked = draftIncludedKeys?.has(row.key) ?? false;
             return (
               <Pressable
@@ -967,10 +1159,10 @@ export function CategoryBreakdown({
                     styles.checkbox,
                     {
                       borderColor: checked
-                        ? tokens.accentInk
+                        ? tokens.accent
                         : tokens.borderStrong,
                     },
-                    checked && { backgroundColor: tokens.accentInk },
+                    checked && { backgroundColor: tokens.accent },
                   ]}
                 >
                   {checked ? (
@@ -982,7 +1174,7 @@ export function CategoryBreakdown({
           })}
         </View>
 
-        {draftIncludedKeys?.size === 0 && (
+        {!hasDraftVisibleCategory && (
           <Text
             style={{
               color: tokens.coral,
@@ -1001,13 +1193,14 @@ export function CategoryBreakdown({
             style={styles.sheetButton}
             onPress={() => {
               setFilterOpen(false);
-              setDraftIncludedKeys(null);
+              setDraftIncludedCategoryKeys(null);
+              setDraftIncludedGroupKeys(null);
             }}
           />
           <Button
             label="Apply"
-            style={styles.sheetButton}
-            disabled={!draftIncludedKeys?.size}
+            style={[styles.sheetButton, { backgroundColor: tokens.accent }]}
+            disabled={!hasDraftVisibleCategory}
             onPress={applyFilter}
           />
         </View>
@@ -1070,6 +1263,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 16,
     marginBottom: 14,
+  },
+  filterTabs: {
+    flexDirection: "row",
+    padding: 3,
+    gap: 2,
+    marginBottom: 12,
+  },
+  filterTab: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   filterList: {
     borderWidth: StyleSheet.hairlineWidth,
