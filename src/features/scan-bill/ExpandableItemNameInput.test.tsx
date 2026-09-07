@@ -40,4 +40,23 @@ describe("ExpandableItemNameInput", () => {
     fireEvent(expandedName, "blur");
     expect(view.getByText(LONG_NAME)).toBeTruthy();
   });
+
+  it("can fill the available row width", () => {
+    const view = render(
+      <ExpandableItemNameInput
+        value="Delivery Fee"
+        onChangeText={jest.fn()}
+        color="#fff"
+        placeholderColor="#777"
+        fontSize={14}
+        fillAvailableWidth
+      />,
+    );
+
+    expect(
+      StyleSheet.flatten(
+        view.getByLabelText("Show full item name: Delivery Fee").props.style,
+      ).flex,
+    ).toBe(1);
+  });
 });

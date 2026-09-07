@@ -41,6 +41,7 @@ export const styles = StyleSheet.create({
   itemNameInput: { padding: 0 },
   itemSplitChip: { paddingHorizontal: 10, paddingVertical: 6 },
   deleteButton: { marginLeft: "auto", padding: 4 },
+  feeDeleteButton: { padding: 4 },
   checkbox: {
     width: 22,
     height: 22,

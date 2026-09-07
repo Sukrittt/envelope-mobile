@@ -389,26 +389,42 @@ export function ScanReview({ tokens, space, radius, type, insets, categories, se
             {feeItems.length > 0 && (
               <View style={{ gap: space.xs }}>
                 {feeItems.map((it) => (
-                  <View key={it.key} style={styles.spaceBetween}>
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontFamily: fontFamily.bodyMedium,
-                        fontSize: type.caption,
+                  <View key={it.key} style={[styles.row, { gap: space.xs }]}>
+                    <ExpandableItemNameInput
+                      value={it.name}
+                      onChangeText={(name) => updateItem(it.key, { name })}
+                      color={tokens.text2}
+                      placeholderColor={tokens.text3}
+                      fontSize={type.caption}
+                      fillAvailableWidth
+                    />
+                    <TextInput
+                      accessibilityLabel={`Fee amount for ${it.name || "fee"}`}
+                      value={String(it.price)}
+                      onChangeText={(value) => {
+                        const price = Number(value.replace(/[^0-9.-]/g, ""));
+                        updateItem(it.key, {
+                          price: Number.isFinite(price) ? price : 0,
+                        });
                       }}
-                      numberOfLines={1}
-                    >
-                      {it.name || "Fee"}
-                    </Text>
-                    <Text
+                      keyboardType="decimal-pad"
                       style={{
                         color: tokens.text2,
                         fontFamily: fontFamily.bodySemiBold,
                         fontSize: type.caption,
+                        minWidth: 48,
+                        padding: 0,
+                        textAlign: "right",
                       }}
+                    />
+                    <Pressable
+                      accessibilityLabel={`Remove ${it.name || "fee"}`}
+                      hitSlop={8}
+                      onPress={() => removeItem(it.key)}
+                      style={styles.feeDeleteButton}
                     >
-                      {formatINR(it.price)}
-                    </Text>
+                      <Trash2 size={14} color={tokens.text3} />
+                    </Pressable>
                   </View>
                 ))}
               </View>

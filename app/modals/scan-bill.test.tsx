@@ -142,20 +142,18 @@ describe('ScanBillScreen', () => {
     await waitFor(() => expect(getByLabelText('₹450')).toBeTruthy())
   })
 
-  it('pools a scanned fee/discount line into the Fees & discount card instead of the item list', async () => {
+  it('lets a scanned fee/discount line be expanded, edited, and removed', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue({
       ...SCAN_RESULT,
       total: 900,
       items: [...SCAN_RESULT.items, { name: 'Delivery Fee', price: 40, qty: 1 }],
     })
-    const { getByText, getByLabelText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+    const { getByText, getByLabelText, queryByText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
 
-    // "Delivery Fee" is auto-detected and pulled out of the editable list —
-    // it's a read-only line inside Fees & discount, not a TextInput row.
-    await waitFor(() => expect(getByText('Delivery Fee')).toBeTruthy())
-    expect(queryByDisplayValue('Delivery Fee')).toBeNull()
+    const collapsedFeeName = await waitFor(() => getByText('Delivery Fee'))
+    expect(collapsedFeeName.props.numberOfLines).toBe(1)
 
     // Header count reflects only the 2 real product items.
     expect(getByText('2 items · scanned just now')).toBeTruthy()
@@ -163,6 +161,15 @@ describe('ScanBillScreen', () => {
     // Pooled fee (40) split across the default 2 people = 20, on top of the
     // unchanged 860 of product items.
     await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
+
+    fireEvent.press(getByLabelText('Show full item name: Delivery Fee'))
+    fireEvent.changeText(getByLabelText('Item name'), 'Service Fee')
+    fireEvent.changeText(getByLabelText('Fee amount for Service Fee'), '20')
+    await waitFor(() => expect(getByLabelText('₹870')).toBeTruthy())
+
+    fireEvent.press(getByLabelText('Remove Service Fee'))
+    await waitFor(() => expect(getByLabelText('₹860')).toBeTruthy())
+    expect(queryByText('Fees & discount')).toBeNull()
   })
 
   it('filters items by search query', async () => {

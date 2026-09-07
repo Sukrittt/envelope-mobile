@@ -9,6 +9,7 @@ type Props = {
   color: string;
   placeholderColor: string;
   fontSize: number;
+  fillAvailableWidth?: boolean;
 };
 
 /**
@@ -21,8 +22,10 @@ export function ExpandableItemNameInput({
   color,
   placeholderColor,
   fontSize,
+  fillAvailableWidth = false,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
+  const nameStyle = fillAvailableWidth ? styles.fillName : styles.name;
 
   if (isEditing) {
     return (
@@ -37,7 +40,7 @@ export function ExpandableItemNameInput({
         placeholder="Item"
         placeholderTextColor={placeholderColor}
         style={[
-          styles.name,
+          nameStyle,
           styles.input,
           { color, fontFamily: fontFamily.bodyBold, fontSize },
         ]}
@@ -49,7 +52,7 @@ export function ExpandableItemNameInput({
     <Pressable
       accessibilityLabel={`Show full item name: ${value || "Item"}`}
       onPress={() => setIsEditing(true)}
-      style={styles.name}
+      style={nameStyle}
     >
       <Text
         ellipsizeMode="tail"
@@ -68,6 +71,10 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 1,
     maxWidth: "60%",
+  },
+  fillName: {
+    flex: 1,
+    minWidth: 0,
   },
   input: {
     padding: 0,
