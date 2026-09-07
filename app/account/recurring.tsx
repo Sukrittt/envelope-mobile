@@ -1,30 +1,89 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, Plus, Repeat } from 'lucide-react-native'
-import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
-import { useOnline } from '@/src/lib/netStatus'
-import { useTheme } from '@/src/theme/ThemeProvider'
-import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
-import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
-import { usePrivacy } from '@/src/context/PrivacyContext'
-import { formatCurrency, formatDateShort } from '@/src/lib/format'
-import { splitEmoji } from '@/src/lib/emoji'
-import { useRecurringExpenses } from '@/src/hooks/useRecurringExpenses'
-import type { RecurringExpenseRow } from '@/src/types'
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ArrowLeft, Plus, Repeat } from "lucide-react-native";
+import Reanimated from "react-native-reanimated";
+import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
+import { useOnline } from "@/src/lib/netStatus";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { fontFamily } from "@/src/theme/fonts";
+import { Icon } from "@/src/components/shared/Icon";
+import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
+import { usePrivacy } from "@/src/context/PrivacyContext";
+import { formatCurrency, formatDateShort } from "@/src/lib/format";
+import { splitEmoji } from "@/src/lib/emoji";
+import { toISTDateString } from "@/src/lib/date";
+import { useRecurringExpenses } from "@/src/hooks/useRecurringExpenses";
+import { useRefresh } from "@/src/hooks/useRefresh";
+import { AmountText } from "@/src/components/ui/AmountText";
+import { PopIn } from "@/src/components/shared/PopIn";
+import { usePressSpring } from "@/src/components/ui/Button";
+import {
+  AllocationBar,
+  type AllocationSegment,
+} from "@/src/components/charts/AllocationBar";
+import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
+import type { RecurringExpenseRow } from "@/src/types";
 
-const LOADING_PHRASES = ['Checking what repeats…', 'Reading the calendar…', 'Almost there…']
+const LOADING_PHRASES = [
+  "Checking what repeats…",
+  "Reading the calendar…",
+  "Rounding up your regulars…",
+  "Counting the usual suspects…",
+  "Lining up the due dates…",
+  "Working out what's next…",
+  "Almost there…",
+];
 
 const CADENCE_LABELS: Record<string, string> = {
-  daily: 'Every day',
-  weekly: 'Every week',
-  monthly: 'Every month',
-  yearly: 'Every year',
-}
+  daily: "Every day",
+  weekly: "Every week",
+  monthly: "Every month",
+  yearly: "Every year",
+};
 
 function cadenceLabel(frequency: string): string {
-  return CADENCE_LABELS[frequency] ?? frequency
+  return CADENCE_LABELS[frequency] ?? frequency;
+}
+
+// ponytail: fourth copy of this stagger quartet (investments.tsx,
+// modals/money-brain.tsx, features/scan-bill/presentation.ts are the other
+// three) — belongs next to motion in src/theme/scale.ts once a fifth shows up.
+const MOUNT_DELAY = 100;
+const ITEM_STAGGER = 45;
+const STAGGER_CAP = 6;
+
+/** Rough monthly cost, only for the hero total and allocation bar. */
+function monthlyEquivalent(row: RecurringExpenseRow): number {
+  const amount = Number(row.amount_inr) || 0;
+  switch (row.frequency) {
+    case "daily":
+      return amount * 30;
+    case "weekly":
+      return (amount * 52) / 12;
+    case "yearly":
+      return amount / 12;
+    default:
+      return amount;
+  }
+}
+
+/** Forward twin of EnvelopeRow.tsx's lastSpentLabel — no Intl, same IST date-string compare. */
+function dueLabel(nextRunDate: string): string {
+  if (!nextRunDate) return "Not scheduled";
+  const today = new Date();
+  if (nextRunDate === toISTDateString(today)) return "Due today";
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (nextRunDate === toISTDateString(tomorrow)) return "Due tomorrow";
+  return `Next on ${formatDateShort(nextRunDate)}`;
 }
 
 /**
@@ -34,152 +93,343 @@ function cadenceLabel(frequency: string): string {
  * next cycle. One schedule owner, and it's the server.
  */
 export default function RecurringExpensesScreen() {
-  const { tokens } = useTheme()
-  const { hideAmounts } = usePrivacy()
-  const online = useOnline()
-  const insets = useSafeAreaInsets()
-  const router = useRouter()
-  const recurringQ = useRecurringExpenses()
+  const { tokens } = useTheme();
+  const { hideAmounts } = usePrivacy();
+  const online = useOnline();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { refreshing, onRefresh } = useRefresh();
+  const recurringQ = useRecurringExpenses();
 
-  const rows = recurringQ.data ?? []
-  const active = rows.filter((r) => r.status === 'active')
-  const inactive = rows.filter((r) => r.status !== 'active')
+  const rows = recurringQ.data ?? [];
+  const active = rows.filter((r) => r.status === "active");
+  const inactive = rows.filter((r) => r.status !== "active");
 
-  const monthlyTotal = active.reduce((sum, r) => sum + monthlyEquivalent(r), 0)
+  const monthlyTotal = active.reduce((sum, r) => sum + monthlyEquivalent(r), 0);
 
-  if (!online) return <OfflineScreen />
+  // Grouped/sorted exactly like investments.tsx's segments: sum active rows'
+  // monthly-equivalent per category, descending, colour by position in the cycle.
+  const segments: AllocationSegment[] = (() => {
+    const byCategory = new Map<string, number>();
+    for (const r of active) {
+      const cat = splitEmoji(r.category).text || r.category;
+      byCategory.set(cat, (byCategory.get(cat) ?? 0) + monthlyEquivalent(r));
+    }
+    return Array.from(byCategory.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, value], i) => ({
+        label: cat,
+        value,
+        color: tokens[CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]],
+      }));
+  })();
+
+  const categoryColor = new Map(segments.map((s) => [s.label, s.color]));
+
+  if (!online) return <OfflineScreen />;
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: tokens.bg, paddingTop: insets.top },
+      ]}
+    >
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
-          style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          style={[
+            styles.backButton,
+            { backgroundColor: tokens.card, borderColor: tokens.border },
+          ]}
         >
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+            ]}
+          >
             Recurring
           </Text>
-          <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+          <Text
+            style={[
+              styles.headerSub,
+              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
+            ]}
+          >
             {active.length === 0
-              ? 'Nothing repeating yet'
-              : `${active.length} active · about ${formatCurrency(monthlyTotal, hideAmounts)} a month`}
+              ? "Nothing repeating yet"
+              : `${active.length} active`}
           </Text>
         </View>
         <Pressable
-          onPress={() => router.push('/modals/recurring-expense')}
-          style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          onPress={() => router.push("/modals/recurring-expense")}
+          style={[
+            styles.addButton,
+            { backgroundColor: tokens.card, borderColor: tokens.border },
+          ]}
         >
           <Icon icon={Plus} size={16} color={tokens.text} />
-          <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
+          <Text
+            style={[
+              styles.addText,
+              { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+            ]}
+          >
+            Add
+          </Text>
         </Pressable>
       </View>
 
-      {recurringQ.isLoading ? (
-        <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} />
-      ) : (
-        <ScrollView contentContainerStyle={styles.body}>
-          {rows.length === 0 ? (
-            <View style={styles.empty}>
-              <Icon icon={Repeat} size={28} color={tokens.text3} />
-              <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-                Set it once, forget it
+      <ScrollView
+        contentContainerStyle={
+          recurringQ.isLoading || rows.length === 0
+            ? styles.centered
+            : styles.body
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={tokens.accent}
+            colors={[tokens.accent]}
+          />
+        }
+      >
+        {recurringQ.isLoading ? (
+          <LoadingPhrase
+            phrases={LOADING_PHRASES}
+            color={tokens.text2}
+            style={[
+              styles.loadingPhrase,
+              { fontFamily: fontFamily.bodyMedium },
+            ]}
+          />
+        ) : rows.length === 0 ? (
+          <>
+            <Icon icon={Repeat} size={28} color={tokens.text3} />
+            <Text
+              style={[
+                styles.emptyTitle,
+                { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+              ]}
+            >
+              Set it once, forget it
+            </Text>
+            <Text
+              style={[
+                styles.emptyBody,
+                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+              ]}
+            >
+              Rent, the gym, your maid. Add it here and we&apos;ll log it for
+              you on every due date.
+            </Text>
+          </>
+        ) : (
+          <>
+            <View style={styles.heroBlock}>
+              <Text
+                style={[
+                  styles.heroLabel,
+                  { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
+                ]}
+              >
+                Committed each month
               </Text>
-              <Text style={[styles.emptyBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                Rent, the gym, your maid. Add it here and we&apos;ll log it for you on every due date.
-              </Text>
+              <AmountText
+                value={monthlyTotal}
+                size={34}
+                weight="displayBold"
+                animate
+              />
             </View>
-          ) : null}
 
-          {active.length > 0 ? (
-            <Section title="Active">
-              {active.map((row) => (
-                <RecurringRow key={row.id} row={row} />
-              ))}
-            </Section>
-          ) : null}
+            {segments.length > 0 && (
+              <View
+                style={[
+                  styles.allocationCard,
+                  { backgroundColor: tokens.card, borderColor: tokens.border },
+                ]}
+              >
+                <AllocationBar segments={segments} />
+              </View>
+            )}
 
-          {inactive.length > 0 ? (
-            <Section title="Paused and finished">
-              {inactive.map((row) => (
-                <RecurringRow key={row.id} row={row} />
-              ))}
-            </Section>
-          ) : null}
-        </ScrollView>
-      )}
+            {active.length > 0 ? (
+              <Section title="Active">
+                {active.map((row, i) => (
+                  <RecurringRow key={row.id} row={row} index={i} />
+                ))}
+              </Section>
+            ) : null}
+
+            {inactive.length > 0 ? (
+              <Section title="Paused and finished">
+                {inactive.map((row, i) => (
+                  <RecurringRow
+                    key={row.id}
+                    row={row}
+                    index={active.length + i}
+                  />
+                ))}
+              </Section>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
     </View>
-  )
+  );
 
-  function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  function Section({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) {
     return (
       <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+        <Text
+          style={[
+            styles.sectionLabel,
+            { color: tokens.text3, fontFamily: fontFamily.bodyBold },
+          ]}
+        >
           {title.toUpperCase()}
         </Text>
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>{children}</View>
+        <View style={{ gap: 10 }}>{children}</View>
       </View>
-    )
+    );
   }
 
-  function RecurringRow({ row }: { row: RecurringExpenseRow }) {
-    const isActive = row.status === 'active'
-    const category = splitEmoji(row.category)
+  function RecurringRow({
+    row,
+    index,
+  }: {
+    row: RecurringExpenseRow;
+    index: number;
+  }) {
+    const isActive = row.status === "active";
+    const category = splitEmoji(row.category);
+    const dotColor =
+      categoryColor.get(category.text || row.category) ?? tokens.text3;
+    const press = usePressSpring(0.98);
 
     return (
-      <Pressable
-        onPress={() => router.push(`/modals/recurring-expense?id=${encodeURIComponent(row.id)}`)}
-        style={styles.row}
+      <PopIn
+        play
+        delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER}
+        style={[
+          styles.rowCard,
+          { backgroundColor: tokens.card, borderColor: tokens.border },
+        ]}
       >
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-            {row.item}
-          </Text>
-          <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {cadenceLabel(row.frequency)}
-            {category.text ? ` · ${category.text}` : ''}
-          </Text>
-          <Text style={[styles.rowMeta, { color: isActive ? tokens.text3 : tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            {row.status === 'ended'
-              ? 'Finished'
-              : !isActive
-                ? 'Paused'
-                : row.next_run_date
-                  ? `Next on ${formatDateShort(row.next_run_date)}`
-                  : 'Not scheduled'}
-          </Text>
-        </View>
-        <Text style={[styles.rowAmount, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, opacity: isActive ? 1 : 0.5 }]}>
-          {formatCurrency(Number(row.amount_inr) || 0, hideAmounts)}
-        </Text>
-      </Pressable>
-    )
-  }
-}
-
-/** Rough monthly cost, only for the header's at-a-glance total. */
-function monthlyEquivalent(row: RecurringExpenseRow): number {
-  const amount = Number(row.amount_inr) || 0
-  switch (row.frequency) {
-    case 'daily':
-      return amount * 30
-    case 'weekly':
-      return (amount * 52) / 12
-    case 'yearly':
-      return amount / 12
-    default:
-      return amount
+        <Reanimated.View style={press.style}>
+          <Pressable
+            onPress={() =>
+              router.push(
+                `/modals/recurring-expense?id=${encodeURIComponent(row.id)}`,
+              )
+            }
+            onPressIn={press.onPressIn}
+            onPressOut={press.onPressOut}
+            style={styles.rowInner}
+          >
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: dotColor, opacity: isActive ? 1 : 0.5 },
+              ]}
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.rowTitle,
+                  { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+                ]}
+                numberOfLines={1}
+              >
+                {row.item}
+              </Text>
+              <View style={styles.rowMetaRow}>
+                <View style={[styles.pill, { backgroundColor: tokens.pillBg }]}>
+                  <Text
+                    style={[
+                      styles.pillText,
+                      {
+                        color: tokens.text2,
+                        fontFamily: fontFamily.bodySemiBold,
+                        marginLeft: -5,
+                      },
+                    ]}
+                  >
+                    {cadenceLabel(row.frequency)}
+                  </Text>
+                </View>
+                {category.text ? (
+                  <Text
+                    style={[
+                      styles.rowMeta,
+                      {
+                        color: tokens.text2,
+                        fontFamily: fontFamily.bodyMedium,
+                        marginLeft: -8,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    · {category.text}
+                  </Text>
+                ) : null}
+              </View>
+              <Text
+                style={[
+                  styles.rowMeta,
+                  {
+                    color:
+                      isActive && row.next_run_date
+                        ? tokens.accentInk
+                        : tokens.text3,
+                    fontFamily: fontFamily.bodyMedium,
+                  },
+                ]}
+              >
+                {row.status === "ended"
+                  ? "Finished"
+                  : !isActive
+                    ? "Paused"
+                    : dueLabel(row.next_run_date)}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.rowAmount,
+                {
+                  color: tokens.text,
+                  fontFamily: fontFamily.bodyBold,
+                  opacity: isActive ? 1 : 0.5,
+                },
+              ]}
+            >
+              {formatCurrency(Number(row.amount_inr) || 0, hideAmounts)}
+            </Text>
+          </Pressable>
+        </Reanimated.View>
+      </PopIn>
+    );
   }
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
     paddingTop: 14,
@@ -191,14 +441,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
   headerSub: { fontSize: 11.5, marginTop: 1 },
   addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 5,
     paddingHorizontal: 13,
     paddingVertical: 8,
@@ -206,21 +456,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   addText: { fontSize: 12.5 },
-  body: { padding: 16, gap: 20 },
+  body: { padding: 16, gap: 16 },
+  heroBlock: { gap: 4 },
+  heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
+  allocationCard: { borderWidth: 1, borderRadius: 16, padding: 16 },
   section: { gap: 8 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
-  card: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  rowCard: { borderWidth: 1, borderRadius: 14 },
+  rowInner: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 12,
   },
+  dot: { width: 10, height: 10, borderRadius: 5 },
   rowTitle: { fontSize: 15 },
-  rowMeta: { fontSize: 12, marginTop: 2 },
+  rowMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  pill: {
+    height: 16,
+    paddingHorizontal: 6,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  pillText: { fontSize: 11, lineHeight: 13 },
+  rowMeta: { fontSize: 12, flexShrink: 1 },
   rowAmount: { fontSize: 15 },
-  empty: { alignItems: 'center', gap: 8, paddingVertical: 48, paddingHorizontal: 24 },
+  // Fills the space under the header so the loading phrase and the empty state
+  // both sit in the middle of the screen rather than tucked under the header.
+  centered: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+    marginTop: -72,
+  },
+  // The phrase spans the full width, so it centers with textAlign rather than
+  // by the container's alignItems.
+  loadingPhrase: { fontSize: 13, lineHeight: 19, textAlign: "center" },
   emptyTitle: { fontSize: 17, marginTop: 4 },
-  emptyBody: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
-})
+  // Capped rather than left to fill the screen: a centered paragraph reads
+  // better over a short measure than edge to edge.
+  emptyBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    maxWidth: 250,
+  },
+});

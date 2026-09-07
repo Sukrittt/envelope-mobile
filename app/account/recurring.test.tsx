@@ -53,21 +53,74 @@ describe('empty state', () => {
 
 describe('header total', () => {
   it('normalizes each cadence to a single monthly figure', () => {
-    const { getByText } = render([
+    const { getByText, getByLabelText } = render([
       row({ id: 'a', item: 'Rent', amount_inr: '600', frequency: 'monthly' }),
       row({ id: 'b', item: 'Insurance', amount_inr: '1200', frequency: 'yearly' }), // 100/mo
       row({ id: 'c', item: 'Coffee', amount_inr: '10', frequency: 'daily' }), // 300/mo
     ])
-    // 600 + 100 + 300 = 1000
-    expect(getByText('3 active · about ₹1,000 a month')).toBeTruthy()
+    // 600 + 100 + 300 = 1000, shown in the hero now, not the header subtitle.
+    // The hero's AmountText animates, so its digits render as separate nodes —
+    // read it back via the odometer's accessibilityLabel instead of getByText.
+    expect(getByText('3 active')).toBeTruthy()
+    expect(getByLabelText('₹1,000')).toBeTruthy()
   })
 
   it('leaves paused rows out of the active count and the total', () => {
-    const { getByText } = render([
+    const { getByText, getByLabelText } = render([
       row({ id: 'a', item: 'Rent', amount_inr: '400', status: 'active' }),
       row({ id: 'b', item: 'Gym', amount_inr: '999', status: 'paused' }),
     ])
-    expect(getByText('1 active · about ₹400 a month')).toBeTruthy()
+    expect(getByText('1 active')).toBeTruthy()
+    expect(getByLabelText('₹400')).toBeTruthy()
+  })
+})
+
+describe('allocation bar', () => {
+  it('sums active rows per category, sorted descending, excluding paused rows', () => {
+    const { getByText, queryByText } = render([
+      row({ id: 'a', item: 'Rent', category: '🏠 Housing', amount_inr: '300', status: 'active' }),
+      row({ id: 'b', item: 'Netflix', category: '📱 Subscriptions', amount_inr: '900', status: 'active' }),
+      row({ id: 'c', item: 'Old gym', category: '🏋️ Fitness', amount_inr: '9999', status: 'paused' }),
+    ])
+    expect(getByText('Subscriptions')).toBeTruthy()
+    expect(getByText('Housing')).toBeTruthy()
+    expect(queryByText('Fitness')).toBeNull()
+    expect(getByText('75.0%')).toBeTruthy() // 900 / 1200
+    expect(getByText('25.0%')).toBeTruthy() // 300 / 1200
+  })
+
+  it('renders no allocation card when there are no active rows', () => {
+    const { queryByText } = render([row({ id: 'a', item: 'Gym', status: 'paused' })])
+    expect(queryByText('Housing')).toBeNull()
+  })
+})
+
+describe('due labels', () => {
+  const TODAY = '2026-09-08'
+  const TOMORROW = '2026-09-09'
+  const LATER = '2026-09-20'
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date(2026, 8, 8)) // Tue 8 Sep 2026, matches jest.config.js TZ=UTC
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('reads a today due date as Due today', () => {
+    const { getByText } = render([row({ next_run_date: TODAY })])
+    expect(getByText('Due today')).toBeTruthy()
+  })
+
+  it('reads a tomorrow due date as Due tomorrow', () => {
+    const { getByText } = render([row({ next_run_date: TOMORROW })])
+    expect(getByText('Due tomorrow')).toBeTruthy()
+  })
+
+  it('reads a further-out due date as Next on', () => {
+    const { getByText } = render([row({ next_run_date: LATER })])
+    expect(getByText('Next on 20 Sep')).toBeTruthy()
   })
 })
 
@@ -75,7 +128,8 @@ describe('rows', () => {
   it('shows the server-computed next run date, cadence and category', () => {
     const { getByText } = render([row({})])
     expect(getByText('Next on 15 Sep')).toBeTruthy()
-    expect(getByText('Every month · Housing')).toBeTruthy()
+    expect(getByText('Every month')).toBeTruthy()
+    expect(getByText('· Housing')).toBeTruthy()
   })
 
   it('labels a paused row and a finished one instead of a next date', () => {

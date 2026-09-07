@@ -158,7 +158,10 @@ export default function RecurringExpenseModal() {
         <View style={{ width: 52 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>What is it</Text>
           <TextInput
@@ -292,7 +295,8 @@ export default function RecurringExpenseModal() {
             <Pressable
               onPress={handleTogglePause}
               disabled={saving || mutatingAction}
-              style={{ opacity: saving || mutatingAction ? 0.5 : 1 }}
+              hitSlop={8}
+              style={{ paddingVertical: 10, opacity: saving || mutatingAction ? 0.5 : 1 }}
             >
               <Text style={{ color: isActive ? tokens.coral : tokens.mint, fontSize: 14, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
                 {pauseRecurring.isPending || resumeRecurring.isPending
@@ -305,7 +309,8 @@ export default function RecurringExpenseModal() {
             <Pressable
               onPress={() => setConfirmSheet('delete')}
               disabled={saving || mutatingAction}
-              style={{ marginTop: 16, opacity: saving || mutatingAction ? 0.5 : 1 }}
+              hitSlop={8}
+              style={{ marginTop: 8, paddingVertical: 10, opacity: saving || mutatingAction ? 0.5 : 1 }}
             >
               <Text style={{ color: tokens.text3, fontSize: 13, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
                 Delete
