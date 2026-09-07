@@ -562,33 +562,19 @@ export default function InsightsScreen() {
       </Card>
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
-        <Text
-          style={[
-            styles.cardTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.bodyLg,
-            },
-          ]}
-        >
-          Where it went
-        </Text>
-        <View style={{ marginTop: space.md }}>
-          <CategoryBreakdown
-            rows={breakdownRows}
-            mode={breakdownMode}
-            onModeChange={handleModeChange}
-            fixedCategories={fixedCategorySet}
-            variableOnly={variableOnly}
-            onToggleVariableOnly={() => setVariableOnly((v) => !v)}
-            selectedKey={selectedBreakdownKey}
-            onSelectKey={setSelectedBreakdownKey}
-            comparison={comparison}
-            leftover={insightMonthLeftover}
-            monthLabel={monthLabel(insightMonth)}
-          />
-        </View>
+        <CategoryBreakdown
+          rows={breakdownRows}
+          mode={breakdownMode}
+          onModeChange={handleModeChange}
+          fixedCategories={fixedCategorySet}
+          variableOnly={variableOnly}
+          onToggleVariableOnly={() => setVariableOnly((v) => !v)}
+          selectedKey={selectedBreakdownKey}
+          onSelectKey={setSelectedBreakdownKey}
+          comparison={comparison}
+          leftover={insightMonthLeftover}
+          monthLabel={monthLabel(insightMonth)}
+        />
       </Card>
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>

@@ -25,6 +25,7 @@ import {
 
 
 import { RevealBar } from "./ScanAnimations";
+import { ExpandableItemNameInput } from "./ExpandableItemNameInput";
 import { BLOCK_STAGGER_MS, DIVISORS, ITEM_STAGGER_CAP_INDEX, ITEM_STAGGER_MS, MOUNT_START_DELAY_MS, PEOPLE_COUNTS, splitLabel } from "./presentation";
 import { styles } from "./styles";
 import type { useScanBillController } from "./useScanBillController";
@@ -248,20 +249,12 @@ export function ScanReview({ tokens, space, radius, type, insets, categories, se
                     { justifyContent: "space-between" },
                   ]}
                 >
-                  <TextInput
+                  <ExpandableItemNameInput
                     value={it.name}
                     onChangeText={(v) => updateItem(it.key, { name: v })}
-                    placeholder="Item"
-                    placeholderTextColor={tokens.text3}
-                    style={[
-                      styles.itemNameInput,
-                      {
-                        flex: 1,
-                        color: tokens.text,
-                        fontFamily: fontFamily.bodyBold,
-                        fontSize: type.body,
-                      },
-                    ]}
+                    color={tokens.text}
+                    placeholderColor={tokens.text3}
+                    fontSize={type.body}
                   />
                   <TextInput
                     value={String(round2(it.price / (it.divisor || 1)))}

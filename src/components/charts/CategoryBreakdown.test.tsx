@@ -67,6 +67,14 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.getByTestId('breakdown-reveal-content').props.style).toContainEqual({ opacity: 1 })
   })
 
+  it('renders an icon-only filter action beside the card title when all items are active', () => {
+    const screen = renderBreakdown()
+
+    expect(screen.getByText('Where it went')).toBeTruthy()
+    expect(screen.getByLabelText('Filter chart')).toBeTruthy()
+    expect(screen.queryByText('Filter')).toBeNull()
+  })
+
   it('keeps edits as a draft until Apply and then reports hidden items', () => {
     const screen = renderBreakdown()
     fireEvent.press(screen.getByLabelText('Filter chart'))
@@ -78,7 +86,7 @@ describe('CategoryBreakdown filtering', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Apply' }))
     act(() => jest.advanceTimersByTime(250))
 
-    expect(screen.getByLabelText('Filter, 1 hidden')).toBeTruthy()
+    expect(screen.getByLabelText('Filter chart, 2 categories active')).toBeTruthy()
     expect(screen.queryByText('Investments')).toBeNull()
     expect(screen.getByText('Filtered total')).toBeTruthy()
   })
@@ -93,18 +101,18 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.getAllByText('Investments').length).toBeGreaterThan(0)
   })
 
-  it('requires at least one included item and Select all restores the draft', () => {
+  it('toggles all checks and requires at least one included item', () => {
     const screen = renderBreakdown()
     fireEvent.press(screen.getByLabelText('Filter chart'))
-    for (const label of ['Investments', 'Cook', 'Travel']) {
-      fireEvent.press(screen.getByRole('checkbox', { name: label }))
-    }
+    expect(screen.getByText('Deselect all')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Deselect all categories'))
 
     expect(screen.getByText('Keep at least one item in the chart.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Apply' }).props.accessibilityState.disabled).toBe(true)
 
     fireEvent.press(screen.getByLabelText('Select all categories'))
     expect(screen.getByRole('checkbox', { name: 'Investments' }).props.accessibilityState.checked).toBe(true)
+    expect(screen.getByText('Deselect all')).toBeTruthy()
   })
 
   it('clears a highlighted category when Apply excludes it', () => {

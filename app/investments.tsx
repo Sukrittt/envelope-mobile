@@ -137,6 +137,13 @@ export default function InvestmentsScreen() {
     router.push({ pathname: '/modals/holding-action', params: { name, action } })
   }
 
+  function openEdit() {
+    if (!sheetHolding) return
+    const name = sheetHolding.name
+    setSheetHolding(null)
+    router.push({ pathname: '/modals/add-holding', params: { name } })
+  }
+
   function confirmDelete() {
     if (!sheetHolding) return
     const name = sheetHolding.name
@@ -292,6 +299,7 @@ export default function InvestmentsScreen() {
             <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
             <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} />
             <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} />
+            <SheetOption label="Edit monthly contribution" color={tokens.text} onPress={openEdit} />
             <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
             <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
             <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} />

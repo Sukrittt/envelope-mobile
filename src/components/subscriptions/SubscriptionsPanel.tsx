@@ -385,7 +385,10 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
   // (app/(tabs)/index.tsx) — jumps to Activity pre-filtered to the
   // subscription's linked category.
   function viewTransactions(category: string) {
-    router.push({ pathname: "/(tabs)/activity", params: { category } });
+    router.push({
+      pathname: "/(tabs)/activity",
+      params: { category, period: "month" },
+    });
   }
 
   const chevronStyle = useAnimatedStyle(() => ({

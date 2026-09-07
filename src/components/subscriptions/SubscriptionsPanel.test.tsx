@@ -108,6 +108,6 @@ describe('category link', () => {
     const subs = [sub({ service: 'Netflix', category: 'Entertainment' })]
     const { getByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
     fireEvent.press(getByText('View transactions ›'))
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/activity', params: { category: 'Entertainment' } })
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/activity', params: { category: 'Entertainment', period: 'month' } })
   })
 })

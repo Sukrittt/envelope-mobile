@@ -28,7 +28,14 @@ export async function addHolding(row: {
 
 export async function updateHolding(
   name: string,
-  updates: { new_name?: string; type?: string; value?: string; updated_at?: string },
+  updates: {
+    new_name?: string
+    type?: string
+    value?: string
+    updated_at?: string
+    is_recurring?: boolean
+    recurring_amount?: string
+  },
 ): Promise<void> {
   const resp = await apiFetch('/api/holdings', {
     method: 'PUT',

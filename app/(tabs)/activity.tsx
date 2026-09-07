@@ -142,10 +142,18 @@ export default function ActivityScreen() {
     return other.length > 0 ? [...named, { name: "", items: other }] : named;
   }, [categories, groups]);
 
-  const params = useLocalSearchParams<{ date?: string; category?: string }>();
+  const params = useLocalSearchParams<{
+    date?: string;
+    category?: string;
+    period?: string;
+  }>();
   const paramDate = typeof params.date === "string" ? params.date : "";
   const paramCategory =
     typeof params.category === "string" ? params.category : "";
+  const paramPeriod =
+    params.period === "month" || params.period === "week"
+      ? params.period
+      : "";
   // Date drill-in from the Insights heatmap: show only that day's transactions.
   const [selectedDate, setSelectedDate] = useState(paramDate);
   useEffect(() => {
@@ -153,7 +161,7 @@ export default function ActivityScreen() {
     if (paramDate) setSelectedDate(paramDate);
   }, [paramDate]);
 
-  const [period, setPeriod] = useState<PeriodKey>("week");
+  const [period, setPeriod] = useState<PeriodKey>(paramPeriod || "week");
   const [customRange, setCustomRange] = useState<DateRange>({
     from: "",
     to: "",
@@ -164,6 +172,10 @@ export default function ActivityScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
     if (paramCategory) setSelectedCategory(paramCategory);
   }, [paramCategory]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
+    if (paramPeriod) setPeriod(paramPeriod);
+  }, [paramPeriod]);
   const [search, setSearch] = useState("");
   // Row supports swipe-left (delete) / swipe-right (edit) via SwipeableRow;
   // tap still opens this Edit/Delete action sheet as a non-swipe fallback.

@@ -167,14 +167,14 @@ describe('ScanBillScreen', () => {
 
   it('filters items by search query', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
-    const { getByLabelText, getByPlaceholderText, queryByDisplayValue } = renderWithProviders(<ScanBillScreen />)
+    const { getByLabelText, getByPlaceholderText, queryByText } = renderWithProviders(<ScanBillScreen />)
 
     await flushCategories()
     await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
 
     fireEvent.changeText(getByPlaceholderText('Search items'), 'pizza')
-    expect(queryByDisplayValue('Milk')).toBeNull()
-    expect(queryByDisplayValue('Pizza')).toBeTruthy()
+    expect(queryByText('Milk')).toBeNull()
+    expect(queryByText('Pizza')).toBeTruthy()
   })
 
   it('shows the manual escape hatch when the scan fails', async () => {
