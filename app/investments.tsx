@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { View, Text, Pressable, ScrollView, Modal, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ArrowLeft, Plus } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -282,37 +283,39 @@ export default function InvestmentsScreen() {
         </ScrollView>
       )}
 
-      <Modal
-        visible={sheetHolding !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSheetHolding(null)}
-      >
-        <Pressable style={styles.scrim} onPress={() => setSheetHolding(null)}>
-          <Pressable
-            style={[styles.sheet, { backgroundColor: tokens.modalStrong, paddingBottom: insets.bottom + 16 }]}
-            onPress={() => {}}
-          >
-            <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              {sheetHolding?.name}
-            </Text>
-            <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
-            <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} />
-            <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} />
-            <SheetOption label="Edit monthly contribution" color={tokens.text} onPress={openEdit} />
-            <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
-            <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
-            <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <BottomSheet visible={sheetHolding !== null} onClose={() => setSheetHolding(null)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+          {sheetHolding?.name}
+        </Text>
+        <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
+        <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} divider />
+        <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} divider />
+        <SheetOption label="Edit monthly contribution" color={tokens.text} onPress={openEdit} divider />
+        <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
+        <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
+        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} divider />
+      </BottomSheet>
     </View>
   )
 }
 
-function SheetOption({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+function SheetOption({
+  label,
+  color,
+  onPress,
+  divider,
+}: {
+  label: string
+  color: string
+  onPress: () => void
+  divider?: boolean
+}) {
+  const { tokens } = useTheme()
   return (
-    <Pressable onPress={onPress} style={styles.sheetOption}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.sheetOption, divider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border }]}
+    >
       <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
     </Pressable>
   )
@@ -390,8 +393,6 @@ const styles = StyleSheet.create({
   eventAmount: { fontSize: 13 },
   eventMeta: { fontSize: 12, marginTop: 2 },
   eventDelta: { fontSize: 11, marginTop: 2 },
-  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 16, paddingHorizontal: 16 },
   sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   sheetOption: { paddingVertical: 14, alignItems: 'center' },
   sheetOptionText: { fontSize: 16 },

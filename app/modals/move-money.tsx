@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%' },
   searchRow: { flexDirection: 'row', alignItems: 'center' },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 38, borderWidth: 1 },
-  searchInput: { flex: 1 },
+  searchInput: { flex: 1, padding: 0 },
   autoFillBtn: { height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   sectionLabel: { letterSpacing: 0.6, paddingBottom: 2 },
   sourceRow: { borderWidth: 1 },
