@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, Plus } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, Plus } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -340,9 +340,15 @@ function EventRow({ event, tokens, hideAmounts }: { event: HoldingEventRow; toke
         <Text style={[styles.eventMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
           {event.holding_name} · {formatDateTime(event.timestamp)}
         </Text>
-        <Text style={[styles.eventDelta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-          {formatCurrency(prev, hideAmounts)} → {formatCurrency(next, hideAmounts)}
-        </Text>
+        <View style={styles.eventDeltaRow}>
+          <Text style={[styles.eventDelta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+            {formatCurrency(prev, hideAmounts)}
+          </Text>
+          <Icon icon={ArrowRight} size={12} color={tokens.text3} />
+          <Text style={[styles.eventDelta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+            {formatCurrency(next, hideAmounts)}
+          </Text>
+        </View>
       </View>
     </View>
   )
@@ -392,7 +398,8 @@ const styles = StyleSheet.create({
   eventType: { fontSize: 13 },
   eventAmount: { fontSize: 13 },
   eventMeta: { fontSize: 12, marginTop: 2 },
-  eventDelta: { fontSize: 11, marginTop: 2 },
+  eventDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  eventDelta: { fontSize: 11 },
   sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   sheetOption: { paddingVertical: 14, alignItems: 'center' },
   sheetOptionText: { fontSize: 16 },

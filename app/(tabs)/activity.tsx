@@ -11,6 +11,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { SlidersHorizontal, X } from "lucide-react-native";
+import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
@@ -37,6 +38,8 @@ import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 
 type PeriodKey = "all" | "week" | "month" | "custom";
+
+const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -201,11 +204,26 @@ export default function ActivityScreen() {
     : null;
   const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel);
 
+  // Changing any filter re-renders the whole (non-virtualized, animated) row list in
+  // the same commit as the filter-state update, which delays that commit's paint —
+  // so a chip removal reads as "waiting on a fetch" even though nothing is async.
+  // Flipping this on swaps the list for a cheap placeholder for exactly one commit,
+  // letting the filter-state update (chips, header) paint immediately; the effect
+  // below flips it off on the next frame once that paint has landed.
+  const [isRefiltering, setIsRefiltering] = useState(false);
+  const beginRefilter = useCallback(() => setIsRefiltering(true), []);
+  useEffect(() => {
+    if (!isRefiltering) return;
+    const id = requestAnimationFrame(() => setIsRefiltering(false));
+    return () => cancelAnimationFrame(id);
+  }, [isRefiltering]);
+
   const clearTimeFilter = useCallback(() => {
+    beginRefilter();
     setSelectedDate("");
     setPeriod("all");
     setCustomRange({ from: "", to: "" });
-  }, []);
+  }, [beginRefilter]);
 
   const clearAllFilters = useCallback(() => {
     clearTimeFilter();
@@ -418,7 +436,11 @@ export default function ActivityScreen() {
         </View>
 
         {hasActiveFilters ? (
-          <View style={styles.appliedFilters}>
+          <Reanimated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(120)}
+            style={styles.appliedFilters}
+          >
             <View style={styles.appliedFiltersHeader}>
               <Text
                 style={[
@@ -447,7 +469,10 @@ export default function ActivityScreen() {
                 </Text>
               </Pressable>
             </View>
-            <View style={styles.appliedFilterRow}>
+            <Reanimated.View
+              layout={CHIP_TRANSITION}
+              style={styles.appliedFilterRow}
+            >
               {timeFilterLabel ? (
                 <AppliedFilterChip
                   label={timeFilterLabel}
@@ -459,14 +484,25 @@ export default function ActivityScreen() {
                 <AppliedFilterChip
                   label={categoryFilterLabel}
                   accessibilityLabel="Remove category filter"
-                  onRemove={() => setSelectedCategory("")}
+                  onRemove={() => {
+                    beginRefilter();
+                    setSelectedCategory("");
+                  }}
                 />
               ) : null}
-            </View>
-          </View>
+            </Reanimated.View>
+          </Reanimated.View>
         ) : null}
 
-        {filtered.length === 0 ? (
+        {isRefiltering ? (
+          <LoadingCaption
+            style={styles.refilterCaption}
+            phrases={[
+              "Sorting through your transactions…",
+              "Applying your filters…",
+            ]}
+          />
+        ) : filtered.length === 0 ? (
           <View style={styles.emptyState}>
             <Text
               style={{
@@ -687,6 +723,7 @@ export default function ActivityScreen() {
                       : "Custom range"
                 }
                 onPress={() => {
+                  beginRefilter();
                   setSelectedDate("");
                   setPeriod(key);
                   if (key === "all")
@@ -700,7 +737,10 @@ export default function ActivityScreen() {
               <DatePicker
                 mode="range"
                 value={customRange}
-                onChange={setCustomRange}
+                onChange={(range) => {
+                  beginRefilter();
+                  setCustomRange(range);
+                }}
               />
             </View>
           )}
@@ -734,6 +774,7 @@ export default function ActivityScreen() {
                 },
               ]}
               onPress={() => {
+                beginRefilter();
                 setSelectedCategory("");
                 setCategorySheetOpen(false);
                 setCategorySearch("");
@@ -785,6 +826,7 @@ export default function ActivityScreen() {
                             },
                           ]}
                           onPress={() => {
+                            beginRefilter();
                             setSelectedCategory(c.name);
                             setCategorySheetOpen(false);
                             setCategorySearch("");
@@ -839,30 +881,32 @@ function AppliedFilterChip({
   const { tokens } = useTheme();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      onPress={onRemove}
-      style={({ pressed }) => [
-        styles.appliedFilterChip,
-        {
-          backgroundColor: tokens.chipActiveBg,
-          borderColor: tokens.borderStrong,
-          opacity: pressed ? 0.72 : 1,
-        },
-      ]}
-    >
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.appliedFilterChipText,
-          { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+    <Reanimated.View exiting={FadeOut.duration(120)}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={onRemove}
+        style={({ pressed }) => [
+          styles.appliedFilterChip,
+          {
+            backgroundColor: tokens.chipActiveBg,
+            borderColor: tokens.borderStrong,
+            opacity: pressed ? 0.72 : 1,
+          },
         ]}
       >
-        {label}
-      </Text>
-      <X size={13} strokeWidth={2.5} color={tokens.text2} />
-    </Pressable>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.appliedFilterChipText,
+            { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+          ]}
+        >
+          {label}
+        </Text>
+        <X size={13} strokeWidth={2.5} color={tokens.text2} />
+      </Pressable>
+    </Reanimated.View>
   );
 }
 
@@ -976,6 +1020,9 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  refilterCaption: {
+    paddingVertical: 40,
   },
   row: {
     flexDirection: "row",

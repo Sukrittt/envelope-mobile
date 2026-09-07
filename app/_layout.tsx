@@ -253,6 +253,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/archive" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -268,6 +269,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/recurring-expense" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>

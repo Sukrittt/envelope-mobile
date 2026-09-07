@@ -150,6 +150,7 @@ export function CategoryBreakdown({
   // deliberately absent: toggling that quick filter must not forget a user's
   // explicit choices for the categories that remain eligible.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local filter UI to an incoming month/mode prop, not derivable from render
     setFilterOpen(false);
     setExcludedKeys(new Set());
     setDraftIncludedKeys(null);

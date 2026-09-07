@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, Switch, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -40,9 +40,13 @@ export default function AddHoldingModal() {
   const [saved, setSaved] = useState(false)
 
   // existing loads async on first mount (query cache may be cold) — backfill once it arrives.
+  // Guarded by a ref, not just the effect running once: a background refetch can resolve
+  // `existing` again (new reference) after the user has already started editing, and would
+  // otherwise stomp their in-progress toggle/amount back to the stale server value.
+  const backfilledRef = useRef(false)
   useEffect(() => {
-    if (!existing) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- backfilling an editable form once an async query result arrives, not derivable from render
+    if (!existing || backfilledRef.current) return
+    backfilledRef.current = true
     setIsRecurring(existing.is_recurring === 'true')
     setRecurringAmount(existing.recurring_amount || '')
   }, [existing])

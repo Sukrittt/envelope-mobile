@@ -50,6 +50,31 @@ export interface SubscriptionRow {
   category: string
 }
 
+/**
+ * A recurring expense the server auto-logs on each due date. Addressed by `id`,
+ * not by name the way SubscriptionRow uses `service` — `item` is encrypted
+ * server-side and can't be a lookup key.
+ *
+ * `next_run_date` is computed and advanced entirely by the server. Don't
+ * recompute it on the device: `SubscriptionsPanel`'s local fork of the
+ * subscription due-date math rolls against a live instant instead of UTC
+ * midnight, so anything due *today* reads as next cycle there.
+ */
+export interface RecurringExpenseRow {
+  id: string
+  item: string
+  amount_inr: string
+  category: string
+  notes: string
+  payment_method: string
+  frequency: string
+  start_date: string
+  end_date: string
+  next_run_date: string
+  status: string
+  created_at: string
+}
+
 export interface HoldingRow {
   name: string
   type: string

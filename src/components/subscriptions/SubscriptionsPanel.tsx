@@ -19,7 +19,7 @@ import {
   AllocationBar,
   type AllocationSegment,
 } from "@/src/components/charts/AllocationBar";
-import { Button, usePressSpring } from "@/src/components/ui/Button";
+import { usePressSpring } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import type { ThemeTokens } from "@/src/theme/tokens";

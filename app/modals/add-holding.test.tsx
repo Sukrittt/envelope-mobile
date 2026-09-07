@@ -150,7 +150,7 @@ describe('edit mode', () => {
 
   it('submits is_recurring: false with no amount when turning an existing SIP off', async () => {
     mockParams = { name: 'Mutual Fund SIP' }
-    const holdingsGate = deferred<Array<typeof existingHolding & { is_recurring: string; recurring_amount: string }>>()
+    const holdingsGate = deferred<(typeof existingHolding & { is_recurring: string; recurring_amount: string })[]>()
     ;(getHoldings as jest.Mock).mockReturnValue(holdingsGate.promise)
     ;(updateHolding as jest.Mock).mockResolvedValue(undefined)
 
