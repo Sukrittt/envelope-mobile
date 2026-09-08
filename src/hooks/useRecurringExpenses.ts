@@ -23,8 +23,11 @@ function useRecurringMutation<TArgs>(mutationFn: (args: TArgs) => Promise<void>)
   const qc = useQueryClient()
   return useMutation({
     mutationFn,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: key })
+    onSuccess: async () => {
+      // Awaited so a caller's own onSuccess (the add modal's close/navigate-back
+      // timer) doesn't fire until the list has actually refetched — otherwise the
+      // modal can dismiss back to a list that hasn't picked up the change yet.
+      await qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })
     },
   })

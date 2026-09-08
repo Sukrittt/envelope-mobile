@@ -79,3 +79,41 @@ describe('every mutation invalidates both recurring-expenses and ai-brief', () =
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-brief'] })
   })
 })
+
+// Regression for the "list doesn't refresh after adding" bug: a caller's
+// onSuccess (which the add modal uses to trigger its close/navigate-back
+// timer) must not fire until the invalidated recurring-expenses query has
+// actually re-fetched — otherwise the modal can close before the new row
+// lands, and the user reads it as "the list didn't refresh."
+it('useAddRecurringExpense onSuccess waits for the recurring-expenses refetch to land', async () => {
+  ;(addRecurringExpense as jest.Mock).mockResolvedValue(undefined)
+  let resolveRefetch!: (rows: unknown[]) => void
+  ;(getRecurringExpenses as jest.Mock)
+    .mockResolvedValueOnce([]) // initial mount fetch
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve
+        }),
+    ) // the refetch triggered by invalidateQueries on add
+
+  const queryClient = client()
+  const onSuccess = jest.fn()
+  const { result } = renderHook(
+    () => ({ recurring: useRecurringExpenses(), add: useAddRecurringExpense() }),
+    { wrapper: wrapper(queryClient) },
+  )
+  await waitFor(() => expect(result.current.recurring.isSuccess).toBe(true))
+
+  result.current.add.mutate(
+    { item: 'Rent', amount_inr: '25000', category: 'Housing', frequency: 'monthly', start_date: '2026-09-15' } as never,
+    { onSuccess },
+  )
+
+  await waitFor(() => expect(getRecurringExpenses).toHaveBeenCalledTimes(2))
+  expect(onSuccess).not.toHaveBeenCalled()
+
+  resolveRefetch([{ id: 'r1', item: 'Rent' }])
+
+  await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+})
