@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Envelope",
+    "name": "Aviary",
     "slug": "Mobile",
     "version": "1.4.0",
     "orientation": "portrait",
@@ -70,8 +70,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Envelope to access your photos to scan a bill.",
-          "cameraPermission": "Allow Envelope to access your camera to scan a bill."
+          "photosPermission": "Allow Aviary to access your photos to scan a bill.",
+          "cameraPermission": "Allow Aviary to access your camera to scan a bill."
         }
       ],
       [
@@ -85,7 +85,7 @@
           "widgets": [
             {
               "name": "Envelope",
-              "label": "Envelope",
+              "label": "Aviary",
               "minWidth": "250dp",
               "minHeight": "250dp",
               "targetCellWidth": 4,
@@ -97,7 +97,7 @@
             },
             {
               "name": "EnvelopeBar",
-              "label": "Envelope (bar)",
+              "label": "Aviary (bar)",
               "minWidth": "250dp",
               "minHeight": "40dp",
               "targetCellWidth": 4,
@@ -108,7 +108,7 @@
             },
             {
               "name": "EnvelopeMini",
-              "label": "Envelope (mini)",
+              "label": "Aviary (mini)",
               "minWidth": "110dp",
               "minHeight": "110dp",
               "targetCellWidth": 2,

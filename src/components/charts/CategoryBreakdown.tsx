@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Check, ListFilter, Play } from "lucide-react-native";
 import Reanimated, {
   Easing,
+  FadeIn,
   FadeOut,
   LinearTransition,
   useSharedValue,
@@ -1119,57 +1120,63 @@ export function CategoryBreakdown({
           {filterRows.map((row, index) => {
             const checked = draftIncludedKeys?.has(row.key) ?? false;
             return (
-              <Pressable
+              <Reanimated.View
                 key={row.key}
-                accessibilityRole="checkbox"
-                accessibilityLabel={row.label}
-                accessibilityState={{ checked }}
-                onPress={() => toggleDraftKey(row.key)}
-                style={[
-                  styles.filterOption,
-                  index > 0 && {
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: tokens.border,
-                  },
-                ]}
+                layout={LIST_TRANSITION}
+                entering={FadeIn.duration(150)}
+                exiting={FadeOut.duration(120)}
               >
-                <View
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={row.label}
+                  accessibilityState={{ checked }}
+                  onPress={() => toggleDraftKey(row.key)}
                   style={[
-                    styles.legendDot,
-                    {
-                      backgroundColor: colorByKey.get(row.key) ?? tokens.text3,
+                    styles.filterOption,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: tokens.border,
                     },
                   ]}
-                />
-                {row.emoji ? (
-                  <Text style={{ fontSize: 16 }}>{row.emoji}</Text>
-                ) : null}
-                <Text
-                  style={{
-                    flex: 1,
-                    color: tokens.text,
-                    fontSize: type.body,
-                    fontFamily: fontFamily.bodyMedium,
-                  }}
                 >
-                  {row.label}
-                </Text>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      borderColor: checked
-                        ? tokens.accent
-                        : tokens.borderStrong,
-                    },
-                    checked && { backgroundColor: tokens.accent },
-                  ]}
-                >
-                  {checked ? (
-                    <Check size={14} color={tokens.onAccent} strokeWidth={3} />
+                  <View
+                    style={[
+                      styles.legendDot,
+                      {
+                        backgroundColor: colorByKey.get(row.key) ?? tokens.text3,
+                      },
+                    ]}
+                  />
+                  {row.emoji ? (
+                    <Text style={{ fontSize: 16 }}>{row.emoji}</Text>
                   ) : null}
-                </View>
-              </Pressable>
+                  <Text
+                    style={{
+                      flex: 1,
+                      color: tokens.text,
+                      fontSize: type.body,
+                      fontFamily: fontFamily.bodyMedium,
+                    }}
+                  >
+                    {row.label}
+                  </Text>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: checked
+                          ? tokens.accent
+                          : tokens.borderStrong,
+                      },
+                      checked && { backgroundColor: tokens.accent },
+                    ]}
+                  >
+                    {checked ? (
+                      <Check size={14} color={tokens.onAccent} strokeWidth={3} />
+                    ) : null}
+                  </View>
+                </Pressable>
+              </Reanimated.View>
             );
           })}
         </View>

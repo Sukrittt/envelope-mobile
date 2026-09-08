@@ -18,7 +18,7 @@ export function SignInWidget({
   return (
     <WidgetSurface tokens={tokens} scheme={scheme} style={{ padding: 16, alignItems: 'center', justifyContent: 'center' }}>
       <TextWidget
-        text="Envelope"
+        text="Aviary"
         style={{ fontSize: compact ? 13 : 15, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text) }}
       />
       {!compact && (

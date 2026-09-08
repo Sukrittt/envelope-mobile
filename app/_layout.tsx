@@ -21,7 +21,7 @@ import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { useEffect,useRef,useState } from 'react'
+import { useEffect,useState } from 'react'
 import { StyleSheet,View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -78,11 +78,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
-  // Guards which mount/unmount (tabs)'s screens as tabs are switched — a ref
-  // here (not an effect in Home itself) survives Home remounting when the
-  // user leaves and returns to the tab, so the redirect fires once per
-  // sign-in rather than once per Home mount.
-  const loggedExpenseRedirect = useRef(false)
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -111,7 +106,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
       queryClient.clear()
-      loggedExpenseRedirect.current = false
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
@@ -191,19 +185,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace(onboarded ? '/(tabs)' : '/setup')
+    router.replace(onboarded ? LOG_EXPENSE_PATH : '/setup')
   }, [resolving, hasSession, onboarded, segments, authScreenMode, router])
-
-  // Logging an expense is the app's primary verb: open straight into it on
-  // launch. Fires once per sign-in (guarded by the ref, reset on logout
-  // above) — not per Home mount, since (tabs) remounts Home whenever the
-  // user switches tabs and back.
-  useEffect(() => {
-    if (resolving || !hasSession || onboarded !== true) return
-    if (loggedExpenseRedirect.current) return
-    loggedExpenseRedirect.current = true
-    router.push(LOG_EXPENSE_PATH)
-  }, [resolving, hasSession, onboarded, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.
@@ -226,6 +209,13 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   return (
     <View style={[styles.root, { backgroundColor: tokens.bg }]}>
+      {/* Declaration order is load-bearing. When a guard flips, React Navigation
+          drops every route that just unregistered, and if that empties the
+          stack it rebuilds it from the navigator's *first* registered screen
+          (StackRouter.getStateForRouteNamesChange -> routeNames[0]). The
+          initialRouteName prop can't do this job: the router is built once, on
+          the first render, when only /loading exists. So every block below
+          leads with the screen that state opens on. */}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
         <Stack.Protected guard={resolving}>
           <Stack.Screen name="loading" />
@@ -235,18 +225,19 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="(auth)/welcome" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
 
-        {/* Ungated: these are reached both signed out (from welcome) and signed
-            in (the change-email flow from Account & security). A guard can't
-            read the `mode` param that distinguishes them — that param only
-            exists after the navigation the guard would have to allow first. */}
-        <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-        <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-
         <Stack.Protected guard={!resolving && hasSession && onboarded === false}>
           <Stack.Screen name="setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!resolving && hasSession && onboarded === true}>
+          {/* First on purpose: logging an expense is the app's primary verb, so
+              it's where the app opens. Declared first, it's the route the stack
+              rebuilds itself from when the loading screen unregisters, so the
+              app lands on it directly with nothing underneath and Android back
+              exits.
+              card (not fullScreenModal): a real native modal presentation covers
+              the whole window on iOS, hiding the persistent nav below it. */}
+          <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -258,9 +249,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-          {/* card (not fullScreenModal): a real native modal presentation covers
-              the whole window on iOS, hiding the persistent nav below it. */}
-          <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/expense-added" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/scan-bill" options={{ presentation: 'card', animation: 'fade' }} />
@@ -273,6 +261,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
+
+        {/* Ungated: these are reached both signed out (from welcome) and signed
+            in (the change-email flow from Account & security). A guard can't
+            read the `mode` param that distinguishes them — that param only
+            exists after the navigation the guard would have to allow first.
+            Declared last so they're never the fallback route above. */}
+        <Stack.Screen name="(auth)/email" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       </Stack>
       <LogExpenseNavigation />
       <AlertHost />

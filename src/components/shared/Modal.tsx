@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Modal as RNModal, Pressable, KeyboardAvoidingView, Keyboard, Platform, ScrollView, StyleSheet } from 'react-native'
+import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
@@ -9,11 +10,22 @@ interface Props {
   children: ReactNode
 }
 
+// House spring, reused from CategoryBreakdown.tsx's LIST_TRANSITION — animates
+// the card's height when its content's does (e.g. a filter sheet's tab switch).
+const SHEET_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
+
+// Declared once at module scope: creating this per-render would remount the
+// sheet's whole subtree on every render.
+const AnimatedSheet = Reanimated.createAnimatedComponent(Pressable)
+
 /**
  * Reusable bottom-sheet: backdrop + slide-up card. RN's built-in Modal already
- * animates the slide (proven in investments.tsx's inline action sheet) — no
- * Animated/reanimated needed for this. Exported as `BottomSheet` (not `Modal`)
- * so importers don't shadow react-native's own `Modal`.
+ * animates the slide (proven in investments.tsx's inline action sheet), so
+ * open/close needs no Animated/reanimated — but the card itself is a
+ * reanimated view so it eases between heights when its content resizes
+ * (e.g. CategoryBreakdown's filter sheet swapping Categories/Groups tabs)
+ * instead of snapping. Exported as `BottomSheet` (not `Modal`) so importers
+ * don't shadow react-native's own `Modal`.
  */
 export function BottomSheet({ visible, onClose, children }: Props) {
   const { tokens } = useTheme()
@@ -35,8 +47,9 @@ export function BottomSheet({ visible, onClose, children }: Props) {
       navigationBarTranslucent
     >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Pressable style={styles.backdrop} onPress={handleBackdrop}>
-          <Pressable
+        <Pressable testID="bottom-sheet-backdrop" style={styles.backdrop} onPress={handleBackdrop}>
+          <AnimatedSheet
+            layout={SHEET_TRANSITION}
             style={[
               styles.sheet,
               { backgroundColor: tokens.modalStrong, borderColor: tokens.borderStrong, maxHeight: '85%' },
@@ -50,7 +63,7 @@ export function BottomSheet({ visible, onClose, children }: Props) {
             >
               {children}
             </ScrollView>
-          </Pressable>
+          </AnimatedSheet>
         </Pressable>
       </KeyboardAvoidingView>
     </RNModal>
@@ -59,5 +72,11 @@ export function BottomSheet({ visible, onClose, children }: Props) {
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0 },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    overflow: 'hidden', // clip content while the card's height animates
+  },
 })

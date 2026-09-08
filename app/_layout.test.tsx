@@ -19,9 +19,10 @@ jest.mock('@/src/theme/fonts', () => ({
 }))
 
 let mockSegments: string[] = []
-const mockPathname = '/'
+let mockPathname = '/'
 let mockGlobalParams: Record<string, string> = {}
 const mockReplace = jest.fn()
+const mockPush = jest.fn()
 jest.mock('expo-router', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View: RNView } = require('react-native')
@@ -36,7 +37,7 @@ jest.mock('expo-router', () => {
   }
   return {
     Stack,
-    useRouter: () => ({ replace: mockReplace, push: jest.fn(), back: jest.fn(), navigate: jest.fn() }),
+    useRouter: () => ({ replace: mockReplace, push: mockPush, back: jest.fn(), navigate: jest.fn() }),
     useSegments: () => mockSegments,
     usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,
@@ -75,6 +76,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockFontsLoaded = false
   mockSegments = []
+  mockPathname = '/'
   mockGlobalParams = {}
 })
 
@@ -129,16 +131,19 @@ describe('RootLayout', () => {
     mockInitAccessMode.mockResolvedValue('real')
     mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null })
 
-    const { getByTestId, queryByTestId } = render(<RootLayout />)
+    const { getByTestId, queryByTestId, getAllByTestId } = render(<RootLayout />)
 
     await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy(), { timeout: 3000 })
     expect(queryByTestId('screen:(tabs)')).toBeNull()
+    // Setup must be the first registered screen in this state too — a fallback
+    // to (auth)/email here would bounce through it the same way log-expense used to.
+    expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:setup')
   })
 
   // (auth)/email and (auth)/code stay registered while signed in for the
   // change-email flow, so signing in from them removes no screen — the root
   // layout has to move the user off explicitly.
-  it('moves a user who just signed in on an auth screen to the tabs', async () => {
+  it('moves a user who just signed in on an auth screen to log expense', async () => {
     mockFontsLoaded = true
     mockSegments = ['(auth)', 'code']
     mockInitAccessMode.mockResolvedValue('real')
@@ -146,7 +151,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)'), { timeout: 3000 })
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/modals/log-expense'), { timeout: 3000 })
   })
 
   it('sends a signed-in user who has not onboarded from an auth screen to setup', async () => {
@@ -171,5 +176,22 @@ describe('RootLayout', () => {
 
     await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
     expect(mockReplace).not.toHaveBeenCalled()
+  })
+
+  // Log-expense is declared first inside the signed-in guard, so it's the
+  // route React Navigation rebuilds the (just-emptied) stack from when
+  // /loading unregisters — no push, no intermediate Home frame. This also
+  // covers the widget deep link (envelope://modals/log-expense?category=X):
+  // the layout no longer pushes anything at all, so it can't stomp it.
+  it('registers log-expense first so launch lands there, and pushes nothing', async () => {
+    mockFontsLoaded = true
+    mockInitAccessMode.mockResolvedValue('real')
+    mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
+
+    const { getByTestId, getAllByTestId } = render(<RootLayout />)
+
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
+    expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:modals/log-expense')
+    expect(mockPush).not.toHaveBeenCalled()
   })
 })

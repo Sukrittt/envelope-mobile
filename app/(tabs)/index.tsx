@@ -177,7 +177,7 @@ export default function HomeScreen() {
   return (
     <AnimatedTabContent>
       <Screen
-        title="Envelope"
+        title="Aviary"
         actions={
           <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }

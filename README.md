@@ -1,4 +1,4 @@
-# Envelope (Mobile)
+# Aviary (Mobile)
 
 Expo/React Native companion app for the YNAB-inspired envelope budgeting tool. Talks to the same deployed API as `Web/`.
 

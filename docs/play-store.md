@@ -1,4 +1,4 @@
-# Publishing Envelope to Google Play
+# Publishing Aviary to Google Play
 
 Everything the code could do is done (see the diff this doc ships with). This is what's left, in
 order — none of it is code, it's account setup and console clicks. First time doing this: budget a
@@ -47,7 +47,7 @@ free afternoon for the console setup, then a 14-day wait for closed testing befo
 
 ## 3. Create the app in Play Console
 
-- Create app → name **Envelope**, default language, Free, confirm the declarations.
+- Create app → name **Aviary**, default language, Free, confirm the declarations.
 - App category: Finance.
 - Store listing:
   - Short description (≤80 chars): e.g. "Envelope budgeting for real spending, in rupees."

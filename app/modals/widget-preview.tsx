@@ -77,7 +77,7 @@ export default function WidgetPreviewScreen() {
             );
             return (
               <>
-                <PreviewRow label="Envelope · 4x4">
+                <PreviewRow label="Aviary · 4x4">
                   <WidgetPreview
                     width={250}
                     height={250}
@@ -93,7 +93,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope · resized short">
+                <PreviewRow label="Aviary · resized short">
                   <WidgetPreview
                     width={250}
                     height={170}
@@ -109,7 +109,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Bar · 4x1">
+                <PreviewRow label="Aviary Bar · 4x1">
                   <WidgetPreview
                     width={250}
                     height={40}
@@ -123,7 +123,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini · 2x2 cell">
+                <PreviewRow label="Aviary Mini · 2x2 cell">
                   {/* The cell the launcher hands out, not the card: the card
                       draws itself square inside it. */}
                   <WidgetPreview
@@ -140,7 +140,7 @@ export default function WidgetPreviewScreen() {
                     )}
                   />
                 </PreviewRow>
-                <PreviewRow label="Envelope Mini · 2x2 floor">
+                <PreviewRow label="Aviary Mini · 2x2 floor">
                   <WidgetPreview
                     width={110}
                     height={140}
