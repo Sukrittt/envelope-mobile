@@ -2,22 +2,37 @@ import { useSyncExternalStore } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { currentUserId } from '@/src/api/accessMode'
 
-// Module-level online flag, flipped by apiFetch (client.ts) itself: false the
-// instant a request throws a transport error (TypeError/AbortError), true on
+// Module-level online flag, flipped by apiFetch (client.ts) itself: true on
 // any response at all (even a 4xx — that means the network is up, the server
 // just said no). No NetInfo/expo-network: the request path already produces
 // this signal, and a background dependency would only ever confirm the same
 // thing apiFetch already knows moments later. Same idiom as
 // useLogExpenseSubmit.ts's external store.
+//
+// A single failed/timed-out request is a weak signal on its own — a cold
+// backend or one slow parallel call among several isn't a real outage — so
+// going offline requires FAILURE_THRESHOLD consecutive failures with no
+// success in between. Going back online stays immediate on any success.
 let online = true
+let consecutiveFailures = 0
+const FAILURE_THRESHOLD = 2
 const listeners = new Set<() => void>()
 const onlineTransitionListeners = new Set<() => void>()
 
 export function setOnline(next: boolean): void {
-  if (next === online) return
-  online = next
+  if (next) {
+    consecutiveFailures = 0
+    if (online) return
+    online = true
+    listeners.forEach((l) => l())
+    onlineTransitionListeners.forEach((l) => l())
+    return
+  }
+
+  consecutiveFailures += 1
+  if (consecutiveFailures < FAILURE_THRESHOLD || !online) return
+  online = false
   listeners.forEach((l) => l())
-  if (next) onlineTransitionListeners.forEach((l) => l())
 }
 
 /** Fires only on a false -> true transition — "we were offline, and now the network answered". */
