@@ -2,6 +2,7 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses, postExpensePayload } from '@/src/api/expenses'
 import { getCategories } from '@/src/api/categories'
+import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -15,6 +16,11 @@ jest.mock('@/src/api/expenses', () => ({
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
   addCategory: jest.fn(),
+}))
+// CategoryPickerSheet (rendered by the log-expense screen) groups by this,
+// so it needs a resolved value or every category is dropped from the list.
+jest.mock('@/src/api/groups', () => ({
+  getGroups: jest.fn(),
 }))
 jest.mock('@/src/api/categoryMap', () => ({
   getCategoryMap: jest.fn(),
@@ -40,6 +46,7 @@ function setup() {
   mockParams = {}
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Food' }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('')
   return renderWithProviders(

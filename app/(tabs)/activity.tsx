@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  ScrollView,
   RefreshControl,
   StyleSheet,
 } from "react-native";
@@ -21,10 +20,10 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 import { formatCurrency } from "@/src/lib/format";
-import { categoryEmoji, groupEmoji, splitEmoji } from "@/src/lib/emoji";
+import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { useExpenses, useDeleteExpense } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
-import { useGroups } from "@/src/hooks/useGroups";
+import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -32,7 +31,7 @@ import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
-import type { CategoryRow, ExpenseRow } from "@/src/types";
+import type { ExpenseRow } from "@/src/types";
 import { toISTDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
@@ -123,27 +122,9 @@ export default function ActivityScreen() {
 
   const expensesQ = useExpenses();
   const categoriesQ = useCategories();
-  const groupsQ = useGroups();
   const deleteExpense = useDeleteExpense();
 
   const expenses = expensesQ.data ?? EMPTY;
-  const categories = categoriesQ.data ?? EMPTY;
-  const groups = groupsQ.data ?? EMPTY;
-
-  // Grouped so the filter sheet can be scanned by group instead of one long
-  // flat scroll of every category (mirrors envelopes.tsx's groupedCategories).
-  const groupedCategories = useMemo(() => {
-    const byGroup = new Map<string, CategoryRow[]>();
-    for (const c of categories) {
-      const g = c.group || "";
-      const arr = byGroup.get(g) ?? [];
-      arr.push(c);
-      byGroup.set(g, arr);
-    }
-    const named = groups.map((g) => ({ name: g, items: byGroup.get(g) ?? [] }));
-    const other = byGroup.get("") ?? [];
-    return other.length > 0 ? [...named, { name: "", items: other }] : named;
-  }, [categories, groups]);
 
   const params = useLocalSearchParams<{
     date?: string;
@@ -190,7 +171,7 @@ export default function ActivityScreen() {
   // pops a still-visible row.
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
-  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
   const timeFilterLabel = useMemo(() => {
     if (selectedDate) return formatDateHeader(selectedDate);
@@ -247,17 +228,6 @@ export default function ActivityScreen() {
       };
     }, []),
   );
-
-  const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return groupedCategories;
-    const q = categorySearch.trim().toLowerCase();
-    return groupedCategories
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((c) => c.name.toLowerCase().includes(q)),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [groupedCategories, categorySearch]);
 
   const latestDate = useMemo(() => {
     if (expenses.length === 0) return new Date();
@@ -695,10 +665,7 @@ export default function ActivityScreen() {
 
         <BottomSheet
           visible={categorySheetOpen}
-          onClose={() => {
-            setCategorySheetOpen(false);
-            setCategorySearch("");
-          }}
+          onClose={() => setCategorySheetOpen(false)}
         >
           <Text
             style={[
@@ -744,126 +711,48 @@ export default function ActivityScreen() {
               />
             </View>
           )}
-          <TextInput
-            value={categorySearch}
-            onChangeText={setCategorySearch}
-            placeholder="Search categories…"
-            placeholderTextColor={tokens.text3}
-            autoCorrect={false}
+          <Pressable
             style={[
-              styles.categorySearch,
-              {
-                backgroundColor: tokens.inputBg,
-                borderColor: tokens.border,
-                color: tokens.text,
-                fontFamily: fontFamily.bodyMedium,
-              },
+              styles.categoryOption,
+              styles.categoryFilterRow,
+              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
             ]}
-          />
-          <ScrollView
-            style={styles.categorySheetScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            onPress={() => {
+              setCategorySheetOpen(false);
+              setCategoryPickerOpen(true);
+            }}
           >
-            <Pressable
+            <Text
               style={[
-                styles.categoryOption,
-                { borderBottomColor: tokens.border },
-                selectedCategory === "" && {
-                  backgroundColor: tokens.chipActiveBg,
-                },
+                styles.categoryOptionText,
+                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
               ]}
-              onPress={() => {
-                beginRefilter();
-                setSelectedCategory("");
-                setCategorySheetOpen(false);
-                setCategorySearch("");
-              }}
             >
-              <Text
-                style={[
-                  styles.categoryOptionText,
-                  { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
-                ]}
-              >
-                All categories
-              </Text>
-            </Pressable>
-            {filteredCategories.map(
-              (group) =>
-                group.items.length > 0 && (
-                  <View key={group.name || "other"}>
-                    <Text
-                      style={[
-                        styles.categoryGroupLabel,
-                        {
-                          color: tokens.text3,
-                          fontFamily: fontFamily.bodyBold,
-                        },
-                      ]}
-                    >
-                      {group.name
-                        ? `${groupEmoji(group.name)} ${splitEmoji(group.name).text}`
-                        : "Other"}
-                    </Text>
-                    <View
-                      style={[
-                        styles.categoryGroupItems,
-                        { borderLeftColor: tokens.border },
-                      ]}
-                    >
-                      {group.items.map((c, i) => (
-                        <Pressable
-                          key={c.name}
-                          style={[
-                            styles.categoryOption,
-                            i > 0 && {
-                              borderTopWidth: StyleSheet.hairlineWidth,
-                              borderTopColor: tokens.border,
-                            },
-                            selectedCategory === c.name && {
-                              backgroundColor: tokens.chipActiveBg,
-                            },
-                          ]}
-                          onPress={() => {
-                            beginRefilter();
-                            setSelectedCategory(c.name);
-                            setCategorySheetOpen(false);
-                            setCategorySearch("");
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryOptionText,
-                              {
-                                color: tokens.text,
-                                fontFamily: fontFamily.bodyMedium,
-                              },
-                            ]}
-                          >
-                            {categoryEmoji(c.name, group.name)}{" "}
-                            {splitEmoji(c.name).text}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                ),
-            )}
-            {categorySearch.trim() && filteredCategories.length === 0 && (
-              <Text
-                style={{
-                  color: tokens.text3,
-                  fontFamily: fontFamily.bodyMedium,
-                  textAlign: "center",
-                  paddingTop: 32,
-                }}
-              >
-                No categories found
-              </Text>
-            )}
-          </ScrollView>
+              Category
+            </Text>
+            <Text
+              style={[
+                styles.categoryOptionText,
+                { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
+              ]}
+            >
+              {selectedCategory
+                ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
+                : "All categories"}
+            </Text>
+          </Pressable>
         </BottomSheet>
+
+        <CategoryPickerSheet
+          visible={categoryPickerOpen}
+          onClose={() => setCategoryPickerOpen(false)}
+          value={selectedCategory}
+          onSelect={(c) => {
+            beginRefilter();
+            setSelectedCategory(c);
+          }}
+          noneLabel="All categories"
+        />
       </Screen>
     </AnimatedTabContent>
   );
@@ -980,33 +869,17 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
-  categorySheetScroll: { height: 420 },
-  categorySearch: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 13,
-    marginBottom: 8,
-  },
   categoryOption: {
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 12,
   },
   categoryOptionText: { fontSize: 14 },
-  categoryGroupLabel: {
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 12,
-    marginBottom: 2,
-    paddingHorizontal: 8,
-  },
-  categoryGroupItems: {
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    marginLeft: 8,
-    paddingLeft: 4,
+  categoryFilterRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   customRangeWrap: { marginBottom: 10 },
   search: {

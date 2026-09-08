@@ -1,12 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { categoryEmoji, groupEmoji, splitEmoji } from '@/src/lib/emoji'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
+import { useExpenses } from '@/src/hooks/useExpenses'
+import { useRecentCategories } from '@/src/hooks/useRecentCategories'
+import { deriveRecentsFromExpenses } from '@/src/lib/recentCategories'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { Chip } from '@/src/components/ui/Chip'
 import { EMPTY } from '@/src/lib/constants'
+
+/** Below this many categories, search + recents shortcuts aren't worth the extra chrome. */
+const RECENTS_MIN_CATEGORIES = 8
+const MAX_RECENT_SHOWN = 6
 
 interface Props {
   visible: boolean
@@ -15,18 +23,32 @@ interface Props {
   onSelect: (category: string) => void
   /** Label for the "clear the link" row. Defaults to a generic "No category". */
   noneLabel?: string
+  /** Sheet heading. Defaults to "Category". */
+  title?: string
+  /** Rendered below the category list, e.g. log-expense's inline "create category" form. */
+  footer?: ReactNode
 }
 
 /**
- * Grouped + searchable category picker, same shape as the filter sheet in
- * `app/(tabs)/activity.tsx` (groups categories by their budget group, search
- * narrows both group and item lists) — pulled out standalone so a second
- * caller (the subscription form) doesn't reimplement it.
+ * Grouped + searchable category picker, with a "Recently used" chip rail
+ * pinned above the groups. The one category-picking surface in the app —
+ * log-expense, scan-bill review, the activity filter, subscriptions and
+ * recurring expenses all render this instead of hand-rolling their own list.
  */
-export function CategoryPickerSheet({ visible, onClose, value, onSelect, noneLabel = 'No category linked' }: Props) {
+export function CategoryPickerSheet({
+  visible,
+  onClose,
+  value,
+  onSelect,
+  noneLabel = 'No category linked',
+  title = 'Category',
+  footer,
+}: Props) {
   const { tokens } = useTheme()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const expensesQ = useExpenses()
+  const { recents, record } = useRecentCategories()
   const [search, setSearch] = useState('')
 
   const categories = categoriesQ.data ?? EMPTY
@@ -53,15 +75,25 @@ export function CategoryPickerSheet({ visible, onClose, value, onSelect, noneLab
       .filter((g) => g.items.length > 0)
   }, [groupedCategories, search])
 
+  // The device's own MRU once it has one; the expense history seeds it before
+  // that (first launch after this shipped, or a fresh install).
+  const recentNames = recents.length > 0 ? recents : deriveRecentsFromExpenses(expensesQ.data ?? EMPTY, categories)
+  const groupByName = useMemo(() => new Map(categories.map((c) => [c.name, c.group])), [categories])
+  const recentCategories = recentNames
+    .filter((name) => groupByName.has(name))
+    .slice(0, MAX_RECENT_SHOWN)
+  const showRecents = !search.trim() && categories.length >= RECENTS_MIN_CATEGORIES && recentCategories.length > 0
+
   function pick(category: string) {
     onSelect(category)
+    if (category) record(category)
     setSearch('')
     onClose()
   }
 
   return (
     <BottomSheet visible={visible} onClose={() => { onClose(); setSearch('') }}>
-      <Text style={[styles.title, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
+      <Text style={[styles.title, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{title}</Text>
       <TextInput
         value={search}
         onChangeText={setSearch}
@@ -77,6 +109,24 @@ export function CategoryPickerSheet({ visible, onClose, value, onSelect, noneLab
         >
           <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{noneLabel}</Text>
         </Pressable>
+        {showRecents && (
+          <View style={styles.recentsSection}>
+            <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+              Recently used
+            </Text>
+            <View style={[styles.recentsRow, { gap: 8 }]}>
+              {recentCategories.map((name) => (
+                <Chip
+                  key={name}
+                  selected={value === name}
+                  icon={categoryEmoji(name, groupByName.get(name))}
+                  label={splitEmoji(name).text}
+                  onPress={() => pick(name)}
+                />
+              ))}
+            </View>
+          </View>
+        )}
         {filteredCategories.map(
           (group) =>
             group.items.length > 0 && (
@@ -110,6 +160,7 @@ export function CategoryPickerSheet({ visible, onClose, value, onSelect, noneLab
           </Text>
         )}
       </ScrollView>
+      {footer}
     </BottomSheet>
   )
 }
@@ -122,4 +173,6 @@ const styles = StyleSheet.create({
   optionText: { fontSize: 14 },
   groupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
   groupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },
+  recentsSection: { marginBottom: 4 },
+  recentsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 },
 })

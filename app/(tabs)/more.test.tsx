@@ -226,6 +226,17 @@ describe('More tab · Scan a bill sheet', () => {
     await waitFor(() => expect(queryByText('Take a photo')).toBeNull())
     expect(mockPush).not.toHaveBeenCalled()
   })
+
+  it('does not show the empty-categories alert while categories are still loading', async () => {
+    const { getByText, queryByText } = renderWithProviders(<MoreScreen />)
+    // Deliberately no `await flushCategories()` — categoriesQ is still isLoading here.
+
+    fireEvent.press(getByText('Scan a bill'))
+    fireEvent.press(getByText('Choose a screenshot'))
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/modals/scan-bill'))
+    expect(queryByText('No categories yet')).toBeNull()
+  })
 })
 
 describe('More tab · feature shortcuts', () => {

@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
+import { getGroups } from '@/src/api/groups'
 import { getExpenses, mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
 import { scanBill } from '@/src/api/scan'
 import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
@@ -12,6 +13,11 @@ jest.mock('@/src/api/categories', () => ({
   updateCategory: jest.fn(),
   deleteCategory: jest.fn(),
   moveCategory: jest.fn(),
+}))
+// CategoryPickerSheet (rendered by the review screen) groups by this, so it
+// needs a resolved value or every category is dropped from the list.
+jest.mock('@/src/api/groups', () => ({
+  getGroups: jest.fn(),
 }))
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -57,6 +63,7 @@ async function flushCategories() {
 beforeEach(() => {
   jest.clearAllMocks()
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
+  ;(getGroups as jest.Mock).mockResolvedValue(['Essentials'])
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   // The photo is picked on the "more" screen before this route ever mounts —
   // simulate that handoff the same way, via the real pendingScanImage module.

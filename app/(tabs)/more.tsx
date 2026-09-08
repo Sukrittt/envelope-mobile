@@ -73,6 +73,7 @@ export default function MoreScreen() {
       }
     }
     await clearAccess()
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     // No setSigningOut(false): clearAccess unmounts this screen via the
     // root navigator's session guard. Resetting it would only flash
     // "Sign out" back on a screen that is already leaving.
@@ -119,7 +120,13 @@ export default function MoreScreen() {
     }
     // The scan route always requires a non-empty category list — guarded here,
     // before the handoff, rather than sending Gemini an empty enum constraint.
-    if ((categoriesQ.data ?? []).length === 0) {
+    // Wait out an in-flight fetch instead of trusting a still-undefined `.data`:
+    // refetch() joins the request already underway rather than firing a second one.
+    let categories = categoriesQ.data
+    if (categoriesQ.isLoading) {
+      categories = (await categoriesQ.refetch()).data
+    }
+    if ((categories ?? []).length === 0) {
       setScanPickerOpen(false)
       Alert.alert('No categories yet', 'Add one first, or enter this expense manually.')
       return
@@ -324,6 +331,7 @@ export default function MoreScreen() {
 
           <Pressable
             onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
               // A queued offline expense lives only in this device's AsyncStorage,
               // namespaced by user id — signing out doesn't delete it (so signing
               // back in as the same person recovers it), but signing out and back

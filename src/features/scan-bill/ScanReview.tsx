@@ -1,4 +1,4 @@
-import { BottomSheet } from "@/src/components/shared/Modal";
+import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Card } from "@/src/components/ui/Card";
@@ -29,8 +29,8 @@ import { ExpandableItemNameInput } from "./ExpandableItemNameInput";
 import { BLOCK_STAGGER_MS, DIVISORS, ITEM_STAGGER_CAP_INDEX, ITEM_STAGGER_MS, MOUNT_START_DELAY_MS, PEOPLE_COUNTS, splitLabel } from "./presentation";
 import { styles } from "./styles";
 import type { useScanBillController } from "./useScanBillController";
-type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "insets" | "categories" | "setPhase" | "merchant" | "setMerchant" | "category" | "setCategory" | "items" | "peopleCount" | "feeItems" | "feeAggregate" | "hasFee" | "feeShare" | "billTotal" | "myShare" | "sharePct" | "updateItem" | "removeItem" | "addBlankItem" | "setAllMine" | "setPeopleCount" | "query" | "setQuery" | "selecting" | "selected" | "setSelected" | "categoryPickerOpen" | "setCategoryPickerOpen" | "selectedCategory" | "visibleItems" | "canProceed" | "toggleSelected" | "applyBulkDivisor">;
-export function ScanReview({ tokens, space, radius, type, insets, categories, setPhase, merchant, setMerchant, category, setCategory, items, peopleCount, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelected, applyBulkDivisor }: Props) {
+type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "insets" | "setPhase" | "merchant" | "setMerchant" | "category" | "setCategory" | "items" | "peopleCount" | "feeItems" | "feeAggregate" | "hasFee" | "feeShare" | "billTotal" | "myShare" | "sharePct" | "updateItem" | "removeItem" | "addBlankItem" | "setAllMine" | "setPeopleCount" | "query" | "setQuery" | "selecting" | "selected" | "setSelected" | "categoryPickerOpen" | "setCategoryPickerOpen" | "selectedCategory" | "visibleItems" | "canProceed" | "toggleSelected" | "applyBulkDivisor">;
+export function ScanReview({ tokens, space, radius, type, insets, setPhase, merchant, setMerchant, category, setCategory, items, peopleCount, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelected, applyBulkDivisor }: Props) {
   return (<>
     <View
       style={{
@@ -638,38 +638,13 @@ export function ScanReview({ tokens, space, radius, type, insets, categories, se
       </Pressable>
     </View>
 
-    <BottomSheet
+    <CategoryPickerSheet
       visible={categoryPickerOpen}
       onClose={() => setCategoryPickerOpen(false)}
-    >
-      <Text
-        style={[
-          styles.sheetTitle,
-          {
-            color: tokens.text,
-            fontFamily: fontFamily.displaySemiBold,
-            fontSize: type.bodyLg,
-          },
-        ]}
-      >
-        Choose a category
-      </Text>
-      <View
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}
-      >
-        {categories.map((c) => (
-          <Chip
-            key={c.name}
-            selected={category === c.name}
-            icon={categoryEmoji(c.name, c.group)}
-            label={splitEmoji(c.name).text}
-            onPress={() => {
-              setCategory(c.name);
-              setCategoryPickerOpen(false);
-            }}
-          />
-        ))}
-      </View>
-    </BottomSheet>
+      value={category}
+      onSelect={setCategory}
+      title="Choose a category"
+      noneLabel="No category"
+    />
   </>);
 }

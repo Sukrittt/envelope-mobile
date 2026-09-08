@@ -1,4 +1,5 @@
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
+import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { DatePicker } from "@/src/components/shared/DatePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { AmountText } from "@/src/components/ui/AmountText";
@@ -13,7 +14,6 @@ import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
 useAddExpense,
-useExpenses,
 useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { todayIST } from "@/src/lib/date";
@@ -94,7 +94,6 @@ export default function LogExpenseScreen() {
 
   const categoriesQ = useCategories();
   const categoryMapQ = useCategoryMap();
-  const expensesQ = useExpenses();
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
   const addCategory = useAddCategory();
@@ -127,19 +126,6 @@ export default function LogExpenseScreen() {
     params: Record<string, string>;
   }>(null);
 
-  // Most-recently-used first. A single-line rail only shows a handful, and users
-  // routinely keep 20+ envelopes — recency is what makes the visible few the
-  // right few. Ties and never-used categories keep their configured order.
-  const orderedCategories = useMemo(() => {
-    const lastUsed = new Map<string, string>();
-    for (const row of expensesQ.data ?? []) {
-      const seen = lastUsed.get(row.category);
-      if (!seen || row.date > seen) lastUsed.set(row.category, row.date);
-    }
-    return [...categories].sort((a, b) =>
-      (lastUsed.get(b.name) ?? "").localeCompare(lastUsed.get(a.name) ?? ""),
-    );
-  }, [categories, expensesQ.data]);
 
   // Debounced auto-suggest while typing the description, only until the user
   // manually picks a category (so we never fight a deliberate choice).
@@ -490,105 +476,86 @@ export default function LogExpenseScreen() {
         />
       </View>
 
-      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)}>
-        <Text
-          style={[
-            styles.sheetTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.bodyLg,
-            },
-          ]}
-        >
-          Choose a category
-        </Text>
-        <ScrollView
-          style={styles.sheetList}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={[styles.sheetChips, { gap: space.sm }]}>
-            {orderedCategories.map((c) => (
-              <Chip
-                key={c.name}
-                selected={category === c.name}
-                icon={categoryEmoji(c.name, c.group)}
-                label={splitEmoji(c.name).text}
-                onPress={() => {
-                  setCategory(c.name);
-                  setCategoryTouched(true);
-                  setPickerOpen(false);
-                }}
-              />
-            ))}
-          </View>
-        </ScrollView>
-        {categories.length === 0 && !online && (
-          <Text
-            style={[
-              styles.fieldLabel,
-              {
-                color: tokens.text3,
-                fontFamily: fontFamily.bodyMedium,
-                marginTop: space.md,
-              },
-            ]}
-          >
-            You can add categories once you&apos;re back online.
-          </Text>
-        )}
-        {categories.length === 0 && online && (
-          <View
-            style={{
-              flexDirection: "row",
-              gap: space.sm,
-              marginTop: space.md,
-            }}
-          >
-            <TextInput
-              value={newCategoryName}
-              onChangeText={setNewCategoryName}
-              placeholder="New category name"
-              placeholderTextColor={tokens.text3}
-              onSubmitEditing={handleCreateCategory}
-              style={[
-                styles.itemInput,
-                {
-                  flex: 1,
-                  backgroundColor: tokens.inputBg,
-                  borderRadius: radius.md,
-                  color: tokens.text,
-                  fontFamily: fontFamily.bodyMedium,
-                  fontSize: type.body,
-                },
-              ]}
-            />
-            <Pressable
-              onPress={handleCreateCategory}
-              disabled={!newCategoryName.trim() || addCategory.isPending}
-              style={[
-                styles.addCategory,
-                {
-                  backgroundColor: tokens.accentInk,
-                  borderRadius: radius.md,
-                  opacity:
-                    !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1,
-                },
-              ]}
-            >
+      <CategoryPickerSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={category}
+        onSelect={(c) => {
+          setCategory(c);
+          setCategoryTouched(true);
+        }}
+        title="Choose a category"
+        noneLabel="No category"
+        footer={
+          <>
+            {categories.length === 0 && !online && (
               <Text
+                style={[
+                  styles.fieldLabel,
+                  {
+                    color: tokens.text3,
+                    fontFamily: fontFamily.bodyMedium,
+                    marginTop: space.md,
+                  },
+                ]}
+              >
+                You can add categories once you&apos;re back online.
+              </Text>
+            )}
+            {categories.length === 0 && online && (
+              <View
                 style={{
-                  color: tokens.onAccent,
-                  fontFamily: fontFamily.bodySemiBold,
-                  fontSize: type.caption,
+                  flexDirection: "row",
+                  gap: space.sm,
+                  marginTop: space.md,
                 }}
               >
-                Add
-              </Text>
-            </Pressable>
-          </View>
-        )}
-      </BottomSheet>
+                <TextInput
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder="New category name"
+                  placeholderTextColor={tokens.text3}
+                  onSubmitEditing={handleCreateCategory}
+                  style={[
+                    styles.itemInput,
+                    {
+                      flex: 1,
+                      backgroundColor: tokens.inputBg,
+                      borderRadius: radius.md,
+                      color: tokens.text,
+                      fontFamily: fontFamily.bodyMedium,
+                      fontSize: type.body,
+                    },
+                  ]}
+                />
+                <Pressable
+                  onPress={handleCreateCategory}
+                  disabled={!newCategoryName.trim() || addCategory.isPending}
+                  style={[
+                    styles.addCategory,
+                    {
+                      backgroundColor: tokens.accentInk,
+                      borderRadius: radius.md,
+                      opacity:
+                        !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: tokens.onAccent,
+                      fontFamily: fontFamily.bodySemiBold,
+                      fontSize: type.caption,
+                    }}
+                  >
+                    Add
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </>
+        }
+      />
 
       <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
         <Text
