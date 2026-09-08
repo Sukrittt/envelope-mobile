@@ -175,6 +175,9 @@ export default function ArchiveScreen() {
     );
     setTimeout(() => {
       setSuccess(null);
+      qc.setQueryData<ArchivedItem[]>(archiveKey, (old) =>
+        (old ?? []).filter((i) => i.id !== id),
+      );
       qc.invalidateQueries();
     }, 650);
   };
