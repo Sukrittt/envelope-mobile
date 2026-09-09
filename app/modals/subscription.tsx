@@ -17,7 +17,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 
 const CYCLES = ['monthly', 'yearly', 'quarterly', 'weekly', 'one-time']
 
@@ -236,7 +236,7 @@ export default function SubscriptionModal() {
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
           >
             <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
-              {category ? splitEmoji(category).text : 'No category linked'}
+              {category ? `${categoryEmoji(category)} ${splitEmoji(category).text}` : 'No category linked'}
             </Text>
           </Pressable>
           {category ? (

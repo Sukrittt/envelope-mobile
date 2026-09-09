@@ -11,12 +11,15 @@ describe('DatePicker (single)', () => {
     jest.useRealTimers()
   })
 
-  it('shows a 6-day strip ending today, and highlights the selected day', () => {
+  it('shows a strip centered on the selected day, at least a week either side', () => {
     const { getByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={jest.fn()} />)
     expect(getByText('Today')).toBeTruthy()
     expect(getByText('Yest')).toBeTruthy()
     expect(getByText('22')).toBeTruthy()
     expect(getByText('3 days ago')).toBeTruthy()
+    // selected is 19 Aug; strip must reach at least a week before (12) and after (26)
+    expect(getByText('12')).toBeTruthy()
+    expect(getByText('26')).toBeTruthy()
   })
 
   it('picks a strip day without opening the calendar', () => {

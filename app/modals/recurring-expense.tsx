@@ -17,7 +17,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { todayIST } from '@/src/lib/date'
 
 const FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly']
@@ -266,7 +266,7 @@ export default function RecurringExpenseModal() {
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
           >
             <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
-              {category ? splitEmoji(category).text : 'Pick a category'}
+              {category ? `${categoryEmoji(category)} ${splitEmoji(category).text}` : 'Pick a category'}
             </Text>
           </Pressable>
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>

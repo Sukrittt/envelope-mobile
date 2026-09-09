@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Calendar, ChevronDown } from 'lucide-react-native'
+import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+
+const STRIP_CELL_WIDTH = 56
+const STRIP_GAP = 8
+const STRIP_RADIUS_DAYS = 7 // at least a week either side before falling back to "Another date..."
+const STRIP_CENTER_INDEX = STRIP_RADIUS_DAYS
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -332,6 +338,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   const today = new Date()
   const selected = parseISO(value)
   const [view, setView] = useState(() => monthStart(selected ?? today))
+  const stripRef = useRef<ScrollView>(null)
 
   function toggle() {
     if (!open) setView(monthStart(selected ?? today))
@@ -348,7 +355,14 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   const kYesterday = key(addDays(today, -1))
   const kSel = selected ? key(selected) : null
 
-  const stripDays = Array.from({ length: 6 }, (_, i) => addDays(today, i - 5))
+  // Strip is centered on the selected date (falling back to today) so it's always in view on open.
+  const stripCenter = selected ?? today
+  const stripDays = Array.from({ length: STRIP_RADIUS_DAYS * 2 + 1 }, (_, i) => addDays(stripCenter, i - STRIP_RADIUS_DAYS))
+  function centerStrip(viewportWidth: number) {
+    const stride = STRIP_CELL_WIDTH + STRIP_GAP
+    const offset = STRIP_CENTER_INDEX * stride - viewportWidth / 2 + STRIP_CELL_WIDTH / 2
+    stripRef.current?.scrollTo({ x: Math.max(0, offset), animated: false })
+  }
   function stripLabel(d: Date) {
     const k = key(d)
     if (k === kToday) return 'Today'
@@ -369,7 +383,13 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
         {!!daysAgoText && <Text style={[styles.daysAgo, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{daysAgoText}</Text>}
       </View>
 
-      <View style={styles.strip}>
+      <ScrollView
+        ref={stripRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.strip}
+        onLayout={(e) => centerStrip(e.nativeEvent.layout.width)}
+      >
         {stripDays.map((d) => {
           const k = key(d)
           const active = kSel === k
@@ -391,7 +411,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
             </Pressable>
           )
         })}
-      </View>
+      </ScrollView>
 
       {!open && (
         <Pressable onPress={toggle}>
@@ -400,7 +420,11 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
       )}
 
       {open && (
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
+        <Reanimated.View
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(120)}
+          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}
+        >
           <View style={styles.quick}>
             {QUICK.map(([qLabel, off]) => {
               const d = addDays(today, off)
@@ -479,7 +503,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
               </View>
             ))}
           </View>
-        </View>
+        </Reanimated.View>
       )}
 
       {open && (
@@ -528,8 +552,8 @@ const styles = StyleSheet.create({
   dateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   dateHeaderLabel: { fontSize: 11, letterSpacing: 0.5 },
   daysAgo: { fontSize: 11 },
-  strip: { flexDirection: 'row', gap: 6 },
-  stripCell: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1, gap: 2 },
+  strip: { flexDirection: 'row', gap: STRIP_GAP },
+  stripCell: { width: STRIP_CELL_WIDTH, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1, gap: 2 },
   stripDay: { fontSize: 10 },
   stripNum: { fontSize: 15 },
   link: { fontSize: 13, marginTop: 10 },
