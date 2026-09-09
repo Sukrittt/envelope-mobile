@@ -75,7 +75,7 @@ export default function WelcomeScreen() {
                 { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
               ]}
             >
-              Every rupee{"\n"}in an envelope.
+              Less guessing.{"\n"}More living.
             </Text>
             <Text
               style={[

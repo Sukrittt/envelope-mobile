@@ -9,19 +9,20 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { SlidersHorizontal, X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react-native";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
 import { IconButton } from "@/src/components/ui/Button";
+import { Icon } from "@/src/components/shared/Icon";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 import { formatCurrency } from "@/src/lib/format";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
-import { useExpenses, useDeleteExpense } from "@/src/hooks/useExpenses";
+import { useExpensesPage, useDeleteExpense } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -39,6 +40,7 @@ import { EMPTY } from "@/src/lib/constants";
 type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
+const PAGE_SIZE = 30;
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -120,11 +122,9 @@ export default function ActivityScreen() {
   const router = useRouter();
   const online = useOnline();
 
-  const expensesQ = useExpenses();
   const categoriesQ = useCategories();
   const deleteExpense = useDeleteExpense();
-
-  const expenses = expensesQ.data ?? EMPTY;
+  const [page, setPage] = useState(1);
 
   const params = useLocalSearchParams<{
     date?: string;
@@ -185,26 +185,11 @@ export default function ActivityScreen() {
     : null;
   const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel);
 
-  // Changing any filter re-renders the whole (non-virtualized, animated) row list in
-  // the same commit as the filter-state update, which delays that commit's paint —
-  // so a chip removal reads as "waiting on a fetch" even though nothing is async.
-  // Flipping this on swaps the list for a cheap placeholder for exactly one commit,
-  // letting the filter-state update (chips, header) paint immediately; the effect
-  // below flips it off on the next frame once that paint has landed.
-  const [isRefiltering, setIsRefiltering] = useState(false);
-  const beginRefilter = useCallback(() => setIsRefiltering(true), []);
-  useEffect(() => {
-    if (!isRefiltering) return;
-    const id = requestAnimationFrame(() => setIsRefiltering(false));
-    return () => cancelAnimationFrame(id);
-  }, [isRefiltering]);
-
   const clearTimeFilter = useCallback(() => {
-    beginRefilter();
     setSelectedDate("");
     setPeriod("all");
     setCustomRange({ from: "", to: "" });
-  }, [beginRefilter]);
+  }, []);
 
   const clearAllFilters = useCallback(() => {
     clearTimeFilter();
@@ -229,66 +214,66 @@ export default function ActivityScreen() {
     }, []),
   );
 
+  // A cheap 1-row fetch to anchor "this week"/"this month" off the newest
+  // logged transaction, the same way the old full-fetch version did.
+  const anchorQuery = useExpensesPage({ page: 1, limit: 1 });
   const latestDate = useMemo(() => {
-    if (expenses.length === 0) return new Date();
-    let max = new Date(0);
-    for (const e of expenses) {
-      const d = new Date(e.date);
-      if (!Number.isNaN(d.getTime()) && d > max) max = d;
-    }
-    return max.getTime() === 0 ? new Date() : max;
-  }, [expenses]);
+    const iso = anchorQuery.data?.rows[0]?.date;
+    if (!iso) return new Date();
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  }, [anchorQuery.data]);
 
-  const filtered = useMemo(() => {
-    let rows = expenses;
-    if (selectedDate) {
-      rows = rows.filter((e) => e.date === selectedDate);
-    } else if (period === "custom") {
-      if (customRange.from)
-        rows = rows.filter((e) => e.date >= customRange.from);
-      if (customRange.to) rows = rows.filter((e) => e.date <= customRange.to);
-    } else if (period !== "all") {
-      // Compare as IST calendar-date strings (like the customRange branch above) rather than
-      // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight IST.
-      const endStr = toISTDateString(latestDate);
-      let startStr: string;
-      if (period === "week") {
-        const start = new Date(latestDate);
-        const diffToMonday = (start.getDay() + 6) % 7;
-        start.setDate(start.getDate() - diffToMonday);
-        startStr = toISTDateString(start);
-      } else {
-        startStr = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, "0")}-01`;
-      }
-      rows = rows.filter((e) => e.date >= startStr && e.date <= endStr);
+  // The from/to window sent to the server — same date math the old
+  // client-side filter used, now producing a range instead of filtering an
+  // already-fetched array.
+  const { from, to } = useMemo(() => {
+    if (selectedDate) return { from: selectedDate, to: selectedDate };
+    if (period === "custom") {
+      return {
+        from: customRange.from || undefined,
+        to: customRange.to || undefined,
+      };
     }
-    if (selectedCategory)
-      rows = rows.filter((e) => e.category === selectedCategory);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      rows = rows.filter(
-        (e) =>
-          e.item.toLowerCase().includes(q) || e.notes.toLowerCase().includes(q),
-      );
+    if (period === "all") return { from: undefined, to: undefined };
+    // Compare as IST calendar-date strings (like the customRange branch above) rather than
+    // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight IST.
+    const endStr = toISTDateString(latestDate);
+    let startStr: string;
+    if (period === "week") {
+      const start = new Date(latestDate);
+      const diffToMonday = (start.getDay() + 6) % 7;
+      start.setDate(start.getDate() - diffToMonday);
+      startStr = toISTDateString(start);
+    } else {
+      startStr = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, "0")}-01`;
     }
-    return [...rows].sort((a, b) => {
-      const cmp = b.date.localeCompare(a.date);
-      return cmp !== 0 ? cmp : b.timestamp.localeCompare(a.timestamp);
-    });
-  }, [
-    expenses,
-    period,
-    selectedDate,
-    selectedCategory,
-    search,
-    latestDate,
-    customRange,
-  ]);
+    return { from: startStr, to: endStr };
+  }, [selectedDate, period, customRange.from, customRange.to, latestDate]);
 
-  const totalSpend = useMemo(
-    () => filtered.reduce((s, e) => s + (Number(e.amount_inr) || 0), 0),
-    [filtered],
-  );
+  const expensesQ = useExpensesPage({
+    page,
+    limit: PAGE_SIZE,
+    category: selectedCategory || undefined,
+    from,
+    to,
+    q: search.trim() || undefined,
+  });
+  const filtered = expensesQ.data?.rows ?? EMPTY;
+  const totalCount = expensesQ.data?.total ?? 0;
+  const totalPages = expensesQ.data?.pageCount ?? 1;
+  const totalSpend = expensesQ.data?.totalAmount ?? 0;
+  // ponytail: with search + period "all" + no category, the server can't
+  // filter item/notes in Mongo (they're encrypted) and falls back to an
+  // unbounded JS scan for that one combo — same as this screen's own
+  // pre-pagination behavior, not a regression. Upgrade path: a denormalized
+  // plaintext search field, if it ever shows up slow.
+
+  useEffect(() => {
+    // Reset pagination whenever any filter changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
 
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);
@@ -331,7 +316,7 @@ export default function ActivityScreen() {
     );
   }
 
-  const isLoading = expensesQ.isLoading || categoriesQ.isLoading;
+  const isLoading = anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading;
   const hasError = expensesQ.error || categoriesQ.error;
 
   if (!online) return <OfflineScreen />;
@@ -454,25 +439,14 @@ export default function ActivityScreen() {
                 <AppliedFilterChip
                   label={categoryFilterLabel}
                   accessibilityLabel="Remove category filter"
-                  onRemove={() => {
-                    beginRefilter();
-                    setSelectedCategory("");
-                  }}
+                  onRemove={() => setSelectedCategory("")}
                 />
               ) : null}
             </Reanimated.View>
           </Reanimated.View>
         ) : null}
 
-        {isRefiltering ? (
-          <LoadingCaption
-            style={styles.refilterCaption}
-            phrases={[
-              "Sorting through your transactions…",
-              "Applying your filters…",
-            ]}
-          />
-        ) : filtered.length === 0 ? (
+        {totalCount === 0 ? (
           <View style={styles.emptyState}>
             <Text
               style={{
@@ -583,7 +557,7 @@ export default function ActivityScreen() {
               fontFamily: fontFamily.bodyMedium,
             }}
           >
-            {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
+            {totalCount} transaction{totalCount !== 1 ? "s" : ""}
           </Text>
           <Text
             style={{
@@ -595,6 +569,53 @@ export default function ActivityScreen() {
             Total: {formatCurrency(totalSpend, hideAmounts)}
           </Text>
         </View>
+
+        {totalPages > 1 ? (
+          <View style={styles.pagination}>
+            <Pressable
+              onPress={() => setPage((p) => p - 1)}
+              disabled={page <= 1}
+              accessibilityRole="button"
+              accessibilityLabel="Previous page"
+              accessibilityState={{ disabled: page <= 1 }}
+              style={[
+                styles.pageButton,
+                {
+                  backgroundColor: tokens.card,
+                  borderColor: tokens.border,
+                  opacity: page <= 1 ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Icon icon={ChevronLeft} size={17} color={tokens.text2} />
+            </Pressable>
+            <Text
+              style={[
+                styles.pageLabel,
+                { color: tokens.text, fontFamily: fontFamily.bodyBold },
+              ]}
+            >
+              Page {page} of {totalPages}
+            </Text>
+            <Pressable
+              onPress={() => setPage((p) => p + 1)}
+              disabled={page >= totalPages}
+              accessibilityRole="button"
+              accessibilityLabel="Next page"
+              accessibilityState={{ disabled: page >= totalPages }}
+              style={[
+                styles.pageButton,
+                {
+                  backgroundColor: tokens.card,
+                  borderColor: tokens.border,
+                  opacity: page >= totalPages ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Icon icon={ChevronRight} size={17} color={tokens.text2} />
+            </Pressable>
+          </View>
+        ) : null}
 
         <BottomSheet
           visible={sheetTxn !== null}
@@ -690,7 +711,6 @@ export default function ActivityScreen() {
                       : "Custom range"
                 }
                 onPress={() => {
-                  beginRefilter();
                   setSelectedDate("");
                   setPeriod(key);
                   if (key === "all")
@@ -704,10 +724,7 @@ export default function ActivityScreen() {
               <DatePicker
                 mode="range"
                 value={customRange}
-                onChange={(range) => {
-                  beginRefilter();
-                  setCustomRange(range);
-                }}
+                onChange={(range) => setCustomRange(range)}
               />
             </View>
           )}
@@ -747,10 +764,7 @@ export default function ActivityScreen() {
           visible={categoryPickerOpen}
           onClose={() => setCategoryPickerOpen(false)}
           value={selectedCategory}
-          onSelect={(c) => {
-            beginRefilter();
-            setSelectedCategory(c);
-          }}
+          onSelect={(c) => setSelectedCategory(c)}
           noneLabel="All categories"
         />
       </Screen>
@@ -894,9 +908,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  refilterCaption: {
-    paddingVertical: 40,
+  pagination: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+    paddingTop: 8,
   },
+  pageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pageLabel: { fontSize: 12.5 },
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -229,6 +229,22 @@ export default function MoreScreen() {
                 iconBg={tokens.blueSoft}
                 iconColor={tokens.blue}
                 onPress={() => router.push('/account/archive')}
+              />
+              <FeatureCard
+                icon={Receipt}
+                label="Subscriptions"
+                blurb="What renews and when"
+                iconBg={tokens.violetSoft}
+                iconColor={tokens.violet}
+                onPress={() => router.push('/subscriptions')}
+              />
+              <FeatureCard
+                icon={LineChart}
+                label="Insights"
+                blurb="Trends and breakdowns"
+                iconBg={tokens.blueSoft}
+                iconColor={tokens.blue}
+                onPress={() => router.push('/insights')}
               />
             </View>
           </View>

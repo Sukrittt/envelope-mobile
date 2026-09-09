@@ -243,6 +243,8 @@ describe('More tab · feature shortcuts', () => {
   it.each([
     ['Recurring expenses', '/account/recurring'],
     ['Archive', '/account/archive'],
+    ['Subscriptions', '/subscriptions'],
+    ['Insights', '/insights'],
   ])('opens %s from the feature grid', (label, route) => {
     const { getByText } = renderWithProviders(<MoreScreen />)
 

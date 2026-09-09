@@ -248,6 +248,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="subscriptions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="modals/expense-added" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />

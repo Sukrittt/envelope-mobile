@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "1.4.0",
+  "version": "2.1.0",
   "main": "src/main.tsx",
   "dependencies": {
     "@expo-google-fonts/fredoka": "^0.4.1",
