@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -19,6 +20,10 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { todayIST } from '@/src/lib/date'
+
+// House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
+// sliding into place when a DatePicker above them opens/closes instead of snapping.
+const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
 
 const FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly']
 const PAYMENT_METHODS: { value: string; label: string }[] = [
@@ -214,7 +219,7 @@ export default function RecurringExpenseModal() {
           <DatePicker mode="single" value={startDate} onChange={setStartDate} disableFuture={false} />
         </View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Ends (optional)</Text>
           <DatePicker mode="single" value={endDate} onChange={setEndDate} disableFuture={false} />
           {endDate !== '' && endDate < startDate ? (
@@ -226,9 +231,9 @@ export default function RecurringExpenseModal() {
               Leave this empty and it keeps going until you stop it.
             </Text>
           )}
-        </View>
+        </Reanimated.View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Paid with</Text>
           <View style={styles.chipRow}>
             {PAYMENT_METHODS.map((p) => {
@@ -246,9 +251,9 @@ export default function RecurringExpenseModal() {
               )
             })}
           </View>
-        </View>
+        </Reanimated.View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Notes (optional)</Text>
           <TextInput
             value={notes}
@@ -257,9 +262,9 @@ export default function RecurringExpenseModal() {
             placeholderTextColor={tokens.text3}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
           />
-        </View>
+        </Reanimated.View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
           <Pressable
             onPress={() => setCategorySheetOpen(true)}
@@ -274,24 +279,26 @@ export default function RecurringExpenseModal() {
               ? `We'll add this expense in ${splitEmoji(category).text} on every due date.`
               : 'Pick one so we know which envelope to file it under.'}
           </Text>
-        </View>
+        </Reanimated.View>
 
-        <Pressable
-          onPress={handleSubmit}
-          disabled={!canSubmit || saving || mutatingAction || saved}
-          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
-        >
-          {saved ? (
-            <CheckIcon color={tokens.onAccent} />
-          ) : (
-            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add recurring expense'}
-            </Text>
-          )}
-        </Pressable>
+        <Reanimated.View layout={FIELD_TRANSITION}>
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!canSubmit || saving || mutatingAction || saved}
+            style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
+          >
+            {saved ? (
+              <CheckIcon color={tokens.onAccent} />
+            ) : (
+              <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add recurring expense'}
+              </Text>
+            )}
+          </Pressable>
+        </Reanimated.View>
 
         {isEdit && existing && !saved ? (
-          <View style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
+          <Reanimated.View layout={FIELD_TRANSITION} style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
             <Pressable
               onPress={handleTogglePause}
               disabled={saving || mutatingAction}
@@ -316,7 +323,7 @@ export default function RecurringExpenseModal() {
                 Delete
               </Text>
             </Pressable>
-          </View>
+          </Reanimated.View>
         ) : null}
       </ScrollView>
 

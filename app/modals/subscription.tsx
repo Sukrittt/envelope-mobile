@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -18,6 +19,10 @@ import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+
+// House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
+// sliding into place when the DatePicker above them opens/closes instead of snapping.
+const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
 
 const CYCLES = ['monthly', 'yearly', 'quarterly', 'weekly', 'one-time']
 
@@ -218,7 +223,7 @@ export default function SubscriptionModal() {
           <DatePicker mode="single" value={nextDueDate} onChange={setNextDueDate} disableFuture={false} />
         </View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Notes (optional)</Text>
           <TextInput
             value={notes}
@@ -227,9 +232,9 @@ export default function SubscriptionModal() {
             placeholderTextColor={tokens.text3}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
           />
-        </View>
+        </Reanimated.View>
 
-        <View style={styles.field}>
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
           <Pressable
             onPress={() => setCategorySheetOpen(true)}
@@ -244,24 +249,26 @@ export default function SubscriptionModal() {
               We&apos;ll auto-add an expense for this subscription in {category} on its due date.
             </Text>
           ) : null}
-        </View>
+        </Reanimated.View>
 
-        <Pressable
-          onPress={handleSubmit}
-          disabled={!canSubmit || saving || mutatingAction || saved}
-          style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
-        >
-          {saved ? (
-            <CheckIcon color={tokens.onAccent} />
-          ) : (
-            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add subscription'}
-            </Text>
-          )}
-        </Pressable>
+        <Reanimated.View layout={FIELD_TRANSITION}>
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!canSubmit || saving || mutatingAction || saved}
+            style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
+          >
+            {saved ? (
+              <CheckIcon color={tokens.onAccent} />
+            ) : (
+              <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add subscription'}
+              </Text>
+            )}
+          </Pressable>
+        </Reanimated.View>
 
         {isEdit && existing && !saved ? (
-          <View style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
+          <Reanimated.View layout={FIELD_TRANSITION} style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
             <Pressable
               onPress={isActive ? () => setConfirmSheet('cancel') : handleReactivate}
               disabled={saving || mutatingAction}
@@ -284,7 +291,7 @@ export default function SubscriptionModal() {
                 Delete subscription
               </Text>
             </Pressable>
-          </View>
+          </Reanimated.View>
         ) : null}
       </ScrollView>
 
