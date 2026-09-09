@@ -41,7 +41,6 @@ import {
   leftoverFor,
   monthTotals,
   monthComparison,
-  fixedCategories,
 } from "@/src/lib/monthly";
 
 const TREND_MONTHS = 12;
@@ -241,7 +240,6 @@ export default function InsightsScreen() {
   const [breakdownMode, setBreakdownMode] = useState<"category" | "group">(
     "category",
   );
-  const [variableOnly, setVariableOnly] = useState(false);
   const [selectedBreakdownKey, setSelectedBreakdownKey] = useState<
     string | null
   >(null);
@@ -250,16 +248,11 @@ export default function InsightsScreen() {
   // Reset the breakdown selection whenever what it points into changes shape,
   // rather than pointing at a row that no longer exists. Same render-time
   // ref-compare pattern the app already uses (e.g. Home's ready-to-assign sync).
-  const breakdownScope = `${insightMonth}|${breakdownMode}|${variableOnly}`;
+  const breakdownScope = `${insightMonth}|${breakdownMode}`;
   const prevBreakdownScope = useRef(breakdownScope);
   if (prevBreakdownScope.current !== breakdownScope) {
     prevBreakdownScope.current = breakdownScope;
     if (selectedBreakdownKey != null) setSelectedBreakdownKey(null);
-  }
-
-  function handleModeChange(nextMode: "category" | "group") {
-    setBreakdownMode(nextMode);
-    if (nextMode === "group") setVariableOnly(false);
   }
 
   const earliestMonth = useMemo(() => {
@@ -315,11 +308,6 @@ export default function InsightsScreen() {
   const comparison = useMemo(
     () => monthComparison(expenses, insightMonth, todayIso),
     [expenses, insightMonth, todayIso],
-  );
-
-  const fixedCategorySet = useMemo(
-    () => fixedCategories(expenses, insightMonth),
-    [expenses, insightMonth],
   );
 
   const categoryRows = useMemo(() => {
@@ -595,10 +583,7 @@ export default function InsightsScreen() {
           groupRows={groupRows}
           categoryGroupMap={categoryGroupMap}
           mode={breakdownMode}
-          onModeChange={handleModeChange}
-          fixedCategories={fixedCategorySet}
-          variableOnly={variableOnly}
-          onToggleVariableOnly={() => setVariableOnly((v) => !v)}
+          onModeChange={setBreakdownMode}
           selectedKey={selectedBreakdownKey}
           onSelectKey={setSelectedBreakdownKey}
           comparison={comparison}

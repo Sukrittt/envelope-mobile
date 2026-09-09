@@ -1,4 +1,4 @@
-import { monthRange, categoryBreakdown, withDelta, leftoverFor, monthTotals, monthComparison, fixedCategories } from './monthly'
+import { monthRange, categoryBreakdown, withDelta, leftoverFor, monthTotals, monthComparison } from './monthly'
 import { CREDIT_CARD_CATEGORY, INCOME_CATEGORY, currentMonthKey, prevMonthKey } from './envelope'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
@@ -268,34 +268,6 @@ describe('monthComparison', () => {
     ]
     const result = monthComparison(expenses, '2026-08', '2026-09-01')
     expect(result.spent).toBe(900)
-  })
-})
-
-describe('fixedCategories', () => {
-  it('flags a category with near-identical spend across the trailing months', () => {
-    const expenses = [
-      expense('2026-06-01', '🏠 Rent', '8200'),
-      expense('2026-07-01', '🏠 Rent', '8200'),
-      expense('2026-08-01', '🏠 Rent', '8200'),
-    ]
-    expect(fixedCategories(expenses, '2026-08').has('🏠 Rent')).toBe(true)
-  })
-
-  it('does not flag a category with volatile spend', () => {
-    const expenses = [
-      expense('2026-06-01', '🍔 Food', '200'),
-      expense('2026-07-01', '🍔 Food', '900'),
-      expense('2026-08-01', '🍔 Food', '400'),
-    ]
-    expect(fixedCategories(expenses, '2026-08').has('🍔 Food')).toBe(false)
-  })
-
-  it('does not flag a category missing from some trailing months', () => {
-    const expenses = [
-      expense('2026-07-01', '🏠 Rent', '8200'),
-      expense('2026-08-01', '🏠 Rent', '8200'),
-    ]
-    expect(fixedCategories(expenses, '2026-08').has('🏠 Rent')).toBe(false)
   })
 })
 

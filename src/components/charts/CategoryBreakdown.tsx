@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Check, ListFilter, Play } from "lucide-react-native";
 import Reanimated, {
   Easing,
@@ -33,9 +33,6 @@ interface Props {
   categoryGroupMap: ReadonlyMap<string, string>;
   mode: "category" | "group";
   onModeChange: (mode: "category" | "group") => void;
-  fixedCategories: Set<string>;
-  variableOnly: boolean;
-  onToggleVariableOnly: () => void;
   /** Controlled selection, lifted to the screen so the heat map card can
    *  filter to the same category. */
   selectedKey: string | null;
@@ -137,9 +134,6 @@ export function CategoryBreakdown({
   categoryGroupMap,
   mode,
   onModeChange,
-  fixedCategories,
-  variableOnly,
-  onToggleVariableOnly,
   selectedKey,
   onSelectKey,
   comparison,
@@ -170,9 +164,7 @@ export function CategoryBreakdown({
     groups: Set<string>;
   } | null>(null);
 
-  // A filter describes one concrete month. Variable-only is
-  // deliberately absent: toggling that quick filter must not forget a user's
-  // explicit choices for the categories that remain eligible.
+  // A filter describes one concrete month, so it resets on a month change.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local filter UI to an incoming month/mode prop, not derivable from render
     setFilterOpen(false);
@@ -183,16 +175,10 @@ export function CategoryBreakdown({
     setPendingFilters(null);
   }, [monthLabel]);
 
-  const canFilterVariable =
-    mode === "category" && rows.some((r) => fixedCategories.has(r.key));
-
-  const eligibleCategoryRows = useMemo(
-    () =>
-      canFilterVariable && variableOnly
-        ? categoryRows.filter((r) => !fixedCategories.has(r.key))
-        : categoryRows,
-    [categoryRows, canFilterVariable, variableOnly, fixedCategories],
-  );
+  // "eligible" rows: every category row, plus the groups that still have at
+  // least one of them as a member (a group can drop out entirely once its
+  // last category is filtered via the "Filter chart" sheet below).
+  const eligibleCategoryRows = categoryRows;
 
   const eligibleGroupRows = useMemo(() => {
     const groupsWithCategories = new Set(
@@ -267,10 +253,10 @@ export function CategoryBreakdown({
 
   // Every entrance on this card runs off one cue: the screen has settled after
   // its push transition and there are real rows to show. Bumps again whenever
-  // the rows are swapped out (month, mode, or the variable-only filter), which
-  // is what makes a mode switch re-wipe the donut and refill the bars from 0.
+  // the rows are swapped out (month or mode), which is what makes a mode
+  // switch re-wipe the donut and refill the bars from 0.
   const { revealKey, revealReady } = useReveal(
-    `${monthLabel}|${mode}|${variableOnly}`,
+    `${monthLabel}|${mode}`,
     displayRows.length > 0,
   );
   const play = revealReady;
@@ -566,30 +552,6 @@ export function CategoryBreakdown({
         </View>
 
         <View style={styles.controlsRight}>
-          {canFilterVariable && (
-            <Pressable
-              accessibilityLabel="Variable spend only"
-              onPress={onToggleVariableOnly}
-              style={[
-                styles.filterChip,
-                { borderRadius: radius.full, borderColor: tokens.borderStrong },
-                variableOnly && {
-                  backgroundColor: tokens.chipActiveBg,
-                  borderColor: tokens.chipActiveBg,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color: tokens.text,
-                  fontSize: type.caption,
-                  fontFamily: fontFamily.bodyMedium,
-                }}
-              >
-                Variable only
-              </Text>
-            </Pressable>
-          )}
           <View
             style={[
               styles.measureToggle,
@@ -754,7 +716,8 @@ export function CategoryBreakdown({
                     <Text
                       style={{
                         color: tokens.text2,
-                        fontSize: 11,
+                        fontSize: 10,
+                        lineHeight: 13,
                         fontFamily: fontFamily.bodyMedium,
                         textAlign: "center",
                       }}
@@ -1114,8 +1077,9 @@ export function CategoryBreakdown({
           })}
         </View>
 
-        <View
+        <ScrollView
           style={[styles.filterList, { borderColor: tokens.border }]}
+          showsVerticalScrollIndicator={false}
         >
           {filterRows.map((row, index) => {
             const checked = draftIncludedKeys?.has(row.key) ?? false;
@@ -1179,7 +1143,7 @@ export function CategoryBreakdown({
               </Reanimated.View>
             );
           })}
-        </View>
+        </ScrollView>
 
         {!hasDraftVisibleCategory && (
           <Text
@@ -1242,7 +1206,6 @@ const styles = StyleSheet.create({
   toggleGroup: { flexDirection: "row", gap: 2, padding: 3 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
   controlsRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1 },
   measureToggle: { flexDirection: "row", width: 64, padding: 3, gap: 2 },
   measureCell: {
     flex: 1,
@@ -1253,7 +1216,9 @@ const styles = StyleSheet.create({
   donutWrap: { alignItems: "center", marginTop: 16 },
   revealContent: { opacity: 1 },
   preReveal: { opacity: 0 },
-  centerBlock: { alignItems: "center" },
+  // Capped to the donut's inner hole (200 size, 28 thickness) so long
+  // captions like the delta line wrap instead of spilling past the ring.
+  centerBlock: { alignItems: "center", width: 118 },
   legendTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendLabel: { flex: 1 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
@@ -1284,6 +1249,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   filterList: {
+    maxHeight: 340,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     overflow: "hidden",

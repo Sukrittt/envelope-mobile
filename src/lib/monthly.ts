@@ -261,32 +261,3 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
   return { spent, baseline, deltaPct, inProgress, projected, driver, days }
 }
 
-const FIXED_CV_THRESHOLD = 0.1
-
-/** Categories whose spend has stayed within ~10% of its own mean across the
- *  trailing `lookback` months (Rent: 8200/8200/8200) — as close to "fixed
- *  cost" as can be derived without a schema change, since CategoryRow carries
- *  no such flag. Requires spend in every one of those months; a category with
- *  a gap hasn't proven it recurs. */
-export function fixedCategories(expenseRows: ExpenseRow[], month: string, lookback = 3): Set<string> {
-  const months = Array.from({ length: lookback }, (_, i) => shiftMonthKey(month, -i))
-  const amountsByCategory = new Map<string, number[]>()
-  for (const m of months) {
-    const monthTotals_ = categorySpendInMonth(expenseRows, m, null)
-    for (const [category, amount] of monthTotals_) {
-      const arr = amountsByCategory.get(category) ?? []
-      arr.push(amount)
-      amountsByCategory.set(category, arr)
-    }
-  }
-  const fixed = new Set<string>()
-  for (const [category, amounts] of amountsByCategory) {
-    if (amounts.length < lookback) continue
-    const mean = amounts.reduce((s, v) => s + v, 0) / amounts.length
-    if (mean <= 0) continue
-    const variance = amounts.reduce((s, v) => s + (v - mean) ** 2, 0) / amounts.length
-    const cv = Math.sqrt(variance) / mean
-    if (cv < FIXED_CV_THRESHOLD) fixed.add(category)
-  }
-  return fixed
-}
