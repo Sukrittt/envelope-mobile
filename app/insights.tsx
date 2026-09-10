@@ -32,6 +32,7 @@ import {
   TrendChart,
   type TrendPoint,
 } from "@/src/components/charts/TrendChart";
+import { useReveal } from "@/src/components/charts/useReveal";
 import { Heatmap, type HeatmapCell } from "@/src/components/charts/Heatmap";
 import { CategoryBreakdown } from "@/src/components/charts/CategoryBreakdown";
 import { SubscriptionsPanel } from "@/src/components/subscriptions/SubscriptionsPanel";
@@ -290,6 +291,12 @@ export default function InsightsScreen() {
       .map((m) => ({ date: m, value: totals.get(m) ?? 0 }))
       .filter((d) => d.value > 0);
   }, [expenses, trendMonths]);
+
+  // Same fix as the donut below: a mount-time grow-in plays behind the
+  // screen's slide_from_right push and is over before it's visible. Bars
+  // wait for the transition to settle, then stagger up together.
+  const { revealKey: trendRevealKey, revealReady: trendRevealReady } =
+    useReveal(month, trendData.length > 0);
 
   // With under 3 real data points a bar chart shows less than a sentence
   // would (two labelled bars against a ₹6k axis). Compare the selected month
@@ -563,15 +570,18 @@ export default function InsightsScreen() {
               </Text>
             )
           ) : (
-            <TrendChart
-              data={trendData}
-              baseline={comparison.baseline ?? undefined}
-              selectedKey={insightMonth}
-              hideAmounts={hideAmounts}
-              onSelect={(key) => setInsightMonth(key)}
-              partialKey={month}
-              partialNote={`${monthAbbrev(month)}, ${Number(todayIso.slice(8, 10))} days in`}
-            />
+            <View style={!trendRevealReady && styles.preReveal}>
+              <TrendChart
+                key={trendRevealKey}
+                data={trendData}
+                baseline={comparison.baseline ?? undefined}
+                selectedKey={insightMonth}
+                hideAmounts={hideAmounts}
+                onSelect={(key) => setInsightMonth(key)}
+                partialKey={month}
+                partialNote={`${monthAbbrev(month)}, ${Number(todayIso.slice(8, 10))} days in`}
+              />
+            </View>
           )}
         </View>
       </Card>
@@ -744,6 +754,7 @@ export default function InsightsScreen() {
 }
 
 const styles = StyleSheet.create({
+  preReveal: { opacity: 0 },
   headRow: {
     flexDirection: "row",
     justifyContent: "space-between",

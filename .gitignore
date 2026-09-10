@@ -56,3 +56,4 @@ yarn-error.*
 
 # build logs
 build.log
+*.keystore

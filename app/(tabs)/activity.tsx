@@ -383,7 +383,10 @@ export default function ActivityScreen() {
       <Screen
         ref={scrollRef}
         title="Activity"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          totalCount === 0 && styles.scrollContentGrow,
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -867,6 +870,7 @@ function SheetOption({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { gap: 4 },
+  scrollContentGrow: { flexGrow: 1 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -932,7 +936,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   emptyState: {
-    paddingVertical: 40,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },

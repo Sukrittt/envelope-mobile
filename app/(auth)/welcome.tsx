@@ -14,7 +14,6 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { useSignIn } from "@/src/api/useSignIn";
 import { AuthBackdrop } from "@/src/components/auth/AuthBackdrop";
-import { UnlockIcon } from "@/src/components/shared/UnlockIcon";
 import { Icon } from "@/src/components/shared/Icon";
 import { BASE_URL } from "@/src/api/client";
 
@@ -27,7 +26,7 @@ export default function WelcomeScreen() {
   const { tokens } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, pending, done, error } = useSignIn();
+  const { pending, done, error } = useSignIn();
   const shake = useRef(new Animated.Value(0)).current;
 
   // Mirrors web's @keyframes auth-shake: 0.4s, 10 steps of 40ms.
@@ -83,8 +82,7 @@ export default function WelcomeScreen() {
                 { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              Sign in with a one-time code or Google. No passwords to remember,
-              ever.
+              Sign in with a one-time code. No passwords to remember, ever.
             </Text>
           </View>
         </View>
@@ -101,6 +99,7 @@ export default function WelcomeScreen() {
             </Text>
           )}
 
+          {/* Google sign-in disabled for now.
           <Pressable
             onPress={signIn}
             disabled={pending || done}
@@ -148,6 +147,7 @@ export default function WelcomeScreen() {
               </>
             )}
           </Pressable>
+          */}
 
           <Pressable
             onPress={() => router.push("/(auth)/email")}
