@@ -1,6 +1,7 @@
 import { useBillSplit } from '@/src/features/scan-bill/useBillSplit';
 import { useCategories } from "@/src/hooks/useCategories";
 import { useAddExpense } from "@/src/hooks/useExpenses";
+import { useSaveBillScan } from "@/src/hooks/useSaveBillScan";
 import { useScanBill } from "@/src/hooks/useScanBill";
 import { todayIST } from "@/src/lib/date";
 import { splitEmoji } from "@/src/lib/emoji";
@@ -22,6 +23,7 @@ export function useScanBillController() {
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data]);
   const scanBill = useScanBill();
   const addExpense = useAddExpense();
+  const saveBillScan = useSaveBillScan();
 
   const [phase, setPhase] = useState<Phase>("scanning");
   const [errorMsg, setErrorMsg] = useState("");
@@ -108,7 +110,25 @@ export function useScanBillController() {
         payment_method: "bank",
       },
       {
-        onSuccess: (res) =>
+        onSuccess: (res) => {
+          // Best-effort: the image/items/category behind this confirm, for a
+          // future "past scans" screen. Never blocks or fails the confirm —
+          // the expense itself already landed.
+          const asset = pendingAsset.current;
+          if (asset && res.id) {
+            saveBillScan.mutate({
+              image: asset.base64,
+              mimeType: asset.mimeType,
+              merchant: merchant.trim(),
+              category,
+              date,
+              total: billTotal,
+              my_share: myShare,
+              people_count: peopleCount,
+              expense_id: res.id,
+              items: items.map(({ name, price, qty, divisor }) => ({ name, price, qty: qty ?? 1, divisor })),
+            });
+          }
           router.replace({
             pathname: "/modals/expense-added",
             params: {
@@ -122,7 +142,8 @@ export function useScanBillController() {
               notes: "",
               paymentMethod: "bank",
             },
-          }),
+          });
+        },
         onError: () =>
           router.replace({
             pathname: "/modals/expense-failed",

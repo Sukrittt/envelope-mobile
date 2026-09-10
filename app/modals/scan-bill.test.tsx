@@ -4,6 +4,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getExpenses, mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
 import { scanBill } from '@/src/api/scan'
+import { saveBillScan } from '@/src/api/bills'
 import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
 import ScanBillScreen from './scan-bill'
 
@@ -27,6 +28,7 @@ jest.mock('@/src/api/expenses', () => ({
   deleteExpense: jest.fn(),
 }))
 jest.mock('@/src/api/scan', () => ({ scanBill: jest.fn() }))
+jest.mock('@/src/api/bills', () => ({ saveBillScan: jest.fn() }))
 jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn() }))
 
 const mockBack = jest.fn()
@@ -65,6 +67,7 @@ beforeEach(() => {
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getGroups as jest.Mock).mockResolvedValue(['Essentials'])
   ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(saveBillScan as jest.Mock).mockResolvedValue(undefined)
   // The photo is picked on the "more" screen before this route ever mounts —
   // simulate that handoff the same way, via the real pendingScanImage module.
   setPendingScanImage({ base64: 'abc123', mimeType: 'image/png' })
@@ -118,6 +121,26 @@ describe('ScanBillScreen', () => {
     )
     expect(mockReplace).toHaveBeenCalledWith(
       expect.objectContaining({ pathname: '/modals/expense-added', params: expect.objectContaining({ amount: '880' }) }),
+    )
+
+    // react-query v5 calls mutationFn with a second (internal, undocumented)
+    // context arg, so this checks the first call arg directly rather than
+    // toHaveBeenCalledWith (which requires every arg to match).
+    await waitFor(() =>
+      expect((saveBillScan as jest.Mock).mock.calls[0]?.[0]).toMatchObject({
+        image: 'abc123',
+        mimeType: 'image/png',
+        merchant: 'Blinkit',
+        category: 'Groceries',
+        date: '2026-08-29',
+        total: 900,
+        my_share: 880,
+        expense_id: 'e1',
+        items: [
+          { name: 'Milk', price: 60, qty: 1, divisor: 1 },
+          { name: 'Pizza', price: 800, qty: 1, divisor: 1 },
+        ],
+      }),
     )
   })
 

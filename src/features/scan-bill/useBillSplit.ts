@@ -2,7 +2,11 @@ import type { ScanResult } from '@/src/api/scan';
 import { computeShare, feeDiff, groupByDivisor, isFeeLine, round2, type ScanItem } from '@/src/lib/split';
 import { useMemo, useState } from 'react';
 
-export type ReviewItem = ScanItem & { key: string; name: string }
+// `qty` isn't part of ScanItem (the split math never needs it) but every item
+// carries it from the scan result — kept on the type so callers persisting
+// the full item (see useScanBillController's saveBillScan call) don't need
+// an unsafe cast.
+export type ReviewItem = ScanItem & { key: string; name: string; qty?: number }
 let nextKey = 0
 const makeKey = () => String(++nextKey)
 
