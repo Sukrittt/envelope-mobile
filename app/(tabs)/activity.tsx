@@ -5,8 +5,10 @@ import {
   TextInput,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react-native";
@@ -22,7 +24,11 @@ import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 import { formatCurrency } from "@/src/lib/format";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
-import { useExpensesPage, useDeleteExpense } from "@/src/hooks/useExpenses";
+import {
+  useExpensesPage,
+  useDeleteExpense,
+  prefetchExpensesPage,
+} from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -124,7 +130,14 @@ export default function ActivityScreen() {
 
   const categoriesQ = useCategories();
   const deleteExpense = useDeleteExpense();
+  const qc = useQueryClient();
+  const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
+
+  const changePage = useCallback((next: number) => {
+    setPage(next);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
 
   const params = useLocalSearchParams<{
     date?: string;
@@ -275,6 +288,20 @@ export default function ActivityScreen() {
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
 
+  // Warms the next page's cache slot once the current page has loaded, so
+  // "Next" reads from cache instead of waiting on a fetch.
+  useEffect(() => {
+    if (!expensesQ.data || page >= totalPages) return;
+    prefetchExpensesPage(qc, {
+      page: page + 1,
+      limit: PAGE_SIZE,
+      category: selectedCategory || undefined,
+      from,
+      to,
+      q: search.trim() || undefined,
+    });
+  }, [expensesQ.data, page, totalPages, selectedCategory, from, to, search, qc]);
+
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);
     router.push({
@@ -354,6 +381,7 @@ export default function ActivityScreen() {
   return (
     <AnimatedTabContent>
       <Screen
+        ref={scrollRef}
         title="Activity"
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -573,7 +601,7 @@ export default function ActivityScreen() {
         {totalPages > 1 ? (
           <View style={styles.pagination}>
             <Pressable
-              onPress={() => setPage((p) => p - 1)}
+              onPress={() => changePage(page - 1)}
               disabled={page <= 1}
               accessibilityRole="button"
               accessibilityLabel="Previous page"
@@ -598,7 +626,7 @@ export default function ActivityScreen() {
               Page {page} of {totalPages}
             </Text>
             <Pressable
-              onPress={() => setPage((p) => p + 1)}
+              onPress={() => changePage(page + 1)}
               disabled={page >= totalPages}
               accessibilityRole="button"
               accessibilityLabel="Next page"

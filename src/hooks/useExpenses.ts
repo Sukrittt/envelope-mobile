@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   deleteExpense,
   getExpenses,
@@ -37,6 +37,20 @@ export function useExpensesPage(params: ExpensesPageParams) {
     queryFn: () => getExpensesPage(params),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Warms the cache for the next page so the Activity screen's "Next" button
+ * is instant — call this once the current page's data is in, passing
+ * `{ ...params, page: page + 1 }`. Same key/queryFn as `useExpensesPage`
+ * above, so it lands in the exact cache slot that hook will later read from.
+ */
+export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams) {
+  return qc.prefetchQuery({
+    queryKey: [...key, 'page', params] as const,
+    queryFn: () => getExpensesPage(params),
+    staleTime: 30_000,
   })
 }
 

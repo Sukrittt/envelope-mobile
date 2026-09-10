@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { forwardRef, type ReactNode } from 'react'
 import { View, Text, ScrollView, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -15,17 +15,7 @@ import { NAV_HEIGHT } from '@/src/theme/scale'
  * must reserve room or its last row sits under the circles — centralising it
  * here is what keeps that from being re-derived (and forgotten) per screen.
  */
-export function Screen({
-  title,
-  actions,
-  subheader,
-  children,
-  scroll = true,
-  refreshControl,
-  floatingNav = true,
-  contentContainerStyle,
-  style,
-}: {
+export const Screen = forwardRef<ScrollView, {
   title?: string
   actions?: ReactNode
   /** Rendered between the header and the scrolling content, outside the
@@ -39,7 +29,17 @@ export function Screen({
   floatingNav?: boolean
   contentContainerStyle?: StyleProp<ViewStyle>
   style?: StyleProp<ViewStyle>
-}) {
+}>(function Screen({
+  title,
+  actions,
+  subheader,
+  children,
+  scroll = true,
+  refreshControl,
+  floatingNav = true,
+  contentContainerStyle,
+  style,
+}, ref) {
   const { tokens, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const bottomPad = (floatingNav ? NAV_HEIGHT : 0) + insets.bottom + space.lg
@@ -65,6 +65,7 @@ export function Screen({
       ) : null}
       {scroll ? (
         <ScrollView
+          ref={ref}
           style={styles.flex}
           refreshControl={refreshControl}
           contentContainerStyle={[{ paddingHorizontal: space.lg, paddingBottom: bottomPad }, contentContainerStyle]}
@@ -76,7 +77,7 @@ export function Screen({
       )}
     </View>
   )
-}
+})
 
 /** Bottom padding for screens that manage their own list (FlatList, SectionList). */
 export function useNavPadding(floatingNav = true) {
