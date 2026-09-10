@@ -1,9 +1,20 @@
+import { useEffect } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Svg, { Rect, Line } from 'react-native-svg'
+import Reanimated, {
+  Easing,
+  useAnimatedProps,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatCurrency } from '@/src/lib/format'
 import { monthAbbrev } from '@/src/lib/envelope'
+
+const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
 
 export interface TrendPoint {
   /** Month key, "YYYY-MM". */
@@ -36,12 +47,47 @@ const PAD_TOP = 35
 const PAD_BOTTOM = 25
 const PAD_X = 8
 const MAX_BAR_W = 56
+const STAGGER_STEP = 30
+const GROW_DURATION = 350
 
 /** Compact axis label: 1234 -> "₹1.2k", 950 -> "₹950". */
 function compactAxis(value: number, hide: boolean): string {
   if (hide) return '₹••'
   if (value >= 1000) return `₹${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
   return `₹${Math.round(value)}`
+}
+
+interface BarProps {
+  x: number
+  y: number
+  w: number
+  h: number
+  index: number
+  signature: string
+  fill: string
+  fillOpacity: number
+  reducedMotion: boolean
+}
+
+/** Single bar, grown from the baseline with a per-index stagger delay. Regrows
+ *  whenever `signature` changes (month navigation swaps the data). */
+function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion }: BarProps) {
+  const grow = useSharedValue(reducedMotion ? 1 : 0)
+
+  useEffect(() => {
+    grow.value = reducedMotion
+      ? 1
+      : withDelay(index * STAGGER_STEP, withTiming(1, { duration: GROW_DURATION, easing: Easing.out(Easing.cubic) }))
+    // signature (not index) is what should retrigger the grow-in on data swaps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, reducedMotion])
+
+  const animatedProps = useAnimatedProps(() => ({
+    height: h * grow.value,
+    y: y + h * (1 - grow.value),
+  }))
+
+  return <AnimatedRect animatedProps={animatedProps} x={x} width={w} rx={4} fill={fill} fillOpacity={fillOpacity} />
 }
 
 /** Trailing-12-months bar chart. Bars only (a smoothed area over discrete
@@ -58,6 +104,8 @@ export function TrendChart({
   partialNote,
 }: Props) {
   const { tokens } = useTheme()
+  const reducedMotion = useReducedMotion()
+  const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
 
   if (data.length === 0) {
     return (
@@ -112,19 +160,21 @@ export function TrendChart({
               strokeDasharray="4,5"
             />
           )}
-          {bars.map((b) => {
+          {bars.map((b, i) => {
             const isSelected = selected ? b.key === selected.key : false
             const dimmed = selected != null && !isSelected && b.key !== partialKey
             return (
-              <Rect
+              <Bar
                 key={b.key}
                 x={b.x}
                 y={b.y}
-                width={b.w}
-                height={b.h}
-                rx={4}
+                w={b.w}
+                h={b.h}
+                index={i}
+                signature={signature}
                 fill={tokens.accent}
                 fillOpacity={dimmed ? 0.55 : 1}
+                reducedMotion={reducedMotion}
               />
             )
           })}
