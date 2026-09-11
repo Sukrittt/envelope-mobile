@@ -9,6 +9,7 @@ const mockUseExpensesPage = jest.fn()
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: jest.fn() }),
+  prefetchExpensesPage: jest.fn(),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
