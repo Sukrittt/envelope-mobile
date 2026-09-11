@@ -66,6 +66,30 @@ function expiredToken(sub = 'user_1'): string {
   return `header.${payload}.signature`
 }
 
+describe('subscribe notifications', () => {
+  it('fire on an identity change, not on a same-user token refresh', async () => {
+    await clearAccess()
+    const onChange = jest.fn()
+    const unsubscribe = accessMode.subscribe(onChange)
+
+    await persistSession({ accessToken: expiredToken('user_1'), refreshToken: 'r1', expiresAt: 1 })
+    expect(onChange).toHaveBeenCalledTimes(1)
+
+    // The root layout clears the whole query cache on this notification, so a
+    // routine refresh firing it wiped in-progress screens (scan-bill's splits).
+    ;(refreshTokens as jest.Mock).mockResolvedValue({ accessToken: fakeToken(), refreshToken: 'r2', expiresAt: Date.now() + 3_600_000 })
+    await getValidToken()
+    expect(onChange).toHaveBeenCalledTimes(1)
+
+    await persistSession({ accessToken: expiredToken('user_2'), refreshToken: 'r3', expiresAt: 1 })
+    expect(onChange).toHaveBeenCalledTimes(2)
+
+    await clearAccess()
+    expect(onChange).toHaveBeenLastCalledWith('guest')
+    unsubscribe()
+  })
+})
+
 describe('offline session survival (§1)', () => {
   it('a refresh failing with a network error keeps the session in SecureStore and returns null', async () => {
     ;(refreshTokens as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))

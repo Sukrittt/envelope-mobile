@@ -37,6 +37,10 @@ function notify() {
 }
 
 async function store(next: WorkOSTokens | null): Promise<void> {
+  // A token refresh rotates the pair but keeps the same user. Subscribers treat
+  // a notification as an identity switch (the root layout clears every cached
+  // query on it), so a routine refresh must stay silent.
+  const prevUserId = currentUserId()
   session = next
   mode = next ? 'real' : 'guest'
   try {
@@ -45,7 +49,7 @@ async function store(next: WorkOSTokens | null): Promise<void> {
   } catch {
     // Storage unavailable — the session just won't survive a relaunch.
   }
-  notify()
+  if (!prevUserId || currentUserId() !== prevUserId) notify()
 }
 
 /** Save a freshly issued token pair and switch to real mode. */

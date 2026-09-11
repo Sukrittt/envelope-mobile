@@ -1,4 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
@@ -170,6 +171,40 @@ describe('ScanBillScreen', () => {
 
     // Both items now halved: (60/2 + 800/2) + the unchanged 20 fee share = 450.
     await waitFor(() => expect(getByLabelText('₹450')).toBeTruthy())
+  })
+
+  it('keeps split choices when the categories query refetches mid-review', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    let queryClient!: QueryClient
+    function GrabQueryClient() {
+      queryClient = useQueryClient()
+      return null
+    }
+    const { getByText, getByLabelText } = renderWithProviders(
+      <>
+        <GrabQueryClient />
+        <ScanBillScreen />
+      </>,
+    )
+
+    await flushCategories()
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
+
+    fireEvent.press(getByText('Select'))
+    fireEvent.press(getByText('Milk'))
+    fireEvent.press(getByText('Pizza'))
+    fireEvent.press(getByText('÷2'))
+    await waitFor(() => expect(getByLabelText('₹450')).toBeTruthy())
+
+    // What a token refresh used to do app-wide: drop every cached query. The
+    // next render rebuilds categories from scratch, so isLoading flips
+    // true -> false again, which re-ran the scan and reset every divisor.
+    act(() => queryClient.clear())
+    fireEvent.press(getByText('Select'))
+    await flushCategories()
+
+    expect(scanBill).toHaveBeenCalledTimes(1)
+    expect(getByLabelText('₹450')).toBeTruthy()
   })
 
   it('lets a scanned fee/discount line be expanded, edited, and removed', async () => {

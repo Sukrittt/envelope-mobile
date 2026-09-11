@@ -64,13 +64,18 @@ export function useScanBillController() {
   // but this screen has its own query client entry and may need a moment to
   // load them — wait for that instead of racing it with an empty list.
   const pendingAsset = useRef(takePendingScanImage());
+  // One scan per mount. categoriesQ.isLoading can flip back to true after the
+  // scan (the query cache gets cleared and refetched), and re-running here
+  // would silently reload the result over every split the user already made.
+  const scanStarted = useRef(false);
   useEffect(() => {
     const asset = pendingAsset.current;
     if (!asset) {
       router.back();
       return;
     }
-    if (categoriesQ.isLoading) return;
+    if (categoriesQ.isLoading || scanStarted.current) return;
+    scanStarted.current = true;
 
     scanBill.mutate(
       {
