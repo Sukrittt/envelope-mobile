@@ -188,8 +188,8 @@ export default function ActivityScreen() {
 
   const timeFilterLabel = useMemo(() => {
     if (selectedDate) return formatDateHeader(selectedDate);
-    if (period === "week") return "This week";
-    if (period === "month") return "This month";
+    if (period === "week") return "This Week";
+    if (period === "month") return "This Month";
     if (period === "custom") return formatRangeFilter(customRange);
     return null;
   }, [customRange, period, selectedDate]);
@@ -736,9 +736,9 @@ export default function ActivityScreen() {
                   key === "all"
                     ? "All time"
                     : key === "week"
-                      ? "This week"
+                      ? "This Week"
                     : key === "month"
-                      ? "This month"
+                      ? "This Month"
                       : "Custom range"
                 }
                 onPress={() => {
