@@ -1,7 +1,7 @@
 import { useBillSplit } from '@/src/features/scan-bill/useBillSplit';
 import { useCategories } from "@/src/hooks/useCategories";
 import { useAddExpense } from "@/src/hooks/useExpenses";
-import { useSaveBillScan } from "@/src/hooks/useSaveBillScan";
+import { useSaveBillScan } from "@/src/hooks/useBillScans";
 import { useScanBill } from "@/src/hooks/useScanBill";
 import { todayIST } from "@/src/lib/date";
 import { splitEmoji } from "@/src/lib/emoji";

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -305,6 +305,8 @@ export default function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={History} label="Scan history" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
