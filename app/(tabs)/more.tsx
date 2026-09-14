@@ -306,7 +306,7 @@ export default function MoreScreen() {
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={History} label="Scan history" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
+              <AccountRow icon={History} label="Bills Scanned" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />

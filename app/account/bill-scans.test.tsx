@@ -1,3 +1,4 @@
+import { ScrollView, StyleSheet } from 'react-native'
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import BillScansScreen from './bill-scans'
@@ -51,10 +52,10 @@ describe('empty state', () => {
 
 describe('rows', () => {
   it('shows merchant, category, date, item count and the logged share', () => {
-    const { getByText } = render([row({})])
+    const { getByText, getAllByText } = render([row({})])
     expect(getByText('Blinkit')).toBeTruthy()
     expect(getByText('Groceries · 1 Sep · 2 items')).toBeTruthy()
-    expect(getByText('₹880')).toBeTruthy()
+    expect(getAllByText('₹880').length).toBeGreaterThan(0)
     expect(getByText('1 scanned')).toBeTruthy()
   })
 
@@ -67,5 +68,34 @@ describe('rows', () => {
   it('singularizes the item count for a one-item scan', () => {
     const { getByText } = render([row({ item_count: 1 })])
     expect(getByText('Groceries · 1 Sep · 1 item')).toBeTruthy()
+  })
+})
+
+
+describe('loading layout', () => {
+  it('centers loading phrases in the available viewport without a vertical offset', () => {
+    const screen = render([], true)
+    const scroll = screen.UNSAFE_getByType(ScrollView)
+    expect(StyleSheet.flatten(scroll.props.style)).toMatchObject({ flex: 1 })
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({
+      flexGrow: 1, alignItems: 'center', justifyContent: 'center',
+    })
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).marginTop).toBeUndefined()
+  })
+})
+
+
+describe('summary', () => {
+  it('shows the logged shares and category proportions, not the full bill totals', () => {
+    const { getByText, getByLabelText } = render([
+      row({ my_share: 300, total: 900 }),
+      row({ id: 'b2', category: 'Food', my_share: 100, total: 600, item_count: 3 }),
+    ])
+    expect(getByText('Bills Scanned')).toBeTruthy()
+    expect(getByText('Your share logged')).toBeTruthy()
+    expect(getByLabelText('₹400')).toBeTruthy()
+    expect(getByText('2 bills · 5 items')).toBeTruthy()
+    expect(getByText('75.0%')).toBeTruthy()
+    expect(getByText('25.0%')).toBeTruthy()
   })
 })

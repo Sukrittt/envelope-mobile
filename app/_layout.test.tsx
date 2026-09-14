@@ -3,9 +3,10 @@ import type { ReactNode } from 'react'
 import RootLayout from './_layout'
 import { initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
+import * as SplashScreen from 'expo-splash-screen'
 
 // The bug this file guards against: the root layout used to render `null`
-// (fonts loading) and then <AppSplash /> (auth resolving) *instead of* the
+// (fonts loading) and then a splash component (auth resolving) *instead of* the
 // Stack. expo-router drops any navigation dispatched in that window and React
 // logs "Can't perform a React state update on a component that hasn't mounted
 // yet" against ContextNavigator. The navigator must exist on the very first
@@ -99,7 +100,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:(auth)/welcome')).toBeTruthy(), { timeout: 3000 })
+    await waitFor(() => expect(getByTestId('screen:(auth)/welcome')).toBeTruthy())
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:(tabs)')).toBeNull()
   })
@@ -119,11 +120,30 @@ describe('RootLayout', () => {
       resolveUser({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
     })
 
-    // `resolving` also gates on MIN_SPLASH_MS's real 2s timer — the default
-    // waitFor timeout (1000ms) isn't long enough to outlast it.
-    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
+    // Default waitFor timeout (1000ms) on purpose: a minimum splash duration
+    // used to hold this for 2s on every cold boot, and must not come back.
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:setup')).toBeNull()
+  })
+
+  it('keeps the native splash up until routing resolves, then hides it', async () => {
+    mockFontsLoaded = true
+    mockInitAccessMode.mockResolvedValue('real')
+    let resolveUser: (u: UserProfile) => void = () => {}
+    mockGetUser.mockReturnValue(new Promise<UserProfile>((resolve) => { resolveUser = resolve }))
+
+    const { getByTestId } = render(<RootLayout />)
+
+    await waitFor(() => expect(mockGetUser).toHaveBeenCalled())
+    expect(SplashScreen.hideAsync).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveUser({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
+    })
+
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
+    expect(SplashScreen.hideAsync).toHaveBeenCalled()
   })
 
   it('routes a signed-in user who has not onboarded to setup', async () => {
@@ -133,7 +153,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId, getAllByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy(), { timeout: 3000 })
+    await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
     expect(queryByTestId('screen:(tabs)')).toBeNull()
     // Setup must be the first registered screen in this state too — a fallback
     // to (auth)/email here would bounce through it the same way log-expense used to.
@@ -151,7 +171,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/modals/log-expense'), { timeout: 3000 })
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/modals/log-expense'))
   })
 
   it('sends a signed-in user who has not onboarded from an auth screen to setup', async () => {
@@ -162,7 +182,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'), { timeout: 3000 })
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
   })
 
   it('leaves a change-email flow alone', async () => {
@@ -174,7 +194,7 @@ describe('RootLayout', () => {
 
     const { getByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(mockReplace).not.toHaveBeenCalled()
   })
 
@@ -190,7 +210,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, getAllByTestId } = render(<RootLayout />)
 
-    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy(), { timeout: 3000 })
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:modals/log-expense')
     expect(mockPush).not.toHaveBeenCalled()
   })

@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native'
+import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import BillScanModal from './bill-scan'
 import type { BillScanDetail } from '@/src/api/bills'
@@ -42,7 +44,7 @@ beforeEach(() => {
 it('shows a loading phrase while the detail is still loading', () => {
   mockUseBillScan.mockReturnValue({ data: undefined, isLoading: true })
   const { getByText } = renderWithProviders(<BillScanModal />)
-  expect(getByText('Pulling up this scan…')).toBeTruthy()
+  expect(StyleSheet.flatten(getByText('Pulling up this scan…').props.style).textAlign).toBe('center')
 })
 
 it("shows a not-found message when the scan doesn't resolve", () => {
@@ -83,4 +85,62 @@ it('shows a pending placeholder instead of the photo while the upload is still i
   })
   const { getByText } = renderWithProviders(<BillScanModal />)
   expect(getByText('Photo still uploading…')).toBeTruthy()
+})
+
+
+it('only displays the image after opening the preview chip, and closes it independently', () => {
+  mockUseBillScan.mockReturnValue({ data: detail({}), isLoading: false })
+  const { getByRole, queryByLabelText, getByLabelText } = renderWithProviders(<BillScanModal />)
+  expect(queryByLabelText('Scanned bill image')).toBeNull()
+  fireEvent.press(getByRole('button', { name: 'Preview bill' }))
+  expect(getByLabelText('Scanned bill image')).toBeTruthy()
+  fireEvent.press(getByRole('button', { name: 'Close bill preview' }))
+  expect(queryByLabelText('Scanned bill image')).toBeNull()
+  expect(mockBack).not.toHaveBeenCalled()
+})
+
+it('disables preview when the image is unavailable', () => {
+  mockUseBillScan.mockReturnValue({ data: detail({ image_status: 'failed', image_url: null }), isLoading: false })
+  const { getByRole, getByText, queryByLabelText } = renderWithProviders(<BillScanModal />)
+  expect(getByText("Photo couldn't be saved")).toBeTruthy()
+  const chip = getByRole('button', { name: 'Preview bill' })
+  expect(chip.props.accessibilityState.disabled).toBe(true)
+  fireEvent.press(chip)
+  expect(queryByLabelText('Scanned bill image')).toBeNull()
+})
+
+
+it('shows a full-width receipt at its original proportions in the preview', () => {
+  mockUseBillScan.mockReturnValue({ data: detail({}), isLoading: false })
+  const { getByRole, getByLabelText } = renderWithProviders(<BillScanModal />)
+  fireEvent.press(getByRole('button', { name: 'Preview bill' }))
+  fireEvent(getByLabelText('Scanned bill image'), 'load', {
+    nativeEvent: { source: { width: 720, height: 1600 } },
+  })
+  expect(StyleSheet.flatten(getByLabelText('Scanned bill image').props.style)).toMatchObject({
+    width: '100%', aspectRatio: 720 / 1600,
+  })
+})
+
+it('groups item shares by divisor, excludes skipped items, and splits fees by people count', () => {
+  mockUseBillScan.mockReturnValue({ data: detail({
+    total: 500, people_count: 4,
+    items: [
+      { name: 'Apples', price: 100, qty: 2, divisor: 4 },
+      { name: 'Bread', price: 80, qty: 1, divisor: 4 },
+      { name: 'Milk', price: 60, qty: 1, divisor: 2 },
+      { name: 'Tea', price: 50, qty: 1, divisor: 1 },
+      { name: 'Not mine', price: 190, qty: 1, divisor: null },
+      { name: 'Delivery fee', price: 20, qty: 1, divisor: 1 },
+    ],
+  }), isLoading: false })
+  const { getByText, queryByText } = renderWithProviders(<BillScanModal />)
+  expect(getByText('By 4 share')).toBeTruthy()
+  expect(getByText('₹45')).toBeTruthy()
+  expect(getByText('By 2 share')).toBeTruthy()
+  expect(getByText('₹30')).toBeTruthy()
+  expect(getByText('By 1 share')).toBeTruthy()
+  expect(queryByText('By 3 share')).toBeNull()
+  expect(getByText('Fees & discounts share')).toBeTruthy()
+  expect(getByText('₹5')).toBeTruthy()
 })

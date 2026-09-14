@@ -1,4 +1,6 @@
-import { View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { useState } from 'react'
+import { Eye, X } from 'lucide-react-native'
+import { Modal, View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -8,6 +10,7 @@ import { formatCurrency, formatDate } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
+import { groupByDivisor, isFeeLine, feeDiff, round2 } from '@/src/lib/split'
 import type { BillScanItem } from '@/src/api/bills'
 
 function str(v: string | string[] | undefined): string {
@@ -23,9 +26,14 @@ export default function BillScanModal() {
   const router = useRouter()
   const id = str(useLocalSearchParams().id)
 
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewAspectRatio, setPreviewAspectRatio] = useState(1)
   const scanQ = useBillScan(id)
   const scan = scanQ.data
   const category = splitEmoji(scan?.category ?? '')
+  const shareGroups = groupByDivisor((scan?.items ?? []).filter(item => !isFeeLine(item.name)))
+  const fees = scan ? round2(scan.items.filter(item => isFeeLine(item.name)).reduce((sum, item) => sum + item.price, 0) + feeDiff(scan.total, scan.items)) : 0
+  const feesShare = scan ? round2(fees / scan.people_count) : 0
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
@@ -41,7 +49,7 @@ export default function BillScanModal() {
 
       {scanQ.isLoading ? (
         <View style={styles.centered}>
-          <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium }} />
+          <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium, textAlign: 'center' }} />
         </View>
       ) : !scan ? (
         <View style={styles.centered}>
@@ -51,36 +59,62 @@ export default function BillScanModal() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
-          {scan.image_status === 'ready' && scan.image_url ? (
-            <Image source={{ uri: scan.image_url }} style={[styles.photo, { backgroundColor: tokens.inputBg }]} resizeMode="cover" />
-          ) : (
-            <View style={[styles.photo, styles.photoPlaceholder, { backgroundColor: tokens.inputBg }]}>
-              <Text style={[styles.photoPlaceholderText, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-                {scan.image_status === 'failed' ? "Photo couldn't be saved" : 'Photo still uploading…'}
-              </Text>
-            </View>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Preview bill"
+            accessibilityState={{ disabled: scan.image_status !== 'ready' || !scan.image_url }}
+            disabled={scan.image_status !== 'ready' || !scan.image_url}
+            onPress={() => setPreviewOpen(true)}
+            style={[styles.previewChip, { backgroundColor: tokens.accentSoft, borderColor: tokens.accentSoft }]}
+          >
+            <Eye size={16} color={tokens.accentInk} />
+            <Text style={[styles.previewLabel, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
+              {scan.image_status === 'failed' ? "Photo couldn't be saved" : scan.image_status === 'ready' && scan.image_url ? 'Preview bill' : 'Photo still uploading…'}
+            </Text>
+          </Pressable>
 
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={styles.summaryRow}>
+          <View style={[styles.card, styles.heroCard, { backgroundColor: tokens.heroA, borderColor: tokens.accentSoft }]}>
+            <View style={styles.heroHeading}>
+              <View style={[styles.categoryIcon, { backgroundColor: tokens.accentSoft }]}>
+                <Text style={{ fontSize: 25 }}>{category.icon || '🧾'}</Text>
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.merchant, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{scan.merchant}</Text>
+                <Text style={[styles.merchant, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{scan.merchant}</Text>
                 <Text style={[styles.summaryMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                   {(category.text || scan.category)} · {formatDate(scan.date)}
                 </Text>
               </View>
-              <Text style={[styles.myShare, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
+            </View>
+            <View style={styles.shareHero}>
+              <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>YOUR SHARE</Text>
+              <Text style={[styles.myShare, { color: tokens.accentInk, fontFamily: fontFamily.displayBold }]}>
                 {formatCurrency(scan.my_share, hideAmounts)}
               </Text>
             </View>
             <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-            <View style={styles.summaryRow}>
+            <View style={[styles.summaryRow, styles.breakdownRow]}>
               <Text style={[styles.summaryLabel, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Bill total</Text>
               <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
                 {formatCurrency(scan.total, hideAmounts)}
               </Text>
             </View>
-            <View style={styles.summaryRow}>
+            {shareGroups.map(group => (
+              <View key={group.divisor} style={[styles.summaryRow, styles.breakdownRow]}>
+                <Text style={[styles.summaryLabel, { color: group.divisor === 1 ? tokens.mint : tokens.violet, fontFamily: fontFamily.bodySemiBold }]}>By {group.divisor} share</Text>
+                <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                  {formatCurrency(group.share, hideAmounts)}
+                </Text>
+              </View>
+            ))}
+            {Math.abs(fees) >= 0.01 && (
+              <View style={[styles.summaryRow, styles.breakdownRow]}>
+                <Text style={[styles.summaryLabel, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Fees &amp; discounts share</Text>
+                <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                  {formatCurrency(feesShare, hideAmounts)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.summaryRow, styles.breakdownRow]}>
               <Text style={[styles.summaryLabel, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Split between</Text>
               <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
                 {scan.people_count} {scan.people_count === 1 ? 'person' : 'people'}
@@ -88,7 +122,7 @@ export default function BillScanModal() {
             </View>
           </View>
 
-          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ITEMS</Text>
+          <Text style={[styles.sectionLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Inside the bill · {scan.items.length}</Text>
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             {scan.items.map((item, i) => (
               <View key={`${item.name}-${i}`}>
@@ -99,6 +133,30 @@ export default function BillScanModal() {
           </View>
         </ScrollView>
       )}
+      {previewOpen && scan?.image_url && (
+        <Modal visible presentationStyle="fullScreen" statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={() => setPreviewOpen(false)}>
+          <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+            <View style={styles.previewHeader}>
+              <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Preview bill</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close bill preview" onPress={() => setPreviewOpen(false)} hitSlop={12} style={styles.previewClose}>
+                <X size={22} color={tokens.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.container} contentContainerStyle={styles.previewContent}>
+              <Image
+                accessibilityLabel="Scanned bill image"
+                source={{ uri: scan.image_url }}
+                style={[styles.previewImage, { aspectRatio: previewAspectRatio }]}
+                resizeMode="contain"
+                onLoad={({ nativeEvent }) => {
+                  const { width, height } = nativeEvent.source
+                  if (width > 0 && height > 0) setPreviewAspectRatio(width / height)
+                }}
+              />
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
     </View>
   )
 }
@@ -106,15 +164,17 @@ export default function BillScanModal() {
 function ItemRow({ item }: { item: BillScanItem }) {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
+  const shareColor = item.divisor === null ? tokens.text2 : item.divisor > 1 ? tokens.violet : tokens.mint
+  const shareBg = item.divisor === null ? tokens.pillBg : item.divisor > 1 ? tokens.violetSoft : tokens.mintSoft
   const shareLabel = item.divisor === null ? 'Not yours' : item.divisor > 1 ? `Split ÷${item.divisor}` : 'Yours'
 
   return (
     <View style={styles.summaryRow}>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.itemName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+        <Text style={[styles.itemName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={2}>
           {item.name}
         </Text>
-        <Text style={[styles.itemMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+        <Text style={[styles.itemMeta, { color: shareColor, backgroundColor: shareBg, fontFamily: fontFamily.bodySemiBold }]}>
           {item.qty > 1 ? `× ${item.qty} · ` : ''}{shareLabel}
         </Text>
       </View>
@@ -140,18 +200,27 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   emptyText: { fontSize: 14, textAlign: 'center' },
   body: { padding: 16, gap: 16 },
-  photo: { width: '100%', aspectRatio: 3 / 4, borderRadius: 18 },
-  photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  photoPlaceholderText: { fontSize: 13 },
+  previewChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 24, paddingHorizontal: 14, minHeight: 44 },
+  previewLabel: { fontSize: 13 },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  previewClose: { padding: 10 },
+  previewContent: { alignItems: 'stretch' },
+  previewImage: { width: '100%' },
   card: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 4 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, gap: 12 },
-  merchant: { fontSize: 16 },
+  heroCard: { paddingTop: 16 },
+  heroHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  categoryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  shareHero: { paddingTop: 22, paddingBottom: 18, gap: 4 },
+  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  breakdownRow: { paddingVertical: 6 },
+  merchant: { fontSize: 21 },
   summaryMeta: { fontSize: 12, marginTop: 2 },
-  myShare: { fontSize: 17 },
+  myShare: { fontSize: 40, fontVariant: ['tabular-nums'] },
   summaryLabel: { fontSize: 13 },
   summaryValue: { fontSize: 13 },
   divider: { height: StyleSheet.hairlineWidth },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6, marginBottom: -6 },
-  itemName: { fontSize: 14 },
-  itemMeta: { fontSize: 12, marginTop: 2 },
+  sectionLabel: { fontSize: 18, marginTop: 6, marginBottom: -4 },
+  itemName: { fontSize: 14, lineHeight: 21 },
+  itemMeta: { fontSize: 10, marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, overflow: 'hidden' },
 })

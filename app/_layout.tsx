@@ -43,9 +43,6 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 })
 
-// Minimum time the AppSplash (loading) screen stays visible on cold boot.
-const MIN_SPLASH_MS = 2000
-
 /**
  * The nav is a sibling overlay above the whole root Stack, not scoped to
  * (tabs) or rendered per-screen: it must survive every push (log-expense
@@ -69,11 +66,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { mode: authScreenMode } = useGlobalSearchParams<{ mode?: string }>()
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  // The AppSplash (loading) screen must be visible for at least MIN_SPLASH_MS,
-  // even on a fast cold boot (say the session + user resolve instantly), so it
-  // doesn't flash off in a few hundred ms. Holds `ready` false until the window
-  // elapses, keeping the /loading route mounted.
-  const [splashReady, setSplashReady] = useState(false)
   // null = not yet known (still loading, or signed out) — the guards below
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
@@ -156,13 +148,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     []
   )
 
-  // Minimum splash duration, independent of auth/font latency. Not cleared by
-  // the timeout (the state is just set true once and the layout moves on).
-  useEffect(() => {
-    const timer = setTimeout(() => setSplashReady(true), MIN_SPLASH_MS)
-    return () => clearTimeout(timer)
-  }, [])
-
   useEffect(() => {
     return queryClient.getQueryCache().subscribe((event) => {
       if (event.type === 'updated' && event.query.state.status === 'error' && isAuthError(event.query.state.error)) {
@@ -174,8 +159,15 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     })
   }, [])
 
-  const ready = fontsLoaded && authReady && splashReady
+  const ready = fontsLoaded && authReady
   const resolving = !ready || (hasSession && onboarded === null)
+
+  // The native splash covers the whole resolve (fonts, auth, onboarding fetch)
+  // and hides straight onto the first real screen. There's no JS splash in
+  // between: its 2s minimum and remote Lottie fetch were most of cold boot.
+  useEffect(() => {
+    if (!resolving) SplashScreen.hideAsync().catch(() => {})
+  }, [resolving])
 
   // The one transition the guards can't make: (auth)/email and (auth)/code stay
   // registered while signed in (see the comment on them below), so signing in
@@ -201,8 +193,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // /insights, /modals/log-expense and so on. The route params are
   // deliberately left off: that is where ids and amounts would leak in.
   useEffect(() => {
-    // The synthetic splash route, held for MIN_SPLASH_MS on every cold boot.
-    // Nobody navigates to it, so counting it as a screen view is just noise.
+    // The synthetic placeholder route, mounted under the native splash on every
+    // cold boot. Nobody navigates to it, so counting it as a screen view is just noise.
     if (pathname === '/loading') return
     trackScreen(pathname)
   }, [pathname])
@@ -292,10 +284,6 @@ export default function RootLayout() {
   const [fontsLoaded] = useAppFonts()
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {})
-  }, [fontsLoaded])
-
-  useEffect(() => {
     const tokenSub = addPushTokenListener()
     const responseSub = addNotificationResponseListener()
     return () => {
@@ -305,7 +293,7 @@ export default function RootLayout() {
   }, [])
 
   // No early `return null` while the fonts load: the native splash is still up
-  // (preventAutoHideAsync above, hidden by the effect once fontsLoaded), and a
+  // (preventAutoHideAsync above, hidden by RootNavigator once routing resolves), and a
   // render without a navigator is exactly what breaks expo-router.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
