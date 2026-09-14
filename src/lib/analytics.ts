@@ -41,6 +41,7 @@ export type AppEvent =
   | 'money_brain_query'
   | 'onboarding_completed'
   | 'feedback_sent'
+  | 'push_registration_failed'
 
 /**
  * Properties are for segmenting, never for identifying. Amounts, item names

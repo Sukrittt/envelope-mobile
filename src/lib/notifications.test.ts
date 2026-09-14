@@ -1,8 +1,11 @@
-import { addNotificationResponseListener, checkColdStartNotification } from './notifications'
+import { addNotificationResponseListener, checkColdStartNotification, registerForPushNotificationsAsync } from './notifications'
+import { track } from '@/src/lib/analytics'
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ router: { push: (...args: unknown[]) => mockPush(...args) } }))
 jest.mock('@/src/api/notifications', () => ({ registerPushToken: jest.fn() }))
+jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
+jest.mock('expo-device', () => ({ isDevice: true }))
 
 let responseListener: ((response: unknown) => void) | undefined
 const mockAddNotificationResponseReceivedListener = jest.fn((cb: (response: unknown) => void) => {
@@ -18,6 +21,8 @@ jest.mock('expo-notifications', () => ({
   addPushTokenListener: jest.fn(),
   getLastNotificationResponseAsync: mockGetLastNotificationResponseAsync,
   clearLastNotificationResponseAsync: mockClearLastNotificationResponseAsync,
+  getPermissionsAsync: () => Promise.resolve({ status: 'granted' }),
+  getExpoPushTokenAsync: () => Promise.reject(new Error('FIS_AUTH_ERROR')),
 }))
 
 jest.mock('expo-constants', () => ({
@@ -103,4 +108,9 @@ it('encodes notification dates as a single parameter', () => {
  addNotificationResponseListener()
  responseListener!({notification:{request:{content:{data:{date:'2026-01-01&evil=yes'}}}}})
  expect(mockPush).toHaveBeenCalledWith('/(tabs)/activity?date=2026-01-01%26evil%3Dyes')
+})
+
+it('reports a failed push token fetch to analytics instead of only swallowing it', async () => {
+  await registerForPushNotificationsAsync()
+  expect(track).toHaveBeenCalledWith('push_registration_failed', { stage: 'token', error: 'Error: FIS_AUTH_ERROR' })
 })

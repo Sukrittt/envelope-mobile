@@ -4,6 +4,7 @@ import * as Device from 'expo-device'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { router } from 'expo-router'
 import { registerPushToken } from '@/src/api/notifications'
+import { track } from '@/src/lib/analytics'
 import type * as NotificationsType from 'expo-notifications'
 
 // expo-notifications throws on Android *just from being imported* inside Expo Go
@@ -45,6 +46,9 @@ async function registerToken(token: string): Promise<void> {
  * any error — a push registration failure must never block app usage.
  */
 export async function registerForPushNotificationsAsync(): Promise<void> {
+  // Which step failed goes to PostHog: a swallowed console.warn is invisible
+  // in a Play Store build, and that hid a week of no pushes at all.
+  let stage = 'permission'
   try {
     const Notifications = getNotifications()
     if (!Notifications || !Device.isDevice) return
@@ -53,13 +57,19 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     if (status !== 'granted') {
       ;({ status } = await Notifications.requestPermissionsAsync())
     }
-    if (status !== 'granted') return
+    if (status !== 'granted') {
+      track('push_registration_failed', { stage, error: `permission ${status}` })
+      return
+    }
 
+    stage = 'token'
     const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
+    stage = 'register'
     await registerToken(token)
   } catch (err) {
     console.warn('Push registration failed', err)
+    track('push_registration_failed', { stage, error: String(err).slice(0, 300) })
   }
 }
 
