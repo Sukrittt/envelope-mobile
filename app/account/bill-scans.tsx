@@ -24,7 +24,6 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { usePressSpring } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
-import { AllocationBar } from "@/src/components/charts/AllocationBar";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { BillScanSummary } from "@/src/api/bills";
 
@@ -65,14 +64,14 @@ export default function BillScansScreen() {
     const category = splitEmoji(row.category).text || row.category;
     byCategory.set(category, (byCategory.get(category) ?? 0) + row.my_share);
   }
-  const segments = [...byCategory.entries()]
-    .filter(([, value]) => value > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, value], index) => ({
-      label,
-      value,
-      color: tokens[CHART_COLOR_CYCLE[index % CHART_COLOR_CYCLE.length]],
-    }));
+  const categoryColor = new Map(
+    [...byCategory.keys()]
+      .sort()
+      .map((label, index) => [
+        label,
+        tokens[CHART_COLOR_CYCLE[index % CHART_COLOR_CYCLE.length]],
+      ]),
+  );
 
   if (!online) return <OfflineScreen />;
 
@@ -173,14 +172,6 @@ export default function BillScansScreen() {
                 {rows.length === 50 ? "Latest 50 bills" : `${rows.length} ${rows.length === 1 ? "bill" : "bills"}`} · {itemCount} {itemCount === 1 ? "item" : "items"}
               </Text>
             </View>
-            {segments.length > 0 && (
-              <View style={[styles.allocationCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                  Your share by category
-                </Text>
-                <AllocationBar segments={segments} />
-              </View>
-            )}
             <View style={{ gap: 10 }}>
             {rows.map((row, i) => (
               <BillScanRow
@@ -188,6 +179,10 @@ export default function BillScansScreen() {
                 row={row}
                 index={i}
                 hideAmounts={hideAmounts}
+                dotColor={
+                  categoryColor.get(splitEmoji(row.category).text || row.category) ??
+                  tokens.text3
+                }
                 onPress={() => router.push(`/modals/bill-scan?id=${row.id}`)}
               />
             ))}
@@ -203,11 +198,13 @@ function BillScanRow({
   row,
   index,
   hideAmounts,
+  dotColor,
   onPress,
 }: {
   row: BillScanSummary;
   index: number;
   hideAmounts: boolean;
+  dotColor: string;
   onPress: () => void;
 }) {
   const { tokens } = useTheme();
@@ -230,6 +227,7 @@ function BillScanRow({
           onPressOut={press.onPressOut}
           style={styles.rowInner}
         >
+          <View style={[styles.dot, { backgroundColor: dotColor }]} />
           <View style={{ flex: 1 }}>
             <Text
               style={[
@@ -292,8 +290,8 @@ const styles = StyleSheet.create({
   heroBlock: { gap: 4 },
   heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   summaryMeta: { fontSize: 12 },
-  allocationCard: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 12 },
   rowCard: { borderWidth: 1, borderRadius: 14 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
   rowInner: {
     flexDirection: "row",
     alignItems: "center",

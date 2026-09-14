@@ -86,7 +86,7 @@ describe('loading layout', () => {
 
 
 describe('summary', () => {
-  it('shows the logged shares and category proportions, not the full bill totals', () => {
+  it('shows the logged shares, not the full bill totals', () => {
     const { getByText, getByLabelText } = render([
       row({ my_share: 300, total: 900 }),
       row({ id: 'b2', category: 'Food', my_share: 100, total: 600, item_count: 3 }),
@@ -95,7 +95,5 @@ describe('summary', () => {
     expect(getByText('Your share logged')).toBeTruthy()
     expect(getByLabelText('₹400')).toBeTruthy()
     expect(getByText('2 bills · 5 items')).toBeTruthy()
-    expect(getByText('75.0%')).toBeTruthy()
-    expect(getByText('25.0%')).toBeTruthy()
   })
 })
