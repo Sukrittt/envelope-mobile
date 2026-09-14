@@ -193,6 +193,17 @@ describe('monthComparison', () => {
     expect(result.deltaPct).toBe(20)
   })
 
+  it('clamps deltaPct to +/-999 against a near-zero baseline', () => {
+    const expenses = [
+      spread('2026-05', '1'),
+      spread('2026-06', '1'),
+      spread('2026-07', '1'),
+      spread('2026-08', '10000'),
+    ]
+    const result = monthComparison(expenses, '2026-08', '2026-09-01')
+    expect(result.deltaPct).toBe(999)
+  })
+
   it('is not in progress, and has no projection, for a closed month', () => {
     const expenses = [spread('2026-08', '900')]
     const result = monthComparison(expenses, '2026-08', '2026-09-01')
@@ -277,6 +288,13 @@ describe('withDelta', () => {
     const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 100, assigned: 0, assignedIsCarried: false, pct: 0 }]
     const result = withDelta(rows, prevRows)
     expect(result[0].deltaPct).toBe(50)
+  })
+
+  it('clamps deltaPct to +/-999 against a near-zero previous spend', () => {
+    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 10000, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 1, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const result = withDelta(rows, prevRows)
+    expect(result[0].deltaPct).toBe(999)
   })
 
   it('returns null delta when the previous month had zero spend', () => {

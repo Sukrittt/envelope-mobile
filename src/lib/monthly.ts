@@ -11,6 +11,14 @@ import {
 import { categoryEmoji, splitEmoji } from './emoji'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
+/** Past this, the number stops carrying information and starts breaking
+ *  layout (a near-zero baseline can read 10000%+). Same cap as the widget's
+ *  weeklyTrend (src/widgets/data.ts). */
+const PCT_CAP = 999
+export function clampPct(pct: number): number {
+  return Math.max(-PCT_CAP, Math.min(PCT_CAP, pct))
+}
+
 /** "2026-09" -> { start: "2026-09-01", end: "2026-09-30" }. String-built, no
  *  Date/toISOString round-trip, so it can't roll back a day in a UTC+ zone. */
 export function monthRange(key: string): { start: string; end: string } {
@@ -157,7 +165,7 @@ export function withDelta(rows: BreakdownRow[], prevRows: BreakdownRow[]): Break
   const prevByKey = new Map(prevRows.map((r) => [r.key, r.spent]))
   return rows.map((row) => {
     const prevSpent = prevByKey.get(row.key)
-    const deltaPct = prevSpent ? ((row.spent - prevSpent) / prevSpent) * 100 : null
+    const deltaPct = prevSpent ? clampPct(((row.spent - prevSpent) / prevSpent) * 100) : null
     return { ...row, deltaPct }
   })
 }
@@ -224,7 +232,7 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
       ? priorMonths.reduce((s, m) => s + totalSpendInMonth(expenseRows, m, cutoffDay), 0) / priorMonths.length
       : null
 
-  const deltaPct = baseline != null && baseline > 0 ? ((spent - baseline) / baseline) * 100 : null
+  const deltaPct = baseline != null && baseline > 0 ? clampPct(((spent - baseline) / baseline) * 100) : null
 
   const [y, m] = month.split('-').map(Number)
   const daysInMonth = new Date(y, m, 0).getDate()

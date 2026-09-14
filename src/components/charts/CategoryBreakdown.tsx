@@ -23,6 +23,7 @@ import { Button } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { DonutChart } from "./DonutChart";
 import { useReveal } from "./useReveal";
+import { clampPct } from "@/src/lib/monthly";
 import type { BreakdownRow, MonthComparison } from "@/src/lib/monthly";
 import type { ThemeTokens } from "@/src/theme/tokens";
 
@@ -230,7 +231,7 @@ export function CategoryBreakdown({
                 ),
                 deltaPct:
                   previousSpent > 0
-                    ? ((spent - previousSpent) / previousSpent) * 100
+                    ? clampPct(((spent - previousSpent) / previousSpent) * 100)
                     : null,
               };
             })
@@ -847,7 +848,7 @@ export function CategoryBreakdown({
                             flexDirection: "row",
                             alignItems: "center",
                             justifyContent: "flex-end",
-                            width: 32,
+                            minWidth: 32,
                             gap: 2,
                           }}
                         >
