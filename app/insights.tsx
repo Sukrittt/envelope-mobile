@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
@@ -20,7 +21,7 @@ import {
   prevMonthKey,
   shiftMonthKey,
 } from "@/src/lib/envelope";
-import { formatCurrency, formatDateShort } from "@/src/lib/format";
+import { formatDateShort } from "@/src/lib/format"
 import { todayIST } from "@/src/lib/date";
 import { EMPTY } from "@/src/lib/constants";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -221,6 +222,8 @@ function MonthStepper({
  * month's story, and separating them is what lets either be large.
  */
 export default function InsightsScreen() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();

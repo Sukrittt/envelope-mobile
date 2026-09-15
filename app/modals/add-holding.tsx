@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, Switch, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,6 +21,8 @@ function str(v: string | string[] | undefined): string {
 // and the monthly amount accrues on top of it (matches applyHoldingAction's
 // additive 'contribution' case on the backend).
 export default function AddHoldingModal() {
+  const { currencySymbol } = useCurrency()
+
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -172,10 +175,11 @@ export default function AddHoldingModal() {
 
             <View style={styles.field}>
               <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                Starting value (₹)
+
+                Starting value ({currencySymbol})
               </Text>
               <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-                <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
+                <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{currencySymbol}</Text>
                 <TextInput
                   value={value}
                   onChangeText={setValue}
@@ -213,10 +217,11 @@ export default function AddHoldingModal() {
         {isRecurring && (
           <View style={styles.field}>
             <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              Monthly contribution (₹)
+
+              Monthly contribution ({currencySymbol})
             </Text>
             <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-              <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
+              <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{currencySymbol}</Text>
               <TextInput
                 value={recurringAmount}
                 onChangeText={setRecurringAmount}

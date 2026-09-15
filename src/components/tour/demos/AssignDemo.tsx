@@ -1,14 +1,17 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { AmountText } from '@/src/components/ui/AmountText'
 import { TourRow } from '@/src/components/tour/parts'
 import { ASSIGN_ROWS, TOUR_INCOME } from '@/src/components/tour/content'
 
 /** Chapter 1: hand out the income until Ready to Assign hits zero. */
 export function AssignDemo({ onComplete }: { onComplete: () => void }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, radius, space, type } = useTheme()
   const [funded, setFunded] = useState<Record<string, boolean>>({})
 
@@ -27,7 +30,7 @@ export function AssignDemo({ onComplete }: { onComplete: () => void }) {
   const heroColor = readyToAssign === 0 ? tokens.mint : readyToAssign < 0 ? tokens.coral : tokens.text
   const note =
     readyToAssign === 0
-      ? 'Every rupee has a job ✓'
+      ? 'All your money has a job ✓'
       : readyToAssign < 0
         ? "You've assigned more than you earn"
         : `${formatCurrency(readyToAssign)} of your ${formatCurrency(TOUR_INCOME)} income has no job yet`

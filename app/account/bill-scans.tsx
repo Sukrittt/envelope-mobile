@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import {
   View,
   Text,
@@ -17,7 +18,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { usePrivacy } from "@/src/context/PrivacyContext";
-import { formatCurrency, formatDateShort } from "@/src/lib/format";
+import { formatDateShort } from "@/src/lib/format"
 import { splitEmoji } from "@/src/lib/emoji";
 import { useBillScans } from "@/src/hooks/useBillScans";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -207,6 +208,8 @@ function BillScanRow({
   dotColor: string;
   onPress: () => void;
 }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme();
   const press = usePressSpring(0.98);
   const category = splitEmoji(row.category);

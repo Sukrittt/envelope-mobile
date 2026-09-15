@@ -1,7 +1,8 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Svg, { Rect } from 'react-native-svg'
 import type { WrappedData } from '@/src/api/wrapped'
-import { formatCurrency, formatDate, formatDateShort } from '@/src/lib/format'
+import { formatDate, formatDateShort } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
 import { monthLabel } from '@/src/lib/envelope'
@@ -97,6 +98,8 @@ export function IntroCard({ data, color, onColor }: CardProps) {
 }
 
 export function TotalSpentCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const avgPerDay = data.range.daysTracked > 0 ? data.totalSpent / data.range.daysTracked : 0
   const perDay = data.range.daysTracked > 0 ? Math.round(data.totalTransactions / data.range.daysTracked) : 0
   return (
@@ -144,6 +147,8 @@ const TOP_CATEGORY_QUIPS: Record<string, string> = {
 const DEFAULT_CATEGORY_QUIP = "That's commitment."
 
 export function TopCategoryCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const top = data.topCategories[0]
   if (!top) return null
   const top3 = data.topCategories.slice(0, 3)
@@ -196,6 +201,8 @@ export function TopCategoryCard({ data, color, onColor }: CardProps) {
 const JS_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export function BiggestPurchaseCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const p = data.biggestPurchase
   if (!p) return null
   const avgPerDay = data.range.daysTracked > 0 ? data.totalSpent / data.range.daysTracked : 0
@@ -232,6 +239,8 @@ export function BiggestPurchaseCard({ data, color, onColor }: CardProps) {
 const WEEKDAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export function TopWeekdayCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const w = data.topWeekday
   if (!w) return null
   const activeIdx = WEEKDAY_ORDER.indexOf(w.day)
@@ -300,6 +309,8 @@ const RACE_BAR_COLORS = [
 ]
 
 export function WeekRaceCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const weeks = data.weeklyTotals ?? []
   if (weeks.length === 0) return null
   const max = Math.max(...weeks.map((w) => w.total))
@@ -452,6 +463,8 @@ export function CategoryBreakdownCard({ data, color, onColor }: CardProps) {
 }
 
 export function StreakCard({ data, color, onColor, moneySaved }: CardProps & { moneySaved?: number }) {
+  const { formatCurrency } = useCurrency()
+
   const streak = data.longestStreak
   if (!streak) return null
   const saved = moneySaved
@@ -506,6 +519,8 @@ const BADGE_DELAYS = [180, 260, 340, 420]
 const BADGE_COUNT_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four']
 
 export function BadgesCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const badges: Badge[] = []
   if (data.longestStreak) badges.push({ emoji: '🔥', title: 'Streak Freak', sub: `${data.longestStreak.days} days unbroken` })
   badges.push({ emoji: '🧾', title: 'Receipt Hoarder', sub: `${data.totalTransactions} logs` })
@@ -564,6 +579,8 @@ export function getArchetype(data: WrappedData) {
 }
 
 export function ArchetypeCard({ data, color, onColor }: CardProps) {
+  const { formatCurrency } = useCurrency()
+
   const top = data.topCategories[0]
   const second = data.topCategories[1]
   const streak = data.longestStreak

@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { DatePicker } from "@/src/components/shared/DatePicker";
@@ -18,7 +19,7 @@ useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { todayIST } from "@/src/lib/date";
 import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
-import { formatAmountInput } from "@/src/lib/format";
+
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
@@ -80,6 +81,8 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 export default function LogExpenseScreen() {
+  const { formatAmountInput } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();

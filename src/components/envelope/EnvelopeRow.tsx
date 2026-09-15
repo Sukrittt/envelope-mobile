@@ -1,8 +1,9 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { splitEmoji } from '@/src/lib/emoji'
 import { toISTDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
@@ -61,6 +62,8 @@ export function EnvelopeRow({
   onViewTransactions,
   onSheetOpenChange,
 }: Props) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const [sheetOpen, setSheetOpen] = useState(false)
 

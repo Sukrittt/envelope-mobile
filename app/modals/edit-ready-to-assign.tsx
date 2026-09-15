@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
@@ -15,7 +16,7 @@ import {
   INCOME_CATEGORY,
   monthLabel,
 } from "@/src/lib/envelope";
-import { formatAmountInput, formatCurrency } from "@/src/lib/format";
+
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useRouter } from "expo-router";
@@ -94,6 +95,8 @@ function EditReadyToAssignBody({
   totalAssigned: number;
   readyToAssign: number;
 }) {
+  const { formatCurrency, formatAmountInput } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const insets = useSafeAreaInsets();

@@ -1,3 +1,5 @@
+import { CurrencyPicker } from '@/src/components/CurrencyPicker'
+import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -13,7 +15,7 @@ import { PickRow } from '@/src/components/onboarding/PickRow'
 import { SetupDone } from '@/src/components/onboarding/SetupDone'
 import { AmountTicker } from '@/src/components/onboarding/AmountTicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { formatINR } from '@/src/lib/format'
+
 import { currentMonthKey, INCOME_CATEGORY } from '@/src/lib/envelope'
 import { updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
@@ -100,10 +102,11 @@ function groupWeight(gi: number, weighted: boolean): number {
 }
 
 const TITLES: Record<number, [string, string]> = {
+  0: ['Choose your currency', 'The currency you use for your budget. You can change it later in More.'],
   1: ['What lands each month?', 'Your take-home income. This becomes the pot you assign from. You can change it any month.'],
   2: ['Group your money', 'Groups are the big buckets. Accept these or rename them to fit your life.'],
   3: ['Add your categories', 'These are the envelopes you actually spend from. Pick the ones you recognize.'],
-  4: ['Assign every rupee', 'We suggested a split. Tap any amount to change it. The leftover has to reach zero.'],
+  4: ['Assign your money', 'We suggested a split. Tap any amount to change it. The leftover has to reach zero.'],
 }
 
 function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg: string } {
@@ -113,11 +116,19 @@ function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg:
 }
 
 export default function SetupScreen() {
+  const current = useCurrency()
+  const [currencyCode, setCurrencyCode] = useState(current.currencyCode)
+  return <CurrencyScope code={currencyCode}><CurrencyWizard currencyCode={currencyCode} onCurrencyChange={code => setCurrencyCode(code as typeof currencyCode)} /></CurrencyScope>
+}
+
+function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: string; onCurrencyChange: (code: string) => void }) {
+  const { formatMoney } = useCurrency()
+
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const qc = useQueryClient()
 
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(0)
   const [income, setIncome] = useState('')
   // Drive AmountTicker's roll/flash/delta animation — mirrors SetupWizard.dc.html's
   // tick/dir/delta: `tick` forces a remount (replays the per-character entrance),
@@ -170,7 +181,7 @@ export default function SetupScreen() {
     return out
   }
 
-  const canAdvance =
+  const canAdvance = step === 0 ? true :
     step === 1
       ? Number(income) > 0
       : step === 2
@@ -222,7 +233,7 @@ export default function SetupScreen() {
 
   const back = () => {
     setError('')
-    setStep((s) => Math.max(1, s - 1))
+    setStep((s) => Math.max(0, s - 1))
   }
 
   const openRow = (key: string) => {
@@ -286,7 +297,8 @@ export default function SetupScreen() {
         await updateBudget(month, catLabel, { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' })
       }
 
-      await updateUser({ onboardedAt: new Date().toISOString() })
+      const savedUser = await updateUser({ currencyCode, onboardedAt: new Date().toISOString() })
+      qc.setQueryData(['user'], savedUser)
       await qc.invalidateQueries()
       // signalOnboarded() is deferred to the celebration screen's CTA — firing
       // it here would flip the root layout's guard and swap this screen out
@@ -331,7 +343,7 @@ export default function SetupScreen() {
 
   const [title, blurb] = TITLES[step]
   const rem = remainder()
-  const hint =
+  const hint = step === 0 ? '' :
     step === 1
       ? canAdvance
         ? ''
@@ -345,10 +357,10 @@ export default function SetupScreen() {
             ? `${selectedCatCount} categories across ${selectedGroups.length} groups`
             : 'Pick at least one category'
           : canAdvance
-            ? 'Every rupee assigned'
+            ? 'Everything assigned'
             : rem > 0
-              ? `${formatINR(rem)} still to assign`
-              : `${formatINR(-rem)} over your income`
+              ? `${formatMoney(rem)} still to assign`
+              : `${formatMoney(-rem)} over your income`
 
   const remColors = remainderColors(rem, tokens)
   const remLabel = rem === 0 ? 'All assigned' : rem < 0 ? 'Over by' : 'Left to assign'
@@ -358,31 +370,35 @@ export default function SetupScreen() {
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.topRow}>
         <Pressable
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
           onPress={back}
-          disabled={step === 1}
-          style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border, opacity: step === 1 ? 0.35 : 1 }]}
+          disabled={step === 0}
+          style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border, opacity: step === 0 ? 0.35 : 1 }]}
         >
           <ArrowLeft size={16} color={tokens.text} />
         </Pressable>
         <View style={styles.dots}>
-          {[1, 2, 3, 4].map((n) => (
+          {[0, 1, 2, 3, 4].map((n) => (
             <StepDot key={n} active={n <= step} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
           ))}
         </View>
-        <Text style={[styles.stepCounter, { color: tokens.text3 }]}>step {step}/4</Text>
+        <Text style={[styles.stepCounter, { color: tokens.text3 }]}>step {step + 1}/5</Text>
       </View>
 
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{title}</Text>
       <Text style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{blurb}</Text>
 
+      {step === 0 && (<View style={styles.stepBody}><CurrencyPicker value={currencyCode} onChange={onCurrencyChange} /></View>)}
+
       {step === 1 && (
         <View style={styles.stepBody}>
           <View style={styles.amountWrap}>
-            <AmountTicker text={income ? formatINR(Number(income)) : '₹0'} tick={tick} dir={dir} delta={delta} dimmed={!income} />
+            <AmountTicker text={income ? formatMoney(Number(income)) : formatMoney(0)} tick={tick} dir={dir} delta={delta} dimmed={!income} />
           </View>
           <View style={styles.quickRow}>
             {QUICK_PICKS.map((v) => (
-              <QuickPickChip key={v} label={formatINR(Number(v))} on={income === v} onPress={() => pickIncome(v)} />
+              <QuickPickChip key={v} label={formatMoney(Number(v))} on={income === v} onPress={() => pickIncome(v)} />
             ))}
           </View>
           <View style={{ flex: 1, minHeight: 10 }} />
@@ -460,7 +476,7 @@ export default function SetupScreen() {
           <View style={[styles.remChip, { backgroundColor: remColors.bg, borderColor: remColors.color }]}>
             <Text style={[styles.remLabel, { color: remColors.color }]}>{remLabel}</Text>
             <Text style={[styles.remValue, { color: remColors.color, fontFamily: fontFamily.displaySemiBold }]}>
-              {formatINR(Math.abs(rem))}
+              {formatMoney(Math.abs(rem))}
             </Text>
           </View>
           <View style={styles.splitRow}>
@@ -487,7 +503,7 @@ export default function SetupScreen() {
                     <Text style={{ fontSize: 14 }}>{g.emoji}</Text>
                     <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>{g.name.toUpperCase()}</Text>
                     <Text style={[styles.sectionSubtotal, { color: tokens.text2, fontFamily: fontFamily.displaySemiBold }]}>
-                      {formatINR(subtotal)}
+                      {formatMoney(subtotal)}
                     </Text>
                   </View>
                   {rows.map((c) => {
@@ -510,7 +526,7 @@ export default function SetupScreen() {
                           {c.name}
                         </Text>
                         <Text style={[styles.assignAmount, { color: v ? tokens.text : tokens.text3, fontFamily: fontFamily.displaySemiBold }]}>
-                          {formatINR(v)}
+                          {formatMoney(v)}
                         </Text>
                       </Pressable>
                     )
@@ -549,12 +565,12 @@ export default function SetupScreen() {
               <View style={[styles.remChipSmall, { backgroundColor: remColors.bg, borderColor: remColors.color }]}>
                 <Text style={[styles.remLabelSmall, { color: remColors.color }]}>{remLabel}</Text>
                 <Text style={[styles.remValueSmall, { color: remColors.color, fontFamily: fontFamily.displaySemiBold }]}>
-                  {formatINR(Math.abs(rem))}
+                  {formatMoney(Math.abs(rem))}
                 </Text>
               </View>
             </View>
             <Text style={[styles.sheetAmount, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {formatINR(amounts[activeCat.key] ?? 0)}
+              {formatMoney(amounts[activeCat.key] ?? 0)}
             </Text>
             {rem !== 0 && (
               <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}>

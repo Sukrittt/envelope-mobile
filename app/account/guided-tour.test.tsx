@@ -34,7 +34,7 @@ it('funding every envelope drives Ready to Assign to zero', async () => {
   fireEvent.press(getByText('Assign ₹6,000'))
   fireEvent.press(getByText('Assign ₹5,000'))
 
-  await waitFor(() => expect(getByText('Every rupee has a job ✓')).toBeTruthy())
+  await waitFor(() => expect(getByText('All your money has a job ✓')).toBeTruthy())
   expect(getAllByText('✓ Funded').length).toBe(4)
 })
 

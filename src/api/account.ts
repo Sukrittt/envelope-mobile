@@ -1,11 +1,14 @@
+import { writeCurrencyPreference } from '@/src/lib/currencyPreference'
 import { unregisterDevicePushToken } from '@/src/lib/notifications'
-import { sessionId } from './accessMode'
+import { sessionId, currentUserId } from './accessMode'
 // User profile, notifications and data-management calls — all post-auth, so
 // they ride apiFetch's automatic bearer-token attachment (unlike magicAuth.ts,
 // which talks to the API before any session exists).
 import { apiFetch } from './client'
 
 export interface UserProfile {
+  _id?: string
+  currencyCode?: string
   email: string
   emailVerified: boolean
   name?: string | null
@@ -30,19 +33,25 @@ export interface SessionRow {
 }
 
 export async function getUser(): Promise<UserProfile> {
+  const userId = currentUserId()
   const resp = await apiFetch('/api/user')
   if (!resp.ok) throw new Error(`Failed to load user: ${resp.status}`)
-  return resp.json()
+  const user: UserProfile = await resp.json()
+  await writeCurrencyPreference(user.currencyCode, userId)
+  return user
 }
 
 export async function updateUser(patch: Partial<UserProfile>): Promise<UserProfile> {
+  const userId = currentUserId()
   const resp = await apiFetch('/api/user', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   })
   if (!resp.ok) throw new Error(`Failed to update user: ${resp.status}`)
-  return resp.json()
+  const user: UserProfile = await resp.json()
+  await writeCurrencyPreference(user.currencyCode, userId)
+  return user
 }
 
 export async function deleteAccount(email: string): Promise<void> {

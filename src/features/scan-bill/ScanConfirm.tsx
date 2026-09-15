@@ -1,6 +1,7 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { PopIn } from "@/src/components/shared/PopIn";
 import { Card } from "@/src/components/ui/Card";
-import { formatDate, formatINR } from "@/src/lib/format";
+import { formatDate } from "@/src/lib/format"
 import { fontFamily } from "@/src/theme/fonts";
 import {
   Pressable,
@@ -17,6 +18,8 @@ import { styles } from "./styles";
 import type { useScanBillController } from "./useScanBillController";
 type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "insets" | "setPhase" | "date" | "items" | "peopleCount" | "feeAggregate" | "hasFee" | "feeShare" | "billTotal" | "myShare" | "sharePct" | "buckets" | "handleConfirm" | "categoryLabel" | "addExpense">;
 export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, date, items, peopleCount, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets, handleConfirm, categoryLabel, addExpense }: Props) {
+  const { formatMoney, currencySymbol } = useCurrency()
+
   return (<>
     <ScrollView
       style={styles.scroll}
@@ -47,7 +50,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
             }}
           >
             {formatDate(date)} · from a scanned bill of{" "}
-            {formatINR(billTotal)}
+            {formatMoney(billTotal)}
           </Text>
         </Card>
       </PopIn>
@@ -150,7 +153,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                     fontSize: type.body,
                   }}
                 >
-                  {formatINR(b.share)}
+                  {formatMoney(b.share)}
                 </Text>
                 <Text
                   style={{
@@ -159,7 +162,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                     fontSize: type.micro,
                   }}
                 >
-                  of {formatINR(b.gross)}
+                  of {formatMoney(b.gross)}
                 </Text>
               </View>
             </PopIn>
@@ -200,7 +203,8 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                     fontSize: type.body,
                   }}
                 >
-                  ₹
+
+                  {currencySymbol}
                 </Text>
               </View>
               <View style={{ flex: 1, gap: 2 }}>
@@ -220,7 +224,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                     fontSize: type.micro,
                   }}
                 >
-                  {formatINR(feeAggregate)} split equally across{" "}
+                  {formatMoney(feeAggregate)} split equally across{" "}
                   {peopleCount} people
                 </Text>
               </View>
@@ -231,7 +235,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                   fontSize: type.body,
                 }}
               >
-                {formatINR(feeShare)}
+                {formatMoney(feeShare)}
               </Text>
             </PopIn>
           )}
@@ -257,7 +261,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                 fontSize: type.body,
               }}
             >
-              {formatINR(billTotal)}
+              {formatMoney(billTotal)}
             </Text>
           </View>
           <RevealBar
@@ -274,7 +278,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                 fontSize: type.caption,
               }}
             >
-              You {formatINR(myShare)} · {sharePct}%
+              You {formatMoney(myShare)} · {sharePct}%
             </Text>
             <Text
               style={{
@@ -283,7 +287,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
                 fontSize: type.caption,
               }}
             >
-              Others {formatINR(billTotal - myShare)}
+              Others {formatMoney(billTotal - myShare)}
             </Text>
           </View>
         </Card>
@@ -321,7 +325,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
         >
           {addExpense.isPending
             ? "Saving…"
-            : `Log ${formatINR(myShare)} to ${categoryLabel}`}
+            : `Log ${formatMoney(myShare)} to ${categoryLabel}`}
         </Text>
       </Pressable>
       <Pressable

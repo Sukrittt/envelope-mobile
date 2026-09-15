@@ -1,8 +1,9 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text } from 'react-native'
 import { Play } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import type { MonthComparison } from '@/src/lib/monthly'
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
  *  Insights is a different rendering of the same total; this is the only
  *  place that says whether it's a good number. */
 export function ComparisonLine({ comparison, hideAmounts = false }: Props) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, type } = useTheme()
   const { spent, baseline, deltaPct, inProgress, projected, driver, days } = comparison
   const spentText = formatCurrency(spent, hideAmounts)

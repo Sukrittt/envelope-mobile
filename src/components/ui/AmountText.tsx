@@ -1,8 +1,9 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef } from 'react'
 import { View, Text, Animated, Easing, StyleSheet, type TextStyle, type StyleProp } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { usePrivacy } from '@/src/context/PrivacyContext'
 
 /**
@@ -48,6 +49,8 @@ export function AmountText({
    * for instances that stay mounted across the change. */
   id?: string
 }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const hide = ignoreHide ? false : hideAmounts

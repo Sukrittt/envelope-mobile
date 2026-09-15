@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 // Dev iteration surface for the three widget layouts — renders the same JSX
 // WidgetSync pushes to the home screen, at real dp sizes, inside the app.
 // WidgetPreview goes through the same tree builder as the RemoteViews the
@@ -28,6 +29,8 @@ import { EnvelopeBarWidget } from "@/src/widgets/EnvelopeBarWidget";
 import { EnvelopeMiniWidget } from "@/src/widgets/EnvelopeMiniWidget";
 
 export default function WidgetPreviewScreen() {
+  const { currencyCode } = useCurrency()
+
   const { tokens, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -74,6 +77,7 @@ export default function WidgetPreviewScreen() {
               expensesQ.data!,
               daysLeftInMonth(),
               todayIST(),
+              currencyCode,
             );
             return (
               <>

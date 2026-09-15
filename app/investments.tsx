@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,7 +12,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { formatCurrency, formatDateTime } from '@/src/lib/format'
+import { formatDateTime } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
@@ -86,6 +87,8 @@ const HOLDINGS_ITEM_STAGGER_MS = 45
 const HOLDINGS_ITEM_STAGGER_CAP_INDEX = 6
 
 export default function InvestmentsScreen() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const { refreshing, onRefresh } = useRefresh()
@@ -322,6 +325,8 @@ function SheetOption({
 }
 
 function EventRow({ event, tokens, hideAmounts }: { event: HoldingEventRow; tokens: ThemeTokens; hideAmounts: boolean }) {
+  const { formatCurrency } = useCurrency()
+
   const amount = Number(event.amount) || 0
   const prev = Number(event.previous_value) || 0
   const next = Number(event.new_value) || 0

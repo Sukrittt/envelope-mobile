@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
@@ -32,6 +33,8 @@ function str(v: string | string[] | undefined): string {
 
 // Route-param driven per holding-action.tsx's pattern: {service} → edit mode, no params → add.
 export default function SubscriptionModal() {
+  const { currencySymbol } = useCurrency()
+
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -184,9 +187,9 @@ export default function SubscriptionModal() {
         </View>
 
         <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Amount (₹)</Text>
+          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Amount ({currencySymbol})</Text>
           <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-            <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
+            <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{currencySymbol}</Text>
             <TextInput
               value={amount}
               onChangeText={setAmount}

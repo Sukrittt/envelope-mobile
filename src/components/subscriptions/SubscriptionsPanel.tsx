@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
@@ -13,7 +14,7 @@ import Reanimated, {
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
-import { formatCurrency, formatDateShort } from "@/src/lib/format";
+import { formatDateShort } from "@/src/lib/format"
 import { AmountText } from "@/src/components/ui/AmountText";
 import {
   AllocationBar,
@@ -204,6 +205,8 @@ function SubscriptionRowItem({
   onPress: () => void;
   onViewTransactions?: () => void;
 }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, space, radius, type: t } = useTheme();
   const { hideAmounts } = usePrivacy();
   const press = usePressSpring(0.98);

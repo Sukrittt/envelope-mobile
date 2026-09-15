@@ -1,3 +1,4 @@
+import { formatMoney, resolveCurrency } from '@/src/lib/currencies'
 // The only I/O the widget system does. The headless widget task and the app's
 // WidgetSync component both read/write this one key — kept separate from
 // data.ts (pure) and WidgetSync.tsx (react-query) so the headless task can
@@ -10,12 +11,12 @@ const SNAPSHOT_KEY = 'mc-widget'
 /** A row written by an older app version won't have `icon`/`overspent` —
  *  the headless task can run against yesterday's snapshot before the app
  *  ever reopens to overwrite it (e.g. right after an app update). */
-function backfillRow(r: Partial<WidgetRow>): WidgetRow {
+function backfillRow(r: Partial<WidgetRow>, currencyCode: string): WidgetRow {
   return {
     icon: r.icon ?? '',
     name: r.name ?? '',
     pct: r.pct ?? 0,
-    available: r.available ?? '₹0',
+    available: r.available ?? formatMoney(0, currencyCode),
     overspent: r.overspent ?? false,
   }
 }
@@ -34,10 +35,11 @@ export async function readSnapshot(): Promise<WidgetData | null> {
     // app update, when the OS pokes an existing widget instance).
     const parsed = JSON.parse(raw) as Partial<WidgetData>
     return {
-      totalLeft: parsed.totalLeft ?? '₹0',
+      currencyCode: resolveCurrency(parsed.currencyCode),
+      totalLeft: parsed.totalLeft ?? formatMoney(0, parsed.currencyCode),
       daysLeft: parsed.daysLeft ?? 0,
       updatedAt: parsed.updatedAt ?? 0,
-      rows: (parsed.rows ?? []).map(backfillRow),
+      rows: (parsed.rows ?? []).map(r => backfillRow(r, resolveCurrency(parsed.currencyCode))),
       chips: parsed.chips ?? [],
       today: parsed.today ?? [],
       weeklyTrend: parsed.weeklyTrend ?? null,

@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef } from 'react'
 import { View, StyleSheet } from 'react-native'
 import Animated, {
@@ -12,7 +13,7 @@ import Animated, {
 import { Play } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatINR } from '@/src/lib/format'
+
 
 // SetupWizard.dc.html:416-456 (ticker), reworked per-character into an
 // odometer roll: each digit that actually changed scrolls past its old value
@@ -148,6 +149,8 @@ function Digit({
 }
 
 function DeltaBadge({ tick, delta }: { tick: number; delta: number }) {
+  const { formatMoney } = useCurrency()
+
   const { tokens } = useTheme()
   const opacity = useSharedValue(0)
   const translateY = useSharedValue(0)
@@ -169,7 +172,7 @@ function DeltaBadge({ tick, delta }: { tick: number; delta: number }) {
   }, [tick])
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: translateY.value }] }))
-  const label = delta > 0 ? `+${formatINR(delta)}` : `−${formatINR(-delta)}`
+  const label = delta > 0 ? `+${formatMoney(delta)}` : `−${formatMoney(-delta)}`
   const color = delta > 0 ? tokens.mint : tokens.coral
 
   return (

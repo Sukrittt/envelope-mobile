@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -170,6 +171,8 @@ function AnimatedUsedPercentage({
  * of the card's first paint.
  */
 export default function ExpenseAddedScreen() {
+  const { formatMoney } = useCurrency()
+
   const { tokens, space, type, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -455,7 +458,7 @@ export default function ExpenseAddedScreen() {
                   },
                 ]}
               >
-                {`left of ₹${Math.round(funded).toLocaleString("en-IN")}`}
+                {`left of ${formatMoney(Math.round(funded))}`}
               </Text>
             </View>
 
@@ -496,7 +499,7 @@ export default function ExpenseAddedScreen() {
                   },
                 ]}
               >
-                {`₹${perDay.toLocaleString("en-IN")}/day to stay on track`}
+                {`${formatMoney(perDay)}/day to stay on track`}
               </Text>
             </Reanimated.View>
           </Reanimated.View>

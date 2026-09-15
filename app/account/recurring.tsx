@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import {
   View,
   Text,
@@ -17,7 +18,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { usePrivacy } from "@/src/context/PrivacyContext";
-import { formatCurrency, formatDateShort } from "@/src/lib/format";
+import { formatDateShort } from "@/src/lib/format"
 import { splitEmoji } from "@/src/lib/emoji";
 import { toISTDateString } from "@/src/lib/date";
 import { useRecurringExpenses } from "@/src/hooks/useRecurringExpenses";
@@ -93,6 +94,7 @@ function dueLabel(nextRunDate: string): string {
  * next cycle. One schedule owner, and it's the server.
  */
 export default function RecurringExpensesScreen() {
+
   const { tokens } = useTheme();
   const { hideAmounts } = usePrivacy();
   const online = useOnline();
@@ -314,6 +316,8 @@ export default function RecurringExpensesScreen() {
     row: RecurringExpenseRow;
     index: number;
   }) {
+  const { formatCurrency } = useCurrency()
+
     const isActive = row.status === "active";
     const category = splitEmoji(row.category);
     const dotColor =

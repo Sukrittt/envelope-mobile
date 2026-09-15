@@ -383,3 +383,13 @@ describe("toWidgetData", () => {
     expect(data.daysLeft).toBe(11);
   });
 });
+
+it('carries the selected currency into headless widget snapshots', () => {
+  const state = stateWithSpends({ '🍔 Food': 200 })
+  const usd = toWidgetData(state, [], 20, '2026-08-05', 'USD')
+  const aed = toWidgetData(state, [], 20, '2026-08-05', 'AED')
+  expect(usd.currencyCode).toBe('USD')
+  expect(usd.rows.find(r => r.name === 'Food')?.available).toBe('$800')
+  expect(aed.rows.find(r => r.name === 'Food')?.available).toBe('AED 800')
+  expect(aed.totalLeft).toBe(usd.totalLeft.replace('$', 'AED '))
+})

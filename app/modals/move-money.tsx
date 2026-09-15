@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -12,7 +13,7 @@ import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
 import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
 import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
-import { formatAmountInput,formatCurrency,formatINR } from '@/src/lib/format'
+
 import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -54,6 +55,8 @@ interface SourceItem {
 }
 
 export default function MoveMoneyModal() {
+  const { formatAmountInput, formatCurrency, formatMoney } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
@@ -304,7 +307,7 @@ export default function MoveMoneyModal() {
               {QUICK_PICKS.map((v) => (
                 <QuickChip
                   key={v}
-                  label={formatINR(v)}
+                  label={formatMoney(v)}
                   active={amount === v}
                   onPress={() => {
                     setAmountStr(String(v))
@@ -494,6 +497,8 @@ function DestinationCard({
   radius: Record<string, number>
   type: Record<string, number>
 }) {
+  const { formatCurrency } = useCurrency()
+
   const { icon, text } = splitEmoji(targetCategoryName)
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
@@ -566,6 +571,8 @@ function PickedSourceRow({
   radius: Record<string, number>
   type: Record<string, number>
 }) {
+  const { formatCurrency, currencySymbol } = useCurrency()
+
   function commit(raw: string) {
     const parsed = Math.max(0, Math.min(max, Math.round(Number(raw)) || 0))
     onChange(parsed)
@@ -595,7 +602,7 @@ function PickedSourceRow({
           </Pressable>
         </View>
         <View style={[styles.allocInputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.sm, paddingHorizontal: space.sm }]}>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>₹</Text>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{currencySymbol}</Text>
           <TextInput
             value={String(alloc)}
             onChangeText={commit}
@@ -625,6 +632,8 @@ function PoolSourceRow({
   radius: Record<string, number>
   type: Record<string, number>
 }) {
+  const { formatCurrency } = useCurrency()
+
   return (
     <Reanimated.View style={styles.sourceRowLayer} layout={SOURCE_TRANSITION} entering={FadeIn.duration(150)} exiting={SOURCE_EXIT}>
       <Pressable

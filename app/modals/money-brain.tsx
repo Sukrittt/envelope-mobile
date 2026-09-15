@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
@@ -22,7 +23,7 @@ import { useGroups } from '@/src/hooks/useGroups'
 import { useMoneyBrief } from '@/src/hooks/useMoneyBrief'
 import { useChatSessions, useChatSessionsCount } from '@/src/hooks/useChatSessions'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
-import { formatCurrency } from '@/src/lib/format'
+
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
@@ -51,6 +52,8 @@ const ITEM_STAGGER_MS = 45
 const ITEM_STAGGER_CAP_INDEX = 6
 
 export default function MoneyBrainModal() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const { hideAmounts } = usePrivacy()

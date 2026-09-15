@@ -72,13 +72,26 @@ jest.mock('@/src/api/account', () => ({ getUser: jest.fn() }))
 
 const mockInitAccessMode = initAccessMode as jest.MockedFunction<typeof initAccessMode>
 const mockGetUser = getUser as jest.MockedFunction<typeof getUser>
+const SPLASH_MIN_DURATION_MS = 5_000
+
+async function elapseSplashMinimum() {
+  await act(async () => {
+    jest.advanceTimersByTime(SPLASH_MIN_DURATION_MS)
+  })
+}
 
 beforeEach(() => {
+  jest.useFakeTimers()
   jest.clearAllMocks()
   mockFontsLoaded = false
   mockSegments = []
   mockPathname = '/'
   mockGlobalParams = {}
+})
+
+afterEach(() => {
+  jest.clearAllTimers()
+  jest.useRealTimers()
 })
 
 describe('RootLayout', () => {
@@ -100,6 +113,12 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId } = render(<RootLayout />)
 
+    await act(async () => {})
+    act(() => jest.advanceTimersByTime(SPLASH_MIN_DURATION_MS - 1))
+    expect(getByTestId('screen:loading')).toBeTruthy()
+    expect(queryByTestId('screen:(auth)/welcome')).toBeNull()
+
+    act(() => jest.advanceTimersByTime(1))
     await waitFor(() => expect(getByTestId('screen:(auth)/welcome')).toBeTruthy())
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:(tabs)')).toBeNull()
@@ -113,6 +132,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId } = render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(getByTestId('screen:loading')).toBeTruthy())
     expect(queryByTestId('screen:(tabs)')).toBeNull()
 
@@ -120,30 +140,34 @@ describe('RootLayout', () => {
       resolveUser({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
     })
 
-    // Default waitFor timeout (1000ms) on purpose: a minimum splash duration
-    // used to hold this for 2s on every cold boot, and must not come back.
+    // The minimum has already elapsed, so resolving onboarding releases the
+    // loading route immediately rather than starting another five-second wait.
     await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(queryByTestId('screen:loading')).toBeNull()
     expect(queryByTestId('screen:setup')).toBeNull()
   })
 
-  it('keeps the native splash up until routing resolves, then hides it', async () => {
+  it('hides the native splash once fonts are ready, without waiting on auth or onboarding', async () => {
+    // Neither ever resolves in this test — proves hideAsync doesn't wait on them.
     mockFontsLoaded = true
-    mockInitAccessMode.mockResolvedValue('real')
-    let resolveUser: (u: UserProfile) => void = () => {}
-    mockGetUser.mockReturnValue(new Promise<UserProfile>((resolve) => { resolveUser = resolve }))
+    mockInitAccessMode.mockReturnValue(new Promise(() => {}))
+    mockGetUser.mockReturnValue(new Promise(() => {}))
 
-    const { getByTestId } = render(<RootLayout />)
+    render(<RootLayout />)
 
-    await waitFor(() => expect(mockGetUser).toHaveBeenCalled())
+    // The /loading route (BirdLandingSplash) is what's left covering the
+    // still-pending resolve underneath — not the native splash. See the
+    // splash-hide effect's comment in app/_layout.tsx.
+    await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalled())
+  })
+
+  it('does not hide the native splash before fonts are ready', () => {
+    mockFontsLoaded = false
+    mockInitAccessMode.mockResolvedValue(null)
+
+    render(<RootLayout />)
+
     expect(SplashScreen.hideAsync).not.toHaveBeenCalled()
-
-    await act(async () => {
-      resolveUser({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
-    })
-
-    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
-    expect(SplashScreen.hideAsync).toHaveBeenCalled()
   })
 
   it('routes a signed-in user who has not onboarded to setup', async () => {
@@ -153,6 +177,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, queryByTestId, getAllByTestId } = render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
     expect(queryByTestId('screen:(tabs)')).toBeNull()
     // Setup must be the first registered screen in this state too — a fallback
@@ -171,6 +196,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/modals/log-expense'))
   })
 
@@ -182,6 +208,7 @@ describe('RootLayout', () => {
 
     render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
   })
 
@@ -194,6 +221,7 @@ describe('RootLayout', () => {
 
     const { getByTestId } = render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(mockReplace).not.toHaveBeenCalled()
   })
@@ -210,6 +238,7 @@ describe('RootLayout', () => {
 
     const { getByTestId, getAllByTestId } = render(<RootLayout />)
 
+    await elapseSplashMinimum()
     await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
     expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:modals/log-expense')
     expect(mockPush).not.toHaveBeenCalled()

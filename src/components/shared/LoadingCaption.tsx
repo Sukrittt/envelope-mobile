@@ -6,7 +6,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const PHRASES = [
   'Balancing the envelopes…',
-  'Giving every rupee a job…',
+  'Giving your money a job…',
   "Counting what's Ready to Assign…",
   "Chasing down last month's leftovers…",
   'Reconciling the chaos…',

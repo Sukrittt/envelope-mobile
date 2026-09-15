@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useRef, useState } from "react";
 import {
   View,
@@ -41,7 +42,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { usePrivacy } from "@/src/context/PrivacyContext";
-import { daysUntil, formatCurrency, formatDateShort } from "@/src/lib/format";
+import { daysUntil, formatDateShort } from "@/src/lib/format"
 import {
   getArchive,
   restoreArchivedItem,
@@ -114,6 +115,8 @@ const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
 const PAGE_SIZE = 10;
 
 export default function ArchiveScreen() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme();
   const { hideAmounts } = usePrivacy();
   const online = useOnline();

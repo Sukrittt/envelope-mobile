@@ -1,9 +1,10 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
 import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
 import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
@@ -36,6 +37,8 @@ export function EnvelopeGroup({
   onToggle,
   onSheetOpenChange,
 }: Props) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const totalAvailable = envelopes.reduce((s, e) => s + e.available, 0)
   const chevronStyle = useAnimatedStyle(() => ({

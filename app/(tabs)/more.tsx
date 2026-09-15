@@ -1,3 +1,4 @@
+import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, RefreshControl, Switch, Linking, Platform, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
@@ -253,6 +254,8 @@ export default function MoreScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>PREFERENCES</Text>
             <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <CurrencySetting />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <View style={styles.row}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Appearance</Text>
                 <View style={[styles.segmented, { backgroundColor: tokens.inputBg }]}>

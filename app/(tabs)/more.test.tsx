@@ -8,7 +8,8 @@ import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import MoreScreen from './more'
 
-jest.mock('@/src/hooks/useUser', () => ({ useUser: jest.fn() }))
+jest.mock('@/src/hooks/useUser', () => ({
+  useUpdateUser: () => ({ mutate: jest.fn(), isPending: false, isError: false }), useUser: jest.fn() }))
 jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: jest.fn() }))
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({

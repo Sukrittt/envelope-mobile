@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
@@ -10,7 +11,7 @@ import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
 import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
-import { formatAmountInput,formatCurrency,formatINR } from '@/src/lib/format'
+
 import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -99,6 +100,8 @@ function EditAmountBody({
   lastMonthAssigned: number | undefined
   readyToAssign: number
 }) {
+  const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
@@ -223,7 +226,7 @@ function EditAmountBody({
           {QUICK_PICKS.map((v) => (
             <QuickChip
               key={v}
-              label={formatINR(v)}
+              label={formatMoney(v)}
               active={value === v}
               onPress={() => setAmountText(String(v))}
               tokens={tokens}
@@ -297,6 +300,8 @@ function EnvelopeCard({
   radius: Record<string, number>
   type: Record<string, number>
 }) {
+  const { formatCurrency } = useCurrency()
+
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
       <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>

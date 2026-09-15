@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useCurrency } from '@/src/context/CurrencyContext'
+import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
@@ -20,7 +21,7 @@ import {
   monthLabel,
   type Envelope,
 } from '@/src/lib/envelope'
-import { formatCurrency } from '@/src/lib/format'
+
 import { EMPTY } from '@/src/lib/constants'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
@@ -34,6 +35,7 @@ import { IconButton } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
+import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and
@@ -41,7 +43,9 @@ import { useOnline } from '@/src/lib/netStatus'
  * moved to /insights — six modules on one scroll left nothing room to be large.
  */
 export default function HomeScreen() {
-  const { tokens, space, type, radius } = useTheme()
+  const { formatCurrency } = useCurrency()
+
+  const { scheme, tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
   const isFocused = useIsFocused()
@@ -61,6 +65,7 @@ export default function HomeScreen() {
   // do since only one can be open at a time in practice, but a count is safe
   // against overlap and avoids relying on that assumption.
   const [openSheetCount, setOpenSheetCount] = useState(0)
+  const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
@@ -177,7 +182,18 @@ export default function HomeScreen() {
   return (
     <AnimatedTabContent>
       <Screen
-        title="Aviary"
+        title={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Aviary app icon"
+            accessibilityHint="Replays the bird landing animation"
+            hitSlop={8}
+            onPress={() => birdMarkRef.current?.replay()}
+            style={styles.appIconButton}
+          >
+            <BirdLandingMark ref={birdMarkRef} size={44} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} />
+          </Pressable>
+        }
         actions={
           <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
@@ -299,6 +315,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  appIconButton: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },

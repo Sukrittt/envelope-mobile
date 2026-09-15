@@ -1,9 +1,10 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import type { WrappedData } from '@/src/api/wrapped'
-import { formatCurrency } from '@/src/lib/format'
+
 import { fontFamily } from '@/src/theme/fonts'
 import { WrappedCard, WRise } from './WrappedCard'
 import { getArchetype } from './WrappedCards'
@@ -21,6 +22,8 @@ export function ShareCard({
   onColor: string
   onRestart?: () => void
 }) {
+  const { formatCurrency } = useCurrency()
+
   const captureTarget = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
   const [capturing, setCapturing] = useState(false)

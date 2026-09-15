@@ -11,7 +11,8 @@ import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useTourProgress } from '@/src/hooks/useTourProgress'
 import { StepDot } from '@/src/components/onboarding/StepDot'
-import { CHAPTERS } from '@/src/components/tour/content'
+import { useTourContent } from '@/src/components/tour/useTourContent'
+
 import { AssignDemo } from '@/src/components/tour/demos/AssignDemo'
 import { LogDemo } from '@/src/components/tour/demos/LogDemo'
 import { MoveDemo } from '@/src/components/tour/demos/MoveDemo'
@@ -27,6 +28,8 @@ type View3 = 'hub' | 'chapter' | 'done'
  * src/components/tour/content.ts, so nothing here can touch real money.
  */
 export default function GuidedTourScreen() {
+  const { CHAPTERS } = useTourContent()
+
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -234,6 +237,8 @@ function Hub({
   onOpen: (index: number) => void
   onStart: () => void
 }) {
+  const { CHAPTERS } = useTourContent()
+
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const bob = useSharedValue(0)
@@ -261,7 +266,7 @@ function Hub({
           </Reanimated.View>
           <View style={styles.headerText}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.heading - 2, lineHeight: 30 }}>
-              Every rupee gets a job.
+              Your money gets a job.
             </Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, lineHeight: 19 }}>
               Six short chapters. All of them are pokeable, none of them touch your real money.
@@ -348,6 +353,8 @@ function Done({
   onFinish: () => void
   onStartOver: () => void
 }) {
+  const { CHAPTERS } = useTourContent()
+
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const doneCount = done.size

@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Check, ListFilter, Play } from "lucide-react-native";
@@ -15,7 +16,7 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
-import { formatCurrency } from "@/src/lib/format";
+
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -141,6 +142,8 @@ export function CategoryBreakdown({
   leftover,
   monthLabel,
 }: Props) {
+  const { currencySymbol, formatCurrency } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
@@ -575,7 +578,8 @@ export function CategoryBreakdown({
                   fontFamily: fontFamily.bodyBold,
                 }}
               >
-                ₹
+
+                {currencySymbol}
               </Text>
             </Pressable>
             <Pressable

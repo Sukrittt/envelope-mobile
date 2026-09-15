@@ -29,8 +29,8 @@ export function EnvelopeWidget({
   const rows = data.rows.slice(0, layout.rows);
   const today = data.today.slice(0, layout.today);
   const chips = data.chips.slice(0, layout.buttons);
-  const rupeeSign = data.totalLeft.slice(0, 1);
-  const amount = data.totalLeft.slice(1);
+  const prefix = data.totalLeft.match(/^[^0-9]+/)?.[0] ?? '';
+  const amount = data.totalLeft.slice(prefix.length);
 
   return (
     <WidgetSurface
@@ -46,7 +46,7 @@ export function EnvelopeWidget({
         }}
       >
         <TextWidget
-          text={rupeeSign}
+          text={prefix}
           style={{
             fontSize: 20,
             fontFamily: fontFamily.displayBold,

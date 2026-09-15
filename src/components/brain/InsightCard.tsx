@@ -1,8 +1,9 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 
 type Tone = 'mint' | 'violet' | 'coral' | 'warn'
 
@@ -34,6 +35,8 @@ const DEFAULT_ICON: Record<Tone, string> = {
 const EMOJI_RE = /\p{Extended_Pictographic}/u
 
 export function InsightCard({ icon, title, subtitle, valueLabel, amount, tone, hideAmounts }: Props) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const { solid: solidKey, soft: softKey } = TONE_KEYS[tone]
   const soft = tokens[softKey]

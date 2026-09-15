@@ -3,7 +3,7 @@
 // storage here — that's what makes this the only part of the widgets worth
 // unit-testing.
 import { splitEmoji } from "@/src/lib/emoji";
-import { formatINR } from "@/src/lib/format";
+import { formatMoney } from "@/src/lib/currencies";
 import type { Envelope, EnvelopeState } from "@/src/lib/envelope";
 import type { ExpenseRow } from "@/src/types";
 
@@ -32,6 +32,7 @@ export interface WeeklyTrend {
 }
 
 export interface WidgetData {
+  currencyCode?: string;
   totalLeft: string;
   daysLeft: number;
   updatedAt: number;
@@ -50,7 +51,7 @@ function isReal(e: Envelope): boolean {
 }
 
 /** Worst-off envelopes first — the ones worth a glance without opening the app. */
-export function selectRows(state: EnvelopeState): WidgetRow[] {
+export function selectRows(state: EnvelopeState, currencyCode = 'INR'): WidgetRow[] {
   return [...state.envelopes]
     .filter(isReal)
     .sort((a, b) => b.spentPct - a.spentPct)
@@ -61,7 +62,7 @@ export function selectRows(state: EnvelopeState): WidgetRow[] {
         icon,
         name: text,
         pct: e.spentPct,
-        available: formatINR(Math.round(e.available)),
+        available: formatMoney(Math.round(e.available), currencyCode),
         overspent: e.isOverspent,
       };
     });
@@ -90,6 +91,7 @@ export function selectChips(state: EnvelopeState): WidgetChip[] {
 export function selectToday(
   expenses: ExpenseRow[],
   todayDate: string,
+  currencyCode = 'INR',
 ): WidgetToday[] {
   return expenses
     .filter((e) => e.date === todayDate)
@@ -97,7 +99,7 @@ export function selectToday(
     .slice(0, TODAY_COUNT)
     .map((e) => ({
       item: e.item,
-      amount: formatINR(Math.round(Number(e.amount_inr) || 0)),
+      amount: formatMoney(Math.round(Number(e.amount_inr) || 0), currencyCode),
     }));
 }
 
@@ -202,17 +204,19 @@ export function toWidgetData(
   expenses: ExpenseRow[],
   daysLeft: number,
   todayDate: string,
+  currencyCode = 'INR',
 ): WidgetData {
   const totalLeft = state.envelopes
     .filter((e) => !e.isCreditCardPayment)
     .reduce((sum, e) => sum + e.available, 0);
   return {
-    totalLeft: formatINR(Math.round(totalLeft)),
+    currencyCode,
+    totalLeft: formatMoney(Math.round(totalLeft), currencyCode),
     daysLeft,
     updatedAt: Date.now(),
-    rows: selectRows(state),
+    rows: selectRows(state, currencyCode),
     chips: selectChips(state),
-    today: selectToday(expenses, todayDate),
+    today: selectToday(expenses, todayDate, currencyCode),
     weeklyTrend: weeklyTrend(expenses, todayDate),
   };
 }

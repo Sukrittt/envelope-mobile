@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -6,7 +7,7 @@ import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 
@@ -29,6 +30,8 @@ const isActionType = (v: unknown): v is ActionType =>
 // {name, action} when a row's action sheet option is tapped. (Not the
 // pick-inside-the-modal alternative — the sheet already picks the action.)
 export default function HoldingActionModal() {
+  const { formatCurrency, currencySymbol } = useCurrency()
+
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
@@ -98,7 +101,7 @@ export default function HoldingActionModal() {
         </Text>
 
         <View style={[styles.inputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-          <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>₹</Text>
+          <Text style={[styles.currency, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{currencySymbol}</Text>
           <TextInput
             value={amount}
             onChangeText={setAmount}

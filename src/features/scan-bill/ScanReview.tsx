@@ -1,10 +1,11 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Card } from "@/src/components/ui/Card";
 import { Chip } from "@/src/components/ui/Chip";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
-import { formatINR } from "@/src/lib/format";
+
 import {
   round2,
 } from "@/src/lib/split";
@@ -31,6 +32,8 @@ import { styles } from "./styles";
 import type { useScanBillController } from "./useScanBillController";
 type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "insets" | "setPhase" | "merchant" | "setMerchant" | "category" | "setCategory" | "items" | "peopleCount" | "feeItems" | "feeAggregate" | "hasFee" | "feeShare" | "billTotal" | "myShare" | "sharePct" | "updateItem" | "removeItem" | "addBlankItem" | "setAllMine" | "setPeopleCount" | "query" | "setQuery" | "selecting" | "selected" | "setSelected" | "categoryPickerOpen" | "setCategoryPickerOpen" | "selectedCategory" | "visibleItems" | "canProceed" | "toggleSelected" | "applyBulkDivisor">;
 export function ScanReview({ tokens, space, radius, type, insets, setPhase, merchant, setMerchant, category, setCategory, items, peopleCount, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelected, applyBulkDivisor }: Props) {
+  const { formatMoney } = useCurrency()
+
   return (<>
     <View
       style={{
@@ -69,7 +72,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                 fontSize: type.caption,
               }}
             >
-              of {formatINR(billTotal)} bill
+              of {formatMoney(billTotal)} bill
             </Text>
             <Text
               style={{
@@ -238,7 +241,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                     fontSize: type.body,
                   }}
                 >
-                  {formatINR(it.price)}
+                  {formatMoney(it.price)}
                 </Text>
               </Pressable>
             ) : (
@@ -291,7 +294,8 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                         marginRight: 6,
                       }}
                     >
-                      ₹{it.price}
+
+                      {formatMoney(it.price)}
                     </Text>
                     <Text
                       style={{
@@ -383,7 +387,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                   fontSize: type.body,
                 }}
               >
-                {formatINR(feeAggregate)}
+                {formatMoney(feeAggregate)}
               </Text>
             </View>
             {feeItems.length > 0 && (
@@ -467,7 +471,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                   fontSize: type.caption,
                 }}
               >
-                {formatINR(feeShare)}
+                {formatMoney(feeShare)}
               </Text>
             </View>
           </Card>
@@ -633,7 +637,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
             fontSize: type.bodyLg,
           }}
         >
-          Review {formatINR(myShare)} →
+          Review {formatMoney(myShare)} →
         </Text>
       </Pressable>
     </View>

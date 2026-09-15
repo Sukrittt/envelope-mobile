@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 // Pushes live data to the Android widgets while the app is running. Mounted
 // only while the signed-in screens are (see app/_layout.tsx) — same reason
 // TabBar's FirstExpenseHintGate is conditionally rendered rather than always
@@ -29,6 +30,7 @@ import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
 import { EnvelopeMiniWidget } from "./EnvelopeMiniWidget";
 
 export function WidgetSync() {
+  const { currencyCode } = useCurrency()
   const { preference } = useTheme();
   const budgetsQ = useBudgets();
   const expensesQ = useExpenses();
@@ -50,6 +52,7 @@ export function WidgetSync() {
       expensesQ.data,
       daysLeftInMonth(),
       todayIST(),
+      currencyCode,
     );
     void writeSnapshot(data);
 
@@ -91,6 +94,7 @@ export function WidgetSync() {
     categoriesQ.data,
     groupsQ.data,
     preference,
+    currencyCode,
   ]);
 
   return null;

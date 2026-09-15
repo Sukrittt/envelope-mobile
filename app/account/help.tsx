@@ -17,7 +17,7 @@ const ENVELOPES_EXPLAINER = [
   'Move it into envelopes like Rent, Food or Football.',
   'Log an expense against an envelope and only that envelope drops.',
   "Next month starts clean: the leftover is gone, but your plan carries over so you're not budgeting from zero.",
-  'Watch one number: Ready to Assign. At zero, every rupee has a job.',
+  'Watch one number: Ready to Assign. At zero, all your money has a job.',
 ]
 
 export default function HelpScreen() {

@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -22,7 +23,7 @@ import { Icon } from "@/src/components/shared/Icon";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
-import { formatCurrency } from "@/src/lib/format";
+
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import {
   useExpensesPage,
@@ -122,6 +123,8 @@ function keyOf(t: ExpenseRow): string {
 }
 
 export default function ActivityScreen() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, scheme } = useTheme();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();

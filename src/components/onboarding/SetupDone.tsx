@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Animated, {
@@ -13,7 +14,7 @@ import { Check } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatINR } from '@/src/lib/format'
+
 
 // SetupWizard.dc.html:44,53-93,537-542 — the "your budget is ready" celebration
 // screen. Each piece follows confettiFall: fade in by 12%, fall 320px while
@@ -67,14 +68,16 @@ export function SetupDone({
   assigned: number
   onFinish: () => void
 }) {
+  const { currencySymbol, formatMoney } = useCurrency()
+
   const { tokens } = useTheme()
   const confetti = useMemo(() => Array.from({ length: 18 }, (_, i) => i), [])
 
   const summary = [
-    { icon: '₹', label: 'Monthly income', value: formatINR(income) },
+    { icon: currencySymbol, label: 'Monthly income', value: formatMoney(income) },
     { icon: '📁', label: 'Groups', value: String(groupCount) },
     { icon: '✉️', label: 'Categories', value: String(categoryCount) },
-    { icon: '✓', label: 'Assigned', value: formatINR(assigned) },
+    { icon: '✓', label: 'Assigned', value: formatMoney(assigned) },
   ]
 
   return (

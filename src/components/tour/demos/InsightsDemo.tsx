@@ -1,16 +1,22 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
-import { BRAIN_ASKS, NORMAL_BARS, NORMAL_BAR_MAX } from '@/src/components/tour/content'
+import { useTourContent } from '@/src/components/tour/useTourContent'
+import { NORMAL_BARS, NORMAL_BAR_MAX } from '@/src/components/tour/content'
 
 const TYPE_INTERVAL_MS = 16
 const CHARS_PER_TICK = 2
 
 /** Chapter 5: the normal-month comparison, plus a Money Brain answer that types itself out. */
 export function InsightsDemo({ onComplete }: { onComplete: () => void }) {
+  const { BRAIN_ASKS } = useTourContent()
+
+  const { formatCurrency } = useCurrency()
+
   const { tokens, radius, space, type } = useTheme()
   const [asked, setAsked] = useState<string | null>(null)
   const [typed, setTyped] = useState('')

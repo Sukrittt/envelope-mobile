@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Svg, { Rect, Line } from 'react-native-svg'
@@ -11,7 +12,7 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { monthAbbrev } from '@/src/lib/envelope'
 
 const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
@@ -51,11 +52,6 @@ const STAGGER_STEP = 30
 const GROW_DURATION = 350
 
 /** Compact axis label: 1234 -> "₹1.2k", 950 -> "₹950". */
-function compactAxis(value: number, hide: boolean): string {
-  if (hide) return '₹••'
-  if (value >= 1000) return `₹${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`
-  return `₹${Math.round(value)}`
-}
 
 interface BarProps {
   x: number
@@ -103,6 +99,8 @@ export function TrendChart({
   partialKey,
   partialNote,
 }: Props) {
+  const { formatCompact, formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const reducedMotion = useReducedMotion()
   const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
@@ -142,9 +140,9 @@ export function TrendChart({
   return (
     <View>
       <View style={styles.axisRow}>
-        <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{compactAxis(max, hideAmounts)}</Text>
+        <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{formatCompact(max, hideAmounts)}</Text>
         {baseline != null && (
-          <Text style={[styles.axisLabel, { color: tokens.text3 }]}>avg {compactAxis(baseline, hideAmounts)}</Text>
+          <Text style={[styles.axisLabel, { color: tokens.text3 }]}>avg {formatCompact(baseline, hideAmounts)}</Text>
         )}
       </View>
       <View style={{ height }}>

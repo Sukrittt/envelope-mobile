@@ -1,8 +1,9 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { LOG_CHIPS, SPEND_ROWS } from '@/src/components/tour/content'
@@ -18,6 +19,8 @@ interface Logged {
 
 /** Chapter 2: log a quick expense and watch exactly one bar move. */
 export function LogDemo({ onComplete }: { onComplete: () => void }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, radius, space, type } = useTheme()
   const [logged, setLogged] = useState<Logged[]>([])
 

@@ -1,3 +1,5 @@
+import { readCurrencyPreference } from '@/src/lib/currencyPreference'
+import { CurrencyProvider } from '@/src/context/CurrencyProvider'
 import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
@@ -43,6 +45,8 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 })
 
+const SPLASH_MIN_DURATION_MS = 5_000
+
 /**
  * The nav is a sibling overlay above the whole root Stack, not scoped to
  * (tabs) or rendered per-screen: it must survive every push (log-expense
@@ -64,12 +68,19 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const segments = useSegments()
   const pathname = usePathname()
   const { mode: authScreenMode } = useGlobalSearchParams<{ mode?: string }>()
+  const [cachedCurrency, setCachedCurrency] = useState('INR')
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  const [splashMinimumElapsed, setSplashMinimumElapsed] = useState(false)
   // null = not yet known (still loading, or signed out) — the guards below
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashMinimumElapsed(true), SPLASH_MIN_DURATION_MS)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -86,6 +97,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     // take over — without this, hasSession stayed stale until the next app
     // boot and the user sat on the sign-in screen.
     const unsubscribe = accessMode.subscribe((m) => {
+      setCachedCurrency('INR')
       setHasSession(true)
       // Every cached query (brief, expenses, budgets, chat sessions...) is
       // keyed without a user id, so switching identity (guest <-> real,
@@ -122,6 +134,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     getUser()
       .then((u) => {
         if (cancelled) return
+        queryClient.setQueryData(['user'], u)
         setOnboarded(!!u.onboardedAt)
         // Piggybacks on the fetch this effect already makes, rather than
         // costing analytics its own request. Best effort: the id was already
@@ -129,8 +142,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         // leaves the person un-named.
         identifyUser(u)
       })
-      .catch(() => {
-        if (!cancelled) setOnboarded(true)
+      .catch(async () => {
+        const currency = await readCurrencyPreference()
+        if (!cancelled) { setCachedCurrency(currency); setOnboarded(true) }
       })
     return () => {
       cancelled = true
@@ -159,15 +173,19 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     })
   }, [])
 
-  const ready = fontsLoaded && authReady
+  const ready = fontsLoaded && authReady && splashMinimumElapsed
   const resolving = !ready || (hasSession && onboarded === null)
 
-  // The native splash covers the whole resolve (fonts, auth, onboarding fetch)
-  // and hides straight onto the first real screen. There's no JS splash in
-  // between: its 2s minimum and remote Lottie fetch were most of cold boot.
+  // The native splash only covers the pre-JS gap: it hides as soon as fonts
+  // are ready (the /loading route's BirdLandingSplash needs Fredoka to draw
+  // its wordmark), not the whole auth/onboarding resolve. That's deliberate —
+  // an earlier JS splash forced a 2s minimum plus a remote Lottie fetch on
+  // every cold boot. The local bird animation fetches nothing and now stays
+  // visible for at least five seconds while auth/onboarding resolve in
+  // parallel; a slower resolve still wins, without adding another five seconds.
   useEffect(() => {
-    if (!resolving) SplashScreen.hideAsync().catch(() => {})
-  }, [resolving])
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {})
+  }, [fontsLoaded])
 
   // The one transition the guards can't make: (auth)/email and (auth)/code stay
   // registered while signed in (see the comment on them below), so signing in
@@ -200,7 +218,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   }, [pathname])
 
   return (
-    <View style={[styles.root, { backgroundColor: tokens.bg }]}>
+    <CurrencyProvider enabled={hasSession} initialCurrency={cachedCurrency}><View style={[styles.root, { backgroundColor: tokens.bg }]}>
       {/* Declaration order is load-bearing. When a guard flips, React Navigation
           drops every route that just unregistered, and if that empties the
           stack it rebuilds it from the navigator's *first* registered screen
@@ -210,7 +228,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           leads with the screen that state opens on. */}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
         <Stack.Protected guard={resolving}>
-          <Stack.Screen name="loading" />
+          {/* fade, not the Stack default: this is the screen the native splash
+              hands off to, so a hard cut would show through as a flash. */}
+          <Stack.Screen name="loading" options={{ animation: 'fade', contentStyle: { backgroundColor: '#F04E23' } }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!resolving && !hasSession}>
@@ -273,7 +293,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           run once they're reachable — not on every cold boot regardless of
           auth state. */}
       {!resolving && hasSession && onboarded === true ? <WidgetSync /> : null}
-    </View>
+    </View></CurrencyProvider>
   )
 }
 
@@ -294,7 +314,7 @@ export default function RootLayout() {
   }, [])
 
   // No early `return null` while the fonts load: the native splash is still up
-  // (preventAutoHideAsync above, hidden by RootNavigator once routing resolves), and a
+  // (preventAutoHideAsync above, hidden by RootNavigator once fonts are ready), and a
   // render without a navigator is exactly what breaks expo-router.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

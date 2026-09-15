@@ -16,7 +16,7 @@ import { NAV_HEIGHT } from '@/src/theme/scale'
  * here is what keeps that from being re-derived (and forgotten) per screen.
  */
 export const Screen = forwardRef<ScrollView, {
-  title?: string
+  title?: ReactNode
   actions?: ReactNode
   /** Rendered between the header and the scrolling content, outside the
    *  ScrollView — so it stays pinned while the rest of the screen scrolls,
@@ -46,13 +46,17 @@ export const Screen = forwardRef<ScrollView, {
 
   const header = title ? (
     <View style={[styles.header, { paddingTop: insets.top + space.md, paddingHorizontal: space.lg, paddingBottom: space.md }]}>
-      <Text
-        accessibilityRole="header"
-        numberOfLines={1}
-        style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displayBold, fontSize: type.heading }]}
-      >
-        {title}
-      </Text>
+      {typeof title === 'string' ? (
+        <Text
+          accessibilityRole="header"
+          numberOfLines={1}
+          style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displayBold, fontSize: type.heading }]}
+        >
+          {title}
+        </Text>
+      ) : (
+        title
+      )}
       {actions ? <View style={[styles.actions, { gap: space.sm }]}>{actions}</View> : null}
     </View>
   ) : null

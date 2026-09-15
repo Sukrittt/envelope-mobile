@@ -1,14 +1,17 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { formatCurrency } from '@/src/lib/format'
+
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { MOVE_AMOUNT, MOVE_IN_ENVELOPE, MOVE_NEED, MOVE_SOURCES } from '@/src/components/tour/content'
 
 /** Chapter 3: cover a shortfall by borrowing from an envelope with slack. */
 export function MoveDemo({ onComplete }: { onComplete: () => void }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens, radius, space, type } = useTheme()
   const [moved, setMoved] = useState<{ id: string; name: string; amount: number } | null>(null)
 
@@ -80,7 +83,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
               {formatCurrency(moved.amount)} moved from {moved.name}
             </Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 18 }}>
-              Not a single rupee left your bank. Only the plan changed, and that is the whole trick.
+              No money left your bank. Only the plan changed, and that is the whole trick.
             </Text>
             <Pressable accessibilityRole="button" onPress={() => setMoved(null)} hitSlop={8}>
               <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Undo</Text>

@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Animated, Easing, StyleSheet, type LayoutChangeEvent } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -29,6 +30,8 @@ export const DELTA_EASING = Easing.bezier(0.65, 0, 0.75, 1)
  * no worklet, stays renderable under Jest.
  */
 export function DeltaBar({ from, to, amount }: { from: number; to: number; amount: number }) {
+  const { formatMoney } = useCurrency()
+
   const { tokens, space, radius, type } = useTheme()
   const [trackWidth, setTrackWidth] = useState(0)
   const [tagWidth, setTagWidth] = useState(0)
@@ -156,7 +159,7 @@ export function DeltaBar({ from, to, amount }: { from: number; to: number; amoun
         >
           <Animated.View style={[styles.tagPill, { backgroundColor: fill, borderRadius: radius.full }]}>
             <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: tokens.bg, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-              {`+₹${Math.round(amount).toLocaleString('en-IN')}`}
+              {`+${formatMoney(Math.round(amount))}`}
             </Text>
           </Animated.View>
         </Animated.View>

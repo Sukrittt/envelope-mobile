@@ -1,3 +1,4 @@
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { Eye, X } from 'lucide-react-native'
 import { Modal, View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
@@ -6,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { formatCurrency, formatDate } from '@/src/lib/format'
+import { formatDate } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
@@ -25,6 +26,8 @@ const ITEM_STAGGER = 45
 const STAGGER_CAP = 6
 
 export default function BillScanModal() {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
@@ -175,6 +178,8 @@ export default function BillScanModal() {
 }
 
 function ItemRow({ item }: { item: BillScanItem }) {
+  const { formatCurrency } = useCurrency()
+
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const shareColor = item.divisor === null ? tokens.text2 : item.divisor > 1 ? tokens.violet : tokens.mint
