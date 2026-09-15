@@ -25,6 +25,12 @@ describe('currency picker', () => {
     expect(style.backgroundColor).toBe('#0e0e0e')
     expect(style.borderRadius).toBe(100)
   })
+  it('can expand its list to fill an embedded screen', () => {
+    render(<CurrencyPicker value="INR" onChange={jest.fn()} fillAvailableSpace />)
+    const style = StyleSheet.flatten(screen.getByTestId('currency-list').props.style)
+    expect(style.flex).toBe(1)
+    expect(style.maxHeight).toBeUndefined()
+  })
   it('updates mounted amounts when currency changes', () => {
     function Amount() { const { formatCurrency } = useCurrency(); return <Text>{formatCurrency(500)}</Text> }
     const { rerender } = render(<CurrencyScope code="INR"><Amount /></CurrencyScope>)

@@ -8,12 +8,23 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { BottomSheet } from '@/src/components/shared/Modal'
 
-export function CurrencyPicker({ value, onChange, disabled = false }: { value: string; onChange: (code: string) => void; disabled?: boolean }) {
+export function CurrencyPicker({
+  value,
+  onChange,
+  disabled = false,
+  fillAvailableSpace = false,
+}: {
+  value: string
+  onChange: (code: string) => void
+  disabled?: boolean
+  /** Lets an embedded picker consume its parent’s remaining vertical space. */
+  fillAvailableSpace?: boolean
+}) {
   const { tokens, scheme } = useTheme()
   const [search, setSearch] = useState('')
   const selected = currencyInfo(value)
   const matches = CURRENCIES.filter(c => `${c.name} ${c.code} ${c.symbol}`.toLowerCase().includes(search.trim().toLowerCase()))
-  return <View style={{ flexShrink: 1, width: '100%' }}>
+  return <View style={[styles.picker, fillAvailableSpace && styles.pickerFill]}>
     <View
       accessible
       accessibilityLabel={`Selected currency, ${selected.name}, ${selected.code}`}
@@ -45,7 +56,12 @@ export function CurrencyPicker({ value, onChange, disabled = false }: { value: s
         },
       ]}
     />
-    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
+    <ScrollView
+      testID="currency-list"
+      nestedScrollEnabled
+      keyboardShouldPersistTaps="handled"
+      style={[styles.currencyList, fillAvailableSpace && styles.currencyListFill]}
+    >
       {matches.map(c => <Pressable key={c.code} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: value === c.code, disabled }} accessibilityLabel={`${c.name}, ${c.code}, ${c.symbol}`} onPress={() => onChange(c.code)} style={({ pressed }) => [styles.currencyOption, { backgroundColor: value === c.code ? tokens.accentSoft : 'transparent' }, pressed && styles.currencyOptionPressed]}>
         <View style={{ flex: 1 }}><Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold }}>{c.name}</Text><Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>{c.code}{c.symbol !== c.code ? ` · ${c.symbol}` : ''}</Text></View>
         {value === c.code && <View testID="selected-currency-icon" accessible={false}><Check size={20} color={tokens.accentInk} strokeWidth={2.5} /></View>}
@@ -105,6 +121,8 @@ export function CurrencySetting() {
 }
 
 const styles = StyleSheet.create({
+  picker: { flexShrink: 1, width: '100%' },
+  pickerFill: { flex: 1, minHeight: 0 },
   selectedCard: {
     minHeight: 72,
     marginBottom: 14,
@@ -134,6 +152,8 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     fontSize: 14,
   },
+  currencyList: { maxHeight: 320 },
+  currencyListFill: { flex: 1, maxHeight: undefined },
   currencyOption: {
     minHeight: 56,
     padding: 12,

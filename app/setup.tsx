@@ -367,7 +367,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const activeCat = activeKey ? liveCats().find((c) => c.key === activeKey) : undefined
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.topRow}>
         <Pressable
           accessibilityLabel="Go back"
@@ -383,13 +383,13 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             <StepDot key={n} active={n <= step} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
           ))}
         </View>
-        <Text style={[styles.stepCounter, { color: tokens.text3 }]}>step {step + 1}/5</Text>
+        <Text style={[styles.stepCounter, { color: tokens.text3 }]}>{step + 1} / 5</Text>
       </View>
 
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{title}</Text>
       <Text style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{blurb}</Text>
 
-      {step === 0 && (<View style={styles.stepBody}><CurrencyPicker value={currencyCode} onChange={onCurrencyChange} /></View>)}
+      {step === 0 && (<View style={styles.stepBody}><CurrencyPicker value={currencyCode} onChange={onCurrencyChange} fillAvailableSpace /></View>)}
 
       {step === 1 && (
         <View style={styles.stepBody}>
@@ -549,7 +549,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           {pending ? 'Saving…' : step === 4 ? 'Finish setup' : 'Continue'}
         </Text>
       </Pressable>
-      {error === '' && <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>}
+      {error === '' && hint !== '' && <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>}
 
       <BottomSheet visible={!!activeKey} onClose={closeRow}>
         {activeCat && (
