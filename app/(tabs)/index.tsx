@@ -191,7 +191,7 @@ export default function HomeScreen() {
             onPress={() => birdMarkRef.current?.replay()}
             style={styles.appIconButton}
           >
-            <BirdLandingMark ref={birdMarkRef} size={44} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} />
+            <BirdLandingMark ref={birdMarkRef} size={56} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} />
           </Pressable>
         }
         actions={
@@ -315,7 +315,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  appIconButton: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  appIconButton: { width: 56, height: 56 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },

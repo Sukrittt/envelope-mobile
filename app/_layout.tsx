@@ -45,8 +45,6 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
 })
 
-const SPLASH_MIN_DURATION_MS = 5_000
-
 /**
  * The nav is a sibling overlay above the whole root Stack, not scoped to
  * (tabs) or rendered per-screen: it must survive every push (log-expense
@@ -71,16 +69,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const [cachedCurrency, setCachedCurrency] = useState('INR')
   const [hasSession, setHasSession] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const [splashMinimumElapsed, setSplashMinimumElapsed] = useState(false)
   // null = not yet known (still loading, or signed out) — the guards below
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const timer = setTimeout(() => setSplashMinimumElapsed(true), SPLASH_MIN_DURATION_MS)
-    return () => clearTimeout(timer)
-  }, [])
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -173,16 +165,15 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     })
   }, [])
 
-  const ready = fontsLoaded && authReady && splashMinimumElapsed
+  const ready = fontsLoaded && authReady
   const resolving = !ready || (hasSession && onboarded === null)
 
   // The native splash only covers the pre-JS gap: it hides as soon as fonts
   // are ready (the /loading route's BirdLandingSplash needs Fredoka to draw
   // its wordmark), not the whole auth/onboarding resolve. That's deliberate —
   // an earlier JS splash forced a 2s minimum plus a remote Lottie fetch on
-  // every cold boot. The local bird animation fetches nothing and now stays
-  // visible for at least five seconds while auth/onboarding resolve in
-  // parallel; a slower resolve still wins, without adding another five seconds.
+  // every cold boot. The local bird animation fetches nothing; it fills
+  // whatever remains of `resolving` and unmounts as soon as it flips false.
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {})
   }, [fontsLoaded])
