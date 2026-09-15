@@ -48,9 +48,11 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-it('prefills the current Ready to Assign', async () => {
-  const { getByLabelText } = setup()
+it('prefills the current Ready to Assign with a hint and the income card', async () => {
+  const { getByLabelText, getByText } = setup()
   await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
+  expect(getByText("Type what's left to assign")).toBeTruthy()
+  expect(getByText('₹20,000 income · ₹5,000 assigned')).toBeTruthy()
 })
 
 it('saves this month\'s income so Ready to Assign matches the typed amount', async () => {
