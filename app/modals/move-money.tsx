@@ -3,6 +3,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
+import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
@@ -16,14 +17,26 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { ArrowLeft,Search,X } from 'lucide-react-native'
+import { ArrowLeft,Search,Trash2,X } from 'lucide-react-native'
 import { useEffect,useMemo,useState } from 'react'
 import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
+import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 const MAX_AUTO_SOURCES = 3
 const QUICK_PICKS = [500, 1000, 2500]
+
+// Matches EnvelopeGroup.tsx / envelopes.tsx's list-reflow spring (expanding
+// or collapsing a group of rows): picking or removing a source resizes the
+// FROM list, and the pool below needs the same `layout` transition to spring
+// into its new slot instead of snapping. Entering/exiting stay fixed-duration
+// (not springs) — same as EnvelopeGroup/ExtrasList's row reveals — since an
+// open-ended spring settle reads as sluggish next to that.
+const SPRING = { damping: 90, stiffness: 900 }
+const SOURCE_TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
+const SOURCE_ENTER = ZoomIn.duration(150).withInitialValues({ transform: [{ scale: 0.9 }] })
+const SOURCE_EXIT = FadeOut.duration(120)
 
 function str(v: string | string[] | undefined): string {
   return typeof v === 'string' ? v : ''
@@ -90,6 +103,12 @@ export default function MoveMoneyModal() {
   const remaining = Math.max(0, amount - allocated)
   const ready = amount > 0 && remaining === 0
   const saving = transferBudget.isPending
+
+  const [progressTrackWidth, setProgressTrackWidth] = useState(0)
+  const progressPct = amount > 0 ? Math.min(100, Math.round((allocated / amount) * 100)) : 0
+  // No `from` — only the first reveal gets useProgressWidth's delay, every
+  // allocation change after animates immediately.
+  const progressWidth = useProgressWidth(progressTrackWidth, progressPct)
 
   const sources = useMemo<SourceItem[]>(() => {
     const items: SourceItem[] = []
@@ -167,8 +186,13 @@ export default function MoveMoneyModal() {
         .map(([category, alloc]) => ({ category, amount: alloc }))
       await transferBudget.mutateAsync({ month, to: targetCategoryName, sources })
       setMoveSuccess(true)
-    } catch {
-      setError('Could not move money. Check your connection and try again.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      setError(
+        msg.includes('no budget row for')
+          ? 'One of these envelopes changed since you opened this screen. Go back and try again.'
+          : 'Could not move money. Check your connection and try again.',
+      )
     }
   }
 
@@ -336,12 +360,15 @@ export default function MoveMoneyModal() {
                 → {formatCurrency(amount, hideAmounts)} to {splitEmoji(targetCategoryName).text}
               </Text>
             </View>
-            <View style={[styles.progressTrack, { backgroundColor: tokens.borderStrong, borderRadius: radius.full }]}>
-              <View
+            <View
+              style={[styles.progressTrack, { backgroundColor: tokens.borderStrong, borderRadius: radius.full }]}
+              onLayout={(e) => setProgressTrackWidth(e.nativeEvent.layout.width)}
+            >
+              <Animated.View
                 style={[
                   styles.progressFill,
                   {
-                    width: `${amount > 0 ? Math.min(100, Math.round((allocated / amount) * 100)) : 0}%`,
+                    width: progressWidth,
                     backgroundColor: remaining > 0 ? tokens.accent : tokens.mint,
                     borderRadius: radius.full,
                   },
@@ -374,30 +401,37 @@ export default function MoveMoneyModal() {
             keyboardShouldPersistTaps="handled"
           >
             {pickedRows.length > 0 && (
-              <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>FROM</Text>
+              // One block, not a label + rows animating independently — its label
+              // stays rigidly attached to its rows as the whole thing grows/shrinks,
+              // instead of drifting past them on its own spring (see SOURCE_TRANSITION).
+              <Reanimated.View layout={SOURCE_TRANSITION} entering={FadeIn.duration(150)} exiting={SOURCE_EXIT} style={{ gap: space.sm }}>
+                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>FROM</Text>
+                {pickedRows.map((item) => (
+                  <PickedSourceRow
+                    key={item.key}
+                    item={item}
+                    alloc={allocs[item.key] ?? 0}
+                    max={maxFor(item)}
+                    hideAmounts={hideAmounts}
+                    onChange={(v) => setAllocValue(item.key, v)}
+                    onRemove={() => removeAlloc(item.key)}
+                    tokens={tokens}
+                    space={space}
+                    radius={radius}
+                    type={type}
+                  />
+                ))}
+              </Reanimated.View>
             )}
-            {pickedRows.map((item) => (
-              <PickedSourceRow
-                key={item.key}
-                item={item}
-                alloc={allocs[item.key] ?? 0}
-                max={maxFor(item)}
-                hideAmounts={hideAmounts}
-                onChange={(v) => setAllocValue(item.key, v)}
-                onRemove={() => removeAlloc(item.key)}
-                tokens={tokens}
-                space={space}
-                radius={radius}
-                type={type}
-              />
-            ))}
 
-            <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, marginTop: pickedRows.length > 0 ? space.sm : 0 }]}>
-              {q ? 'SEARCH RESULTS' : 'SUGGESTED SOURCES'}
-            </Text>
-            {poolRows.map((item) => (
-              <PoolSourceRow key={item.key} item={item} hideAmounts={hideAmounts} onPress={() => pick(item)} tokens={tokens} space={space} radius={radius} type={type} />
-            ))}
+            <Reanimated.View layout={SOURCE_TRANSITION} style={{ gap: space.sm, marginTop: pickedRows.length > 0 ? space.sm : 0 }}>
+              <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>
+                {q ? 'SEARCH RESULTS' : 'SUGGESTED SOURCES'}
+              </Text>
+              {poolRows.map((item) => (
+                <PoolSourceRow key={item.key} item={item} hideAmounts={hideAmounts} onPress={() => pick(item)} tokens={tokens} space={space} radius={radius} type={type} />
+              ))}
+            </Reanimated.View>
             {poolRows.length === 0 && pickedRows.length === 0 && (
               <Text style={{ color: tokens.text3, fontSize: type.caption, fontFamily: fontFamily.bodyMedium, textAlign: 'center', paddingVertical: space.xl }}>
                 {q ? `Nothing named "${query}"` : 'Nothing else to pull from'}
@@ -538,33 +572,39 @@ function PickedSourceRow({
   }
 
   return (
-    <View style={[styles.sourceRow, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}>
-      <View style={styles.sourceRowTop}>
-        <View style={[styles.sourceIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+    // `layout` springs this row into its new slot as siblings above/below it
+    // resize; `entering`/`exiting` are its own pop-in/fade-out. zIndex keeps
+    // it painted above the section labels while they slide past it — those
+    // reposition on the same spring and would otherwise cut across it.
+    <Reanimated.View style={styles.sourceRowLayer} layout={SOURCE_TRANSITION} entering={SOURCE_ENTER} exiting={SOURCE_EXIT}>
+      <View style={[styles.sourceRow, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}>
+        <View style={styles.sourceRowTop}>
+          <View style={[styles.sourceIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
+            <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }}>
+              {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
+            </Text>
+          </View>
+          <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove" style={styles.removeBtn}>
+            <Trash2 size={14} color={tokens.text3} />
+          </Pressable>
         </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }}>
-            {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
-          </Text>
+        <View style={[styles.allocInputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.sm, paddingHorizontal: space.sm }]}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>₹</Text>
+          <TextInput
+            value={String(alloc)}
+            onChangeText={commit}
+            keyboardType="number-pad"
+            style={[styles.allocInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}
+          />
         </View>
-        <Pressable onPress={onRemove} hitSlop={8}>
-          <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyBold }}>Remove</Text>
-        </Pressable>
       </View>
-      <View style={[styles.allocInputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.sm, paddingHorizontal: space.sm }]}>
-        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>₹</Text>
-        <TextInput
-          value={String(alloc)}
-          onChangeText={commit}
-          keyboardType="number-pad"
-          style={[styles.allocInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}
-        />
-      </View>
-    </View>
+    </Reanimated.View>
   )
 }
 
@@ -586,28 +626,33 @@ function PoolSourceRow({
   type: Record<string, number>
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
-    >
-      <View style={[styles.sourceIcon, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-        <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
-      </View>
-      <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-          {formatCurrency(item.available, hideAmounts)}
+    <Reanimated.View style={styles.sourceRowLayer} layout={SOURCE_TRANSITION} entering={FadeIn.duration(150)} exiting={SOURCE_EXIT}>
+      <Pressable
+        onPress={onPress}
+        style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
+      >
+        <View style={[styles.sourceIcon, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
+          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+        </View>
+        <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
+          {item.name}
         </Text>
-        <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
-      </View>
-    </Pressable>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+            {formatCurrency(item.available, hideAmounts)}
+          </Text>
+          <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
+        </View>
+      </Pressable>
+    </Reanimated.View>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  // Painted above the section labels (default zIndex 0) so a row popping in
+  // or a label springing to its new slot never crosses on top of it.
+  sourceRowLayer: { zIndex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -641,6 +686,9 @@ const styles = StyleSheet.create({
   sourceRow: { borderWidth: 1 },
   sourceRowTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sourceIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  // Fixed box so the icon centers on itself instead of on the Pressable's
+  // measured bounds, which can drift off-center next to a taller sibling.
+  removeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   allocInputRow: { flexDirection: 'row', alignItems: 'center', height: 36, borderWidth: 1, gap: 4 },
   allocInput: { flex: 1, paddingVertical: 6 },
 })
