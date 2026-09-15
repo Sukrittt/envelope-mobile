@@ -190,14 +190,21 @@ export default function HomeScreen() {
             is the hero rather than one tile among four. */}
         <View style={[styles.hero, { paddingVertical: space.xl }]}>
           <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
-          <AmountText
-            value={displayedReadyToAssign}
-            size={type.hero}
-            color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
-            weight="displayBold"
-            animate
-            id="ready-to-assign"
-          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit Ready to Assign"
+            onPress={() => router.push('/modals/edit-ready-to-assign')}
+            hitSlop={8}
+          >
+            <AmountText
+              value={displayedReadyToAssign}
+              size={type.hero}
+              color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
+              weight="displayBold"
+              animate
+              id="ready-to-assign"
+            />
+          </Pressable>
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>

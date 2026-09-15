@@ -1,0 +1,82 @@
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { getExpenses } from '@/src/api/expenses'
+import { getBudgets, updateBudget } from '@/src/api/budgets'
+import { getCategories } from '@/src/api/categories'
+import { getGroups } from '@/src/api/groups'
+import EditReadyToAssignModal from './edit-ready-to-assign'
+import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
+
+jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
+jest.mock('@/src/api/budgets', () => ({
+  getBudgets: jest.fn(),
+  addBudget: jest.fn(),
+  updateBudget: jest.fn(),
+  deleteBudget: jest.fn(),
+  transferBudget: jest.fn(),
+}))
+jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
+jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
+
+const mockBack = jest.fn()
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useLocalSearchParams: () => ({}),
+}))
+
+const MONTH = currentMonthKey()
+const PREV_MONTH = prevMonthKey(MONTH)
+
+// Income and Food carried from last month: income 20000, assigned 5000, RTA 15000.
+function setup() {
+  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+    { month: PREV_MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
+  return renderWithProviders(<EditReadyToAssignModal />)
+}
+
+async function typeAmount(getByLabelText: (t: string) => any, amount: string) {
+  for (let i = 0; i < 5; i++) fireEvent.press(getByLabelText('Delete'))
+  for (const digit of amount) fireEvent.press(getByLabelText(digit))
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
+
+it('prefills the current Ready to Assign', async () => {
+  const { getByLabelText } = setup()
+  await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
+})
+
+it('saves this month\'s income so Ready to Assign matches the typed amount', async () => {
+  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  const { getByLabelText, getByText } = setup()
+  await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
+
+  await typeAmount(getByLabelText, '25000')
+  expect(getByText('Income ₹30,000')).toBeTruthy()
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, '__income__', { assigned: '30000' }))
+})
+
+it('shows a friendly error when the save fails', async () => {
+  ;(updateBudget as jest.Mock).mockRejectedValue(new Error('503'))
+  const { getByLabelText, getByText } = setup()
+  await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+
+  await waitFor(() => expect(getByText("Couldn't save. Check your connection and try again.")).toBeTruthy())
+  expect(mockBack).not.toHaveBeenCalled()
+})
