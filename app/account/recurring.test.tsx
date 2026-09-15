@@ -125,6 +125,16 @@ describe('due labels', () => {
 })
 
 describe('rows', () => {
+  // Pinned so "Next on 15 Sep" (vs. "Due today"/"Due tomorrow") doesn't flip
+  // depending on what today actually is relative to row()'s fixture date.
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date(2026, 8, 1)) // matches jest.config.js TZ=UTC
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
   it('shows the server-computed next run date, cadence and category', () => {
     const { getByText } = render([row({})])
     expect(getByText('Next on 15 Sep')).toBeTruthy()
