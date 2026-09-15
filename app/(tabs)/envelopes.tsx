@@ -1,8 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronRight, MoreVertical, Plus, ArrowUp, ArrowDown, Equal } from 'lucide-react-native'
-import Reanimated, { FadeIn, FadeOut, useAnimatedStyle, withSpring, LinearTransition } from 'react-native-reanimated'
+import { ChevronRight, MoreVertical, Plus, Equal } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Reanimated, {
+  FadeIn,
+  FadeOut,
+  measure,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  LinearTransition,
+  type AnimatedRef,
+  type SharedValue,
+} from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen, useNavPadding } from '@/src/components/ui/Screen'
 import { Chip } from '@/src/components/ui/Chip'
@@ -30,6 +46,7 @@ import type { CategoryRow } from '@/src/types'
 import { EMPTY } from '@/src/lib/constants'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
+import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
 
 function sortedPcts(pcts: number[]): number[] {
   return [...pcts].sort((a, b) => a - b)
@@ -42,6 +59,9 @@ function pctArraysEqual(a: number[], b: number[]): boolean {
 const OTHER_LABEL = 'Other'
 const ARCHIVED_GROUP = 'Archived'
 const ROW_HEIGHT = 45
+// Group cards stack with these, and the group drag math depends on them matching the styles.
+const GROUP_GAP = 10
+const CARD_BORDER = 1
 const SPRING = { damping: 90, stiffness: 900 }
 
 function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string }) {
@@ -70,14 +90,12 @@ function DraggableCategoryList({
   items,
   group,
   tokens,
-  reordering,
   onReorder,
   onMenu,
 }: {
   items: CategoryRow[]
   group: string
   tokens: ThemeTokens
-  reordering: boolean
   onReorder: (name: string, toIndex: number) => void
   onMenu: (name: string) => void
 }) {
@@ -127,8 +145,7 @@ function DraggableCategoryList({
         dragY.setValue(gesture.dy)
         const prev = dragRef.current
         if (!prev || prev.name !== name) return
-        const offset = Math.round(gesture.dy / rowHeight.current)
-        const target = Math.min(orderLengthRef.current - 1, Math.max(0, prev.start + offset))
+        const target = dragTarget(prev.start, gesture.dy, rowHeight.current, orderLengthRef.current)
         if (target === prev.target) return
         setDrag({ ...prev, target })
       },
@@ -137,14 +154,7 @@ function DraggableCategoryList({
         const prev = dragRef.current
         setDrag(null)
         if (prev && prev.name === name && prev.target !== prev.start) {
-          setOrder((cur) => {
-            const idx = cur.indexOf(prev.name)
-            if (idx === -1) return cur
-            const next = [...cur]
-            next.splice(idx, 1)
-            next.splice(prev.target, 0, prev.name)
-            return next
-          })
+          setOrder((cur) => moveItem(cur, prev.name, prev.target))
           onReorder(prev.name, prev.target)
         }
       },
@@ -163,11 +173,7 @@ function DraggableCategoryList({
         const cat = byName.get(name)
         if (!cat) return null
         const isDragging = drag?.name === cat.name
-        let shift = 0
-        if (drag && !isDragging) {
-          if (drag.target > drag.start && i > drag.start && i <= drag.target) shift = -1
-          else if (drag.target < drag.start && i >= drag.target && i < drag.start) shift = 1
-        }
+        const shift = drag && !isDragging ? dragShift(i, drag.start, drag.target) : 0
         const responder = responderFor(cat.name)
         return (
           <Animated.View
@@ -190,11 +196,7 @@ function DraggableCategoryList({
                   : null,
             ]}
           >
-            <Pressable
-              style={styles.catRowMain}
-              disabled={reordering}
-              onPress={() => onMenu(cat.name)}
-            >
+            <Pressable style={styles.catRowMain} onPress={() => onMenu(cat.name)}>
               <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
                 <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
               </View>
@@ -214,6 +216,213 @@ function DraggableCategoryList({
         )
       })}
     </>
+  )
+}
+
+// One drag session shared by every group card. Positions are never cached from onLayout:
+// each frame, every card measures where layout actually put it and translates itself to
+// where it should *look*, so collapse, scroll clamping and the reorder commit can land on
+// any frame without the cards jumping.
+type GroupDragValues = {
+  active: SharedValue<boolean>
+  session: SharedValue<number>
+  name: SharedValue<string>
+  order: SharedValue<string[]>
+  from: SharedValue<number>
+  target: SharedValue<number>
+  dropping: SharedValue<boolean>
+  step: SharedValue<number>
+}
+
+const LONG_PRESS_MS = 350
+const LIFT_SLOP = 4
+const GRIP = 1
+const LONG_PRESS = 2
+
+function DraggableGroupCard({
+  name,
+  draggable,
+  drag,
+  listRef,
+  dragging,
+  settling,
+  dropCount,
+  lifted,
+  animateLayout,
+  onLift,
+  onDrop,
+  cardStyle,
+  liftedStyle,
+  handleColor,
+  renderHeader,
+  children,
+}: {
+  name: string
+  draggable: boolean
+  drag: GroupDragValues
+  listRef: AnimatedRef<Reanimated.View>
+  dragging: boolean
+  settling: boolean
+  dropCount: number
+  lifted: boolean
+  animateLayout: boolean
+  onLift: (name: string) => void
+  onDrop: (name: string, from: number, to: number) => void
+  cardStyle: object
+  liftedStyle: object
+  handleColor: string
+  renderHeader: (handle: React.ReactNode) => React.ReactNode
+  children: React.ReactNode
+}) {
+  const cardRef = useAnimatedRef<Reanimated.View>()
+  // Card top within the list, where it should look like it is (animated for non-held cards).
+  const shownTop = useSharedValue(0)
+  const translate = useSharedValue(0)
+  const shownIndex = useSharedValue(-1)
+  const seenSession = useSharedValue(-1)
+  const fingerY = useSharedValue(0)
+  const grabDelta = useSharedValue(0)
+  // Which of this card's two gestures owns the drag, so the grip and the long press never both drive it.
+  const owner = useSharedValue(0)
+
+  // Worklets hand these back to the JS thread, so they must be stable JS-side functions.
+  const onLiftRef = useRef(onLift)
+  onLiftRef.current = onLift
+  const onDropRef = useRef(onDrop)
+  onDropRef.current = onDrop
+  const lift = useCallback(() => onLiftRef.current(name), [name])
+  const drop = useCallback((from: number, to: number) => onDropRef.current(name, from, to), [name])
+
+  const follow = useCallback(() => {
+    'worklet'
+    const list = measure(listRef)
+    const card = measure(cardRef)
+    if (!list || !card) return
+    const layoutTop = card.pageY - list.pageY
+    if (seenSession.value !== drag.session.value) {
+      seenSession.value = drag.session.value
+      shownTop.value = layoutTop
+      shownIndex.value = -1
+    }
+    if (drag.name.value === name) {
+      if (!drag.dropping.value) {
+        shownTop.value = fingerY.value - grabDelta.value - list.pageY
+        drag.target.value = dragTarget(0, shownTop.value, drag.step.value, drag.order.value.length)
+      }
+    } else {
+      const order = drag.order.value
+      const i = order.indexOf(name) === -1 ? order.length : order.indexOf(name)
+      const slot = i + dragShift(i, drag.from.value, drag.target.value)
+      if (slot !== shownIndex.value) {
+        shownIndex.value = slot
+        shownTop.value = withSpring(slot * drag.step.value, SPRING)
+      }
+    }
+    translate.value = shownTop.value - layoutTop
+  }, [name, drag, listRef, cardRef, seenSession, shownTop, shownIndex, fingerY, grabDelta, translate])
+
+  const frameCallback = useFrameCallback(
+    useCallback(() => {
+      'worklet'
+      if (drag.active.value) follow()
+    }, [drag, follow]),
+    false,
+  )
+  useEffect(() => {
+    frameCallback.setActive(dragging)
+  }, [dragging, frameCallback])
+
+  const gestures = useMemo(() => {
+    function start() {
+      'worklet'
+      const from = drag.order.value.indexOf(name)
+      drag.session.value += 1
+      drag.name.value = name
+      drag.from.value = from
+      drag.target.value = from
+      drag.dropping.value = false
+      drag.active.value = true
+      scheduleOnRN(lift)
+    }
+    function finish() {
+      'worklet'
+      const from = drag.from.value
+      const to = drag.target.value
+      const next = drag.order.value.filter((n) => n !== name)
+      next.splice(to, 0, name)
+      // Everyone else's slot is already where the new order puts them, so swapping the order
+      // in with from = target leaves them all still. Only the held card glides home.
+      drag.dropping.value = true
+      drag.order.value = next
+      drag.from.value = to
+      drag.target.value = to
+      shownTop.value = withTiming(to * drag.step.value, { duration: 180 }, () => {
+        scheduleOnRN(drop, from, to)
+      })
+    }
+    function pan(id: number) {
+      const gesture = Gesture.Pan()
+        .enabled(draggable)
+        .onStart((e) => {
+          if (drag.active.value) return
+          owner.value = id
+          fingerY.value = e.absoluteY
+          const card = measure(cardRef)
+          grabDelta.value = card ? e.absoluteY - card.pageY : 0
+          if (id === LONG_PRESS) start()
+        })
+        .onUpdate((e) => {
+          if (owner.value !== id) return
+          fingerY.value = e.absoluteY
+          if (!drag.active.value) {
+            if (Math.abs(e.translationY) < LIFT_SLOP) return
+            start()
+          }
+          follow()
+        })
+        .onFinalize(() => {
+          if (owner.value !== id) return
+          owner.value = 0
+          if (drag.active.value && drag.name.value === name && !drag.dropping.value) finish()
+        })
+      return id === LONG_PRESS ? gesture.activateAfterLongPress(LONG_PRESS_MS) : gesture.minDistance(0)
+    }
+    return { grip: pan(GRIP), longPress: pan(LONG_PRESS) }
+  }, [name, draggable, drag, cardRef, owner, fingerY, grabDelta, shownTop, follow, lift, drop])
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY:
+          !settling && drag.active.value && seenSession.value === drag.session.value ? translate.value : 0,
+      },
+    ],
+  }))
+
+  const handle = draggable ? (
+    <GestureDetector gesture={gestures.grip}>
+      <View hitSlop={8} style={styles.dragHandle} accessibilityLabel={`Drag to reorder ${splitEmoji(name).text}`}>
+        <Icon icon={Equal} size={15} color={handleColor} />
+      </View>
+    </GestureDetector>
+  ) : null
+
+  return (
+    <Reanimated.View
+      ref={cardRef}
+      layout={animateLayout ? BODY_TRANSITION : undefined}
+      style={lifted ? styles.draggingCard : null}
+    >
+      {/* A new key on every drop remounts this view in the same React commit as the reorder.
+          Its first style comes from that commit (settling, so no offset), instead of the UI
+          thread zeroing the offset a frame before the new order is on screen. */}
+      <Reanimated.View key={dropCount} style={[cardStyle, lifted ? liftedStyle : null, animatedStyle]}>
+        <GestureDetector gesture={gestures.longPress}>
+          <View collapsable={false}>{renderHeader(handle)}</View>
+        </GestureDetector>
+        {children}
+      </Reanimated.View>
+    </Reanimated.View>
   )
 }
 
@@ -241,7 +450,6 @@ export default function EnvelopesScreen() {
   const deleteGroup = useDeleteGroup()
   const moveGroup = useMoveGroup()
 
-  const [reordering, setReordering] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('envelopes')
 
   const [sheet, setSheet] = useState<SheetState | null>(null)
@@ -269,6 +477,86 @@ export default function EnvelopesScreen() {
   const categories = categoriesQ.data ?? EMPTY
   const groups = groupsQ.data ?? EMPTY
 
+  // Group drag-to-reorder. Same local-order and stable-responder approach as
+  // DraggableCategoryList (see the comments there). On top of that, every group collapses to
+  // its header while one is dragged, so each slot is one uniform `groupStep()` tall.
+  const [groupOrder, setGroupOrder] = useState<string[]>(groups)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- local order must be able to lead the groups query on drop
+    setGroupOrder(groups)
+  }, [groups])
+  // idle, dragging (a card is held), settling (dropped, reorder committing, animations off).
+  const [dragPhase, setDragPhase] = useState<'idle' | 'dragging' | 'settling'>('idle')
+  const [liftedGroup, setLiftedGroup] = useState<string | null>(null)
+  const [dropCount, setDropCount] = useState(0)
+  const [collapseAll, setCollapseAll] = useState(false)
+  const [animateCards, setAnimateCards] = useState(true)
+  const listRef = useAnimatedRef<Reanimated.View>()
+  const dragActive = useSharedValue(false)
+  const dragSession = useSharedValue(0)
+  const dragName = useSharedValue('')
+  const dragOrder = useSharedValue<string[]>(groupOrder)
+  const dragFrom = useSharedValue(-1)
+  const dragTo = useSharedValue(-1)
+  const dragDropping = useSharedValue(false)
+  const dragStep = useSharedValue(62 + CARD_BORDER * 2 + GROUP_GAP)
+  // Must keep one identity: the cards memoize their gestures and frame callbacks on it, and
+  // recreating those mid-drag re-registers them on the UI thread.
+  const groupDrag = useMemo<GroupDragValues>(
+    () => ({
+      active: dragActive,
+      session: dragSession,
+      name: dragName,
+      order: dragOrder,
+      from: dragFrom,
+      target: dragTo,
+      dropping: dragDropping,
+      step: dragStep,
+    }),
+    [dragActive, dragSession, dragName, dragOrder, dragFrom, dragTo, dragDropping, dragStep],
+  )
+  useEffect(() => {
+    if (dragPhase === 'idle') groupDrag.order.value = groupOrder
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are stable refs
+  }, [groupOrder, dragPhase])
+
+  function liftGroup(name: string) {
+    Haptics.selectionAsync().catch(() => {})
+    setAnimateCards(false)
+    setCollapseAll(true)
+    setLiftedGroup(name)
+    setDragPhase('dragging')
+  }
+
+  function dropGroup(name: string, from: number, to: number) {
+    setDropCount((n) => n + 1)
+    setLiftedGroup(null)
+    if (to !== from) {
+      setGroupOrder((cur) => moveItem(cur, name, to))
+      moveGroup.mutate({ name, toIndex: to })
+    }
+    setDragPhase('settling')
+  }
+
+  // Once the reorder has been painted, every card's translate is back to ~0, so the drag
+  // session can end without a visible jump. Then layout animations come back on, and a frame
+  // later the groups spring open.
+  useEffect(() => {
+    if (dragPhase !== 'settling') return
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        groupDrag.active.value = false
+        groupDrag.name.value = ''
+        groupDrag.dropping.value = false
+        setDragPhase('idle')
+        setAnimateCards(true)
+        frame = requestAnimationFrame(() => setCollapseAll(false))
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are stable refs
+  }, [dragPhase])
+
   const groupedCategories = useMemo(() => {
     const byGroup = new Map<string, CategoryRow[]>()
     for (const c of categories) {
@@ -277,10 +565,10 @@ export default function EnvelopesScreen() {
       arr.push(c)
       byGroup.set(g, arr)
     }
-    const named = groups.map((g) => ({ name: g, items: byGroup.get(g) ?? [] }))
+    const named = groupOrder.map((g) => ({ name: g, items: byGroup.get(g) ?? [] }))
     const other = byGroup.get('') ?? []
     return other.length > 0 ? [...named, { name: '', items: other }] : named
-  }, [categories, groups])
+  }, [categories, groupOrder])
 
   const allGroupKeys = groupedCategories.map((g) => g.name || OTHER_LABEL)
   const allGroupsCollapsed = allGroupKeys.length > 0 && allGroupKeys.every((k) => collapsedGroups.has(k))
@@ -484,129 +772,117 @@ export default function EnvelopesScreen() {
               label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
               onPress={toggleCollapseAll}
             />
-            <Chip
-              label={reordering ? 'Done' : 'Reorder'}
-              selected={reordering}
-              onPress={() => setReordering((r) => !r)}
-            />
           </View>
         </View>
 
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: navPadding }]}
+          scrollEnabled={dragPhase === 'idle'}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              enabled={!reordering}
+              enabled={dragPhase === 'idle'}
               tintColor={tokens.accent}
               colors={[tokens.accent]}
             />
           }
         >
-          {groupedCategories.map(({ name, items }) => {
-            const key = name || OTHER_LABEL
-            const collapsed = collapsedGroups.has(key)
-            const idx = groups.indexOf(name)
-            return (
-              <Reanimated.View
-                key={key}
-                layout={BODY_TRANSITION}
-                style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-              >
-                <Pressable
-                  style={styles.groupHeader}
-                  disabled={reordering}
-                  onPress={() => toggleGroup(key)}
-                >
-                  <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
-                    <GroupChevron collapsed={collapsed} color={tokens.text3} />
-                  </Pressable>
-                  <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
-                    <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
-                  </View>
-                  <View style={styles.groupHeaderLeft}>
-                    <Text
-                      style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}
-                      numberOfLines={1}
+          <Reanimated.View ref={listRef} style={styles.groupList}>
+            {groupedCategories.map(({ name, items }) => {
+              const key = name || OTHER_LABEL
+              const collapsed = collapseAll || collapsedGroups.has(key)
+              return (
+                <DraggableGroupCard
+                  key={key}
+                  name={name}
+                  draggable={name !== ''}
+                  drag={groupDrag}
+                  listRef={listRef}
+                  dragging={dragPhase !== 'idle'}
+                  settling={dragPhase === 'settling'}
+                  dropCount={dropCount}
+                  lifted={name !== '' && liftedGroup === name}
+                  animateLayout={animateCards}
+                  onLift={liftGroup}
+                  onDrop={dropGroup}
+                  cardStyle={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+                  liftedStyle={{ elevation: 4, backgroundColor: tokens.chipActiveBg }}
+                  handleColor={tokens.text3}
+                  renderHeader={(handle) => (
+                    <Pressable
+                      style={styles.groupHeader}
+                      onPress={() => toggleGroup(key)}
+                      onLayout={(e) => {
+                        groupDrag.step.value = e.nativeEvent.layout.height + CARD_BORDER * 2 + GROUP_GAP
+                      }}
                     >
-                      {name ? splitEmoji(name).text : OTHER_LABEL}
-                    </Text>
-                    <Text style={{ color: tokens.text3, fontSize: 10, marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
-                      {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
-                    </Text>
-                  </View>
-                  {name !== '' &&
-                    (reordering ? (
-                      <View style={styles.arrowCol}>
-                        <Pressable
-                          disabled={idx <= 0}
-                          onPress={() => moveGroup.mutate({ name, toIndex: idx - 1 })}
-                          style={[styles.arrowBtn, { borderColor: tokens.border, opacity: idx <= 0 ? 0.4 : 1 }]}
-                        >
-                          <Icon icon={ArrowUp} size={12} color={tokens.text} strokeWidth={2.5} />
-                        </Pressable>
-                        <Pressable
-                          disabled={idx >= groups.length - 1}
-                          onPress={() => moveGroup.mutate({ name, toIndex: idx + 1 })}
-                          style={[
-                            styles.arrowBtn,
-                            { borderColor: tokens.border, opacity: idx >= groups.length - 1 ? 0.4 : 1 },
-                          ]}
-                        >
-                          <Icon icon={ArrowDown} size={12} color={tokens.text} strokeWidth={2.5} />
-                        </Pressable>
-                      </View>
-                    ) : (
-                      <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
-                        <Icon icon={MoreVertical} size={17} color={tokens.text3} />
+                      <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
+                        <GroupChevron collapsed={collapsed} color={tokens.text3} />
                       </Pressable>
-                    ))}
-                  <View style={styles.dragHandle}>
-                    <Icon icon={Equal} size={15} color={tokens.text3} />
-                  </View>
-                </Pressable>
-
-                <GroupBody collapsed={collapsed} style={styles.groupBody}>
-                  <DraggableCategoryList
-                    items={items}
-                    group={name}
-                    tokens={tokens}
-                    reordering={reordering}
-                    onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
-                    onMenu={openCategoryMenu}
-                  />
-
-                  {items.length === 0 ? (
-                    <Pressable
-                      onPress={() => openAddCategory(name)}
-                      style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
-                    >
-                      <Icon icon={Plus} size={14} color={tokens.accentInk} strokeWidth={2.5} />
-                      <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
-                        Add first category
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={() => openAddCategory(name)}
-                      style={[styles.addCatRow, { borderTopColor: tokens.border }]}
-                    >
-                      <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
-                        <Icon icon={Plus} size={12} color={tokens.accentInk} strokeWidth={3} />
+                      <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
+                        <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
                       </View>
-                      <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
-                        Add category
-                      </Text>
+                      <View style={styles.groupHeaderLeft}>
+                        <Text
+                          style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}
+                          numberOfLines={1}
+                        >
+                          {name ? splitEmoji(name).text : OTHER_LABEL}
+                        </Text>
+                        <Text style={{ color: tokens.text3, fontSize: 10, marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                          {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
+                        </Text>
+                      </View>
+                      {name !== '' && (
+                        <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
+                          <Icon icon={MoreVertical} size={17} color={tokens.text3} />
+                        </Pressable>
+                      )}
+                      {handle}
                     </Pressable>
                   )}
-                </GroupBody>
-              </Reanimated.View>
-            )
-          })}
+                >
+                  <GroupBody collapsed={collapsed} style={styles.groupBody}>
+                    <DraggableCategoryList
+                      items={items}
+                      group={name}
+                      tokens={tokens}
+                      onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
+                      onMenu={openCategoryMenu}
+                    />
 
-          <Reanimated.View layout={LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)}>
+                    {items.length === 0 ? (
+                      <Pressable
+                        onPress={() => openAddCategory(name)}
+                        style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
+                      >
+                        <Icon icon={Plus} size={14} color={tokens.accentInk} strokeWidth={2.5} />
+                        <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                          Add first category
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => openAddCategory(name)}
+                        style={[styles.addCatRow, { borderTopColor: tokens.border }]}
+                      >
+                        <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
+                          <Icon icon={Plus} size={12} color={tokens.accentInk} strokeWidth={3} />
+                        </View>
+                        <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                          Add category
+                        </Text>
+                      </Pressable>
+                    )}
+                  </GroupBody>
+                </DraggableGroupCard>
+              )
+            })}
+          </Reanimated.View>
+
+          <Reanimated.View layout={BODY_TRANSITION}>
             <Pressable
               onPress={openAddGroup}
               style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
@@ -615,9 +891,7 @@ export default function EnvelopesScreen() {
               <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
             </Pressable>
             <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
-              {reordering
-                ? 'Use the arrows to reorder groups · drag a category to reorder'
-                : 'Tap a group to collapse · tap a category to rename or delete'}
+              Tap a group to collapse · drag a handle to reorder
             </Text>
           </Reanimated.View>
         </ScrollView>
@@ -902,15 +1176,15 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
-  scrollContent: { paddingVertical: 4, gap: 10 },
-  card: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  scrollContent: { paddingVertical: 4, gap: GROUP_GAP },
+  groupList: { gap: GROUP_GAP },
+  card: { borderRadius: 20, borderWidth: CARD_BORDER, overflow: 'hidden' },
+  draggingCard: { zIndex: 10 },
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13 },
   chevronBtn: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   avatarChip: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   groupHeaderLeft: { flex: 1, minWidth: 0 },
   groupName: { fontSize: 15 },
-  arrowCol: { flexDirection: 'column', gap: 2 },
-  arrowBtn: { width: 26, height: 20, borderRadius: 7, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   dragHandle: { paddingLeft: 2 },
   groupBody: { paddingHorizontal: 13, paddingLeft: 46 },
   catRow: { borderTopWidth: 1 },
