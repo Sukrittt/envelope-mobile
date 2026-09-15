@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
+import { PopIn } from '@/src/components/shared/PopIn'
 import { groupByDivisor, isFeeLine, feeDiff, round2 } from '@/src/lib/split'
 import type { BillScanItem } from '@/src/api/bills'
 
@@ -18,6 +19,10 @@ function str(v: string | string[] | undefined): string {
 }
 
 const LOADING_PHRASES = ['Pulling up this scan…', 'Almost there…']
+
+const MOUNT_DELAY = 100
+const ITEM_STAGGER = 45
+const STAGGER_CAP = 6
 
 export default function BillScanModal() {
   const { tokens } = useTheme()
@@ -59,21 +64,23 @@ export default function BillScanModal() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Preview bill"
-            accessibilityState={{ disabled: scan.image_status !== 'ready' || !scan.image_url }}
-            disabled={scan.image_status !== 'ready' || !scan.image_url}
-            onPress={() => setPreviewOpen(true)}
-            style={[styles.previewChip, { backgroundColor: tokens.accentSoft, borderColor: tokens.accentSoft }]}
-          >
-            <Eye size={16} color={tokens.accentInk} />
-            <Text style={[styles.previewLabel, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
-              {scan.image_status === 'failed' ? "Photo couldn't be saved" : scan.image_status === 'ready' && scan.image_url ? 'Preview bill' : 'Photo still uploading…'}
-            </Text>
-          </Pressable>
+          <PopIn play delay={MOUNT_DELAY}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Preview bill"
+              accessibilityState={{ disabled: scan.image_status !== 'ready' || !scan.image_url }}
+              disabled={scan.image_status !== 'ready' || !scan.image_url}
+              onPress={() => setPreviewOpen(true)}
+              style={[styles.previewChip, { backgroundColor: tokens.accentSoft, borderColor: tokens.accentSoft }]}
+            >
+              <Eye size={16} color={tokens.accentInk} />
+              <Text style={[styles.previewLabel, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
+                {scan.image_status === 'failed' ? "Photo couldn't be saved" : scan.image_status === 'ready' && scan.image_url ? 'Preview bill' : 'Photo still uploading…'}
+              </Text>
+            </Pressable>
+          </PopIn>
 
-          <View style={[styles.card, styles.heroCard, { backgroundColor: tokens.heroA, borderColor: tokens.accentSoft }]}>
+          <PopIn play delay={MOUNT_DELAY + ITEM_STAGGER} style={[styles.card, styles.heroCard, { backgroundColor: tokens.heroA, borderColor: tokens.accentSoft }]}>
             <View style={styles.heroHeading}>
               <View style={[styles.categoryIcon, { backgroundColor: tokens.accentSoft }]}>
                 <Text style={{ fontSize: 25 }}>{category.icon || '🧾'}</Text>
@@ -120,15 +127,21 @@ export default function BillScanModal() {
                 {scan.people_count} {scan.people_count === 1 ? 'person' : 'people'}
               </Text>
             </View>
-          </View>
+          </PopIn>
 
-          <Text style={[styles.sectionLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Inside the bill · {scan.items.length}</Text>
+          <PopIn play delay={MOUNT_DELAY + 2 * ITEM_STAGGER}>
+            <Text style={[styles.sectionLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Inside the bill · {scan.items.length}</Text>
+          </PopIn>
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             {scan.items.map((item, i) => (
-              <View key={`${item.name}-${i}`}>
+              <PopIn
+                key={`${item.name}-${i}`}
+                play
+                delay={MOUNT_DELAY + 2 * ITEM_STAGGER + Math.min(i, STAGGER_CAP) * ITEM_STAGGER}
+              >
                 {i > 0 && <View style={[styles.divider, { backgroundColor: tokens.border }]} />}
                 <ItemRow item={item} />
-              </View>
+              </PopIn>
             ))}
           </View>
         </ScrollView>
