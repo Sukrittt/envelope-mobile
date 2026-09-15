@@ -3,6 +3,7 @@ import { transferBudget } from './budgets'
 
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
+  apiErrorMessage: jest.requireActual('./client').apiErrorMessage,
 }))
 
 const mockedApiFetch = apiFetch as jest.Mock

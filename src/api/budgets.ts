@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, apiErrorMessage } from './client'
 import type { BudgetRow, CsvResponse } from '@/src/types'
 
 export async function getBudgets(): Promise<BudgetRow[]> {
@@ -43,7 +43,7 @@ export async function transferBudget(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ month, to, sources }),
   })
-  if (!resp.ok) throw new Error(`Failed to transfer budget: ${resp.status}`)
+  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to transfer budget'))
 }
 
 export async function deleteBudget(month: string, category: string): Promise<void> {
