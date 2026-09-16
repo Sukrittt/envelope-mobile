@@ -21,9 +21,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const rawScheme = useColorScheme()
-  // Light is the default: the design is light-first, and `useColorScheme()`
-  // returns null before the native module reports in.
-  const systemScheme: 'light' | 'dark' = rawScheme === 'dark' ? 'dark' : 'light'
+  // Dark is default: `useColorScheme()` returns null before the native
+  // module reports in, and null should land on dark, not light.
+  const systemScheme: 'light' | 'dark' = rawScheme === 'light' ? 'light' : 'dark'
   const [preference, setPreferenceState] = useState<ThemePreference>('system')
 
   // Deliberately survives logout: the theme belongs to this device, not to the
