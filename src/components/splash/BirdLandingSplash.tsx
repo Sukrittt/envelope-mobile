@@ -71,7 +71,9 @@ export function BirdLandingSplash() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  wordmark: { fontFamily: fontFamily.displaySemiBold, fontSize: 34, letterSpacing: -0.5, color: CREAM, marginTop: -6 },
+  // paddingRight compensates negative letterSpacing: Android's Text layout
+  // trims the box to the tracked width, which was clipping the final "y".
+  wordmark: { fontFamily: fontFamily.displaySemiBold, fontSize: 34, letterSpacing: -0.5, color: CREAM, marginTop: -6, paddingRight: 4 },
   dots: { flexDirection: 'row', gap: 9, marginTop: 28 },
   dot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: CREAM },
 })
