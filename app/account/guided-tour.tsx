@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useRouter, type Href } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
+import { BackHandler, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
@@ -33,6 +33,17 @@ export default function GuidedTourScreen() {
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const exitTour = useCallback(() => router.replace('/(tabs)'), [router])
+
+  // After setup this is the root screen, so Android back must also have an
+  // explicit destination. Only intercept it while the tour itself is focused.
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitTour()
+      return true
+    })
+    return () => subscription.remove()
+  }, [exitTour]))
 
   const [done, setDone] = useTourProgress()
   const [view, setView] = useState<View3>('hub')
@@ -69,7 +80,7 @@ export default function GuidedTourScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
-          onPress={() => (view === 'chapter' ? setView('hub') : router.back())}
+          onPress={() => (view === 'chapter' ? setView('hub') : exitTour())}
           hitSlop={12}
           style={[styles.backButton, { backgroundColor: tokens.cardSolid, borderColor: tokens.border }]}
         >
@@ -84,7 +95,7 @@ export default function GuidedTourScreen() {
           </Text>
         </View>
         {view !== 'done' && (
-          <Pressable accessibilityRole="button" onPress={() => setView('done')} hitSlop={12}>
+          <Pressable accessibilityRole="button" onPress={exitTour} hitSlop={12}>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>Skip</Text>
           </Pressable>
         )}
@@ -203,7 +214,7 @@ export default function GuidedTourScreen() {
             setChapter(i)
             setView('chapter')
           }}
-          onFinish={() => router.back()}
+          onFinish={exitTour}
           onStartOver={() => {
             setDone(new Set())
             setChapter(0)

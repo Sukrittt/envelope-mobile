@@ -1,7 +1,8 @@
-import { Stack } from 'expo-router'
-import { renderRouter, screen, testRouter, waitFor } from 'expo-router/testing-library'
+import { onOnboarded, signalOnboarded } from '@/src/api/onboardingSignal'
+import { Stack, useRouter } from 'expo-router'
+import { renderRouter, screen, testRouter, waitFor, fireEvent } from 'expo-router/testing-library'
 import { useEffect, useState } from 'react'
-import { Text } from 'react-native'
+import { Text, Button } from 'react-native'
 
 // app/_layout.tsx opens on log-expense purely by declaring it first inside the
 // signed-in guard: when /loading unregisters, React Navigation rebuilds the
@@ -41,5 +42,42 @@ it('rebuilds the emptied stack from the first registered screen', async () => {
 
   await waitFor(() => expect(screen.getByText('log expense')).toBeTruthy())
   expect(screen.queryByText('home')).toBeNull()
+  expect(testRouter.canGoBack()).toBe(false)
+})
+
+function OnboardingLayout() {
+  const [onboarded, setOnboarded] = useState(false)
+  useEffect(() => onOnboarded(() => setOnboarded(true)), [])
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!onboarded}>
+        <Stack.Screen name="setup" />
+      </Stack.Protected>
+      <Stack.Protected guard={onboarded}>
+        <Stack.Screen name="account/guided-tour" />
+        <Stack.Screen name="modals/log-expense" />
+        <Stack.Screen name="index" />
+      </Stack.Protected>
+    </Stack>
+  )
+}
+
+it('replaces setup with the tour, then exits to Home without returning to setup', async () => {
+  function Tour() {
+    const router = useRouter()
+    return <Button title="Close tour" onPress={() => router.replace('/')} />
+  }
+  renderRouter({
+    _layout: OnboardingLayout,
+    setup: () => <Button title="Show me how it works" onPress={signalOnboarded} />,
+    'account/guided-tour': Tour,
+    'modals/log-expense': () => <Text>log expense</Text>,
+    index: () => <Text>home</Text>,
+  }, { initialUrl: '/setup' })
+  fireEvent.press(screen.getByText('Show me how it works'))
+  await waitFor(() => expect(screen.getByText('Close tour')).toBeTruthy())
+  expect(testRouter.canGoBack()).toBe(false)
+  fireEvent.press(screen.getByText('Close tour'))
+  await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
   expect(testRouter.canGoBack()).toBe(false)
 })

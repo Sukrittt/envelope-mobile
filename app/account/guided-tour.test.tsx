@@ -1,11 +1,14 @@
+import { BackHandler } from 'react-native'
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import GuidedTourScreen from './guided-tour'
 
+const mockReplace = jest.fn()
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, navigate: mockNavigate, back: jest.fn() }),
+  useFocusEffect: jest.requireActual('react').useEffect,
+  useRouter: () => ({ replace: mockReplace, push: mockPush, navigate: mockNavigate, back: jest.fn() }),
 }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -70,7 +73,7 @@ it('October restarts Credit Card Payment at zero and drops leftovers', async () 
   expect(getByText("restarts at zero · it was last month's bill")).toBeTruthy()
 })
 
-it('walks hub to chapter to done, and deep links to the real screen', async () => {
+it('walks hub to chapter, opens the real screen, and skips to Home', async () => {
   const { getByText } = renderWithProviders(<GuidedTourScreen />)
 
   fireEvent.press(getByText('Start the tour'))
@@ -80,5 +83,31 @@ it('walks hub to chapter to done, and deep links to the real screen', async () =
   expect(mockNavigate).toHaveBeenCalledWith('/(tabs)')
 
   fireEvent.press(getByText('Skip'))
-  await waitFor(() => expect(getByText('Tour complete')).toBeTruthy())
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+})
+
+it('closes the tour to Home even when there is no previous screen', () => {
+  const { getByLabelText } = renderWithProviders(<GuidedTourScreen />)
+  fireEvent.press(getByLabelText('Close'))
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+})
+
+it('returns to Home after finishing the tour', () => {
+  const { getByText } = renderWithProviders(<GuidedTourScreen />)
+  openChapter(getByText, 'Everything else')
+  fireEvent.press(getByText('Finish the tour'))
+  fireEvent.press(getByText('Back to my money'))
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+})
+
+it('handles Android back and removes the listener when leaving the tour', () => {
+  const remove = jest.fn()
+  const subscribe = jest.spyOn(BackHandler, 'addEventListener').mockReturnValue({ remove })
+  const { unmount } = renderWithProviders(<GuidedTourScreen />)
+  const handler = subscribe.mock.calls.find(([event]) => event === 'hardwareBackPress')![1]
+  expect(handler({ type: 'hardwareBackPress', timeStamp: 0 })).toBe(true)
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  unmount()
+  expect(remove).toHaveBeenCalled()
+  subscribe.mockRestore()
 })

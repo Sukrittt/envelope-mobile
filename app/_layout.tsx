@@ -74,6 +74,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
+  // Only the setup completion CTA enables this; restoring a session never does.
+  const [justOnboarded, setJustOnboarded] = useState(false)
 
   useEffect(() => {
     initAccessMode().then((restored) => {
@@ -102,6 +104,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     })
     const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
+      setJustOnboarded(false)
       queryClient.clear()
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
@@ -147,6 +150,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(
     () =>
       onOnboarded(() => {
+        setJustOnboarded(true)
         setOnboarded(true)
         // signalOnboarded() fires once, on the setup wizard's finish CTA, so
         // this counts completions rather than per-step progress.
@@ -267,7 +271,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
 
         <Stack.Protected guard={!resolving && hasSession && onboarded === true}>
-          {/* First on purpose: logging an expense is the app's primary verb, so
+          {/* Fresh setup lands directly in the existing tour. Both screens stay
+              available afterwards; normal session restores still open logging. */}
+          {justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
+          {/* First for returning users: logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
               rebuilds itself from when the loading screen unregisters, so the
               app lands on it directly with nothing underneath and Android back
@@ -284,7 +291,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/bill-scans" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-          <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          {!justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="subscriptions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />

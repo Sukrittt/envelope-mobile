@@ -1,6 +1,7 @@
 import { render, waitFor, act } from '@testing-library/react-native'
 import type { ReactNode } from 'react'
 import RootLayout from './_layout'
+import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
 import * as SplashScreen from 'expo-splash-screen'
@@ -217,4 +218,18 @@ describe('RootLayout', () => {
     expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:modals/log-expense')
     expect(mockPush).not.toHaveBeenCalled()
   })
+})
+
+it('opens the tour directly when the setup completion button signals onboarding', async () => {
+  mockFontsLoaded = true
+  mockPathname = '/setup'
+  mockInitAccessMode.mockResolvedValue('real')
+  mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null })
+  const { getByTestId, getAllByTestId, queryByTestId } = render(<RootLayout />)
+  await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
+  act(() => signalOnboarded())
+  expect(queryByTestId('screen:setup')).toBeNull()
+  expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:account/guided-tour')
+  expect(getAllByTestId('screen:account/guided-tour')).toHaveLength(1)
+  expect(mockPush).not.toHaveBeenCalled()
 })
