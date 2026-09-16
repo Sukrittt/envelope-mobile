@@ -3,6 +3,7 @@ import { addGroup, deleteGroup, getGroups, moveGroup, updateGroup } from '@/src/
 
 const key = ['groups'] as const
 const categoriesKey = ['categories'] as const
+const moveKey = ['groups', 'move'] as const
 
 export function useGroups() {
   return useQuery({ queryKey: key, queryFn: getGroups, staleTime: 30_000 })
@@ -44,6 +45,10 @@ export function useDeleteGroup() {
 export function useMoveGroup() {
   const qc = useQueryClient()
   return useMutation({
+    mutationKey: moveKey,
+    // Keep API writes in gesture order, including across hook instances. Optimistic
+    // onMutate still runs immediately for queued moves, so the next drag needn't wait.
+    scope: { id: 'group-reorder' },
     mutationFn: (params: { name: string; toIndex: number }) => moveGroup(params.name, params.toIndex),
     onMutate: (params) => {
       qc.cancelQueries({ queryKey: key })
@@ -60,11 +65,19 @@ export function useMoveGroup() {
       return { previous }
     },
     onError: (_err, _params, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous)
+      if (context?.previous && qc.isMutating({ mutationKey: moveKey }) === 1) {
+        qc.setQueryData(key, context.previous)
+      }
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: key })
-      qc.invalidateQueries({ queryKey: categoriesKey })
+      // An intermediate refetch would overwrite later optimistic moves with an
+      // older server order. Reconcile only once the queue has drained.
+      if (qc.isMutating({ mutationKey: moveKey }) === 1) {
+        return Promise.all([
+          qc.invalidateQueries({ queryKey: key }),
+          qc.invalidateQueries({ queryKey: categoriesKey }),
+        ])
+      }
     },
   })
 }

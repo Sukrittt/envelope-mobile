@@ -6,7 +6,6 @@ import * as Haptics from 'expo-haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
   FadeIn,
-  FadeOut,
   measure,
   useAnimatedRef,
   useAnimatedStyle,
@@ -79,8 +78,9 @@ const BODY_TRANSITION = LinearTransition.springify().damping(SPRING.damping).sti
 
 function GroupBody({ collapsed, style, children }: { collapsed: boolean; style: object; children: React.ReactNode }) {
   if (collapsed) return null
+  // No exit animation: removed bodies must leave native layout immediately on lift.
   return (
-    <Reanimated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)} style={style}>
+    <Reanimated.View entering={FadeIn.duration(150)} style={style}>
       {children}
     </Reanimated.View>
   )
@@ -248,7 +248,6 @@ function DraggableGroupCard({
   settling,
   dropCount,
   lifted,
-  animateLayout,
   onLift,
   onDrop,
   cardStyle,
@@ -265,7 +264,6 @@ function DraggableGroupCard({
   settling: boolean
   dropCount: number
   lifted: boolean
-  animateLayout: boolean
   onLift: (name: string) => void
   onDrop: (name: string, from: number, to: number) => void
   cardStyle: object
@@ -336,7 +334,16 @@ function DraggableGroupCard({
     function start() {
       'worklet'
       const from = drag.order.value.indexOf(name)
+      const list = measure(listRef)
+      const card = measure(cardRef)
+      if (from < 0 || !list || !card) return
       drag.session.value += 1
+      // Initialize before release can start a drop animation. Otherwise a long
+      // press released before the first frame cancels that animation in follow().
+      seenSession.value = drag.session.value
+      shownTop.value = card.pageY - list.pageY
+      shownIndex.value = -1
+      translate.value = 0
       drag.name.value = name
       drag.from.value = from
       drag.target.value = from
@@ -344,10 +351,11 @@ function DraggableGroupCard({
       drag.active.value = true
       scheduleOnRN(lift)
     }
-    function finish() {
+    function finish(success: boolean) {
       'worklet'
+      const session = drag.session.value
       const from = drag.from.value
-      const to = drag.target.value
+      const to = success ? drag.target.value : from
       const next = drag.order.value.filter((n) => n !== name)
       next.splice(to, 0, name)
       // Everyone else's slot is already where the new order puts them, so swapping the order
@@ -356,8 +364,10 @@ function DraggableGroupCard({
       drag.order.value = next
       drag.from.value = to
       drag.target.value = to
-      shownTop.value = withTiming(to * drag.step.value, { duration: 180 }, () => {
-        scheduleOnRN(drop, from, to)
+      shownTop.value = withTiming(to * drag.step.value, { duration: 180 }, (finished) => {
+        if (finished && drag.active.value && drag.session.value === session && drag.name.value === name) {
+          scheduleOnRN(drop, from, to)
+        }
       })
     }
     function pan(id: number) {
@@ -378,17 +388,17 @@ function DraggableGroupCard({
             if (Math.abs(e.translationY) < LIFT_SLOP) return
             start()
           }
-          follow()
+          if (drag.active.value && drag.name.value === name && !drag.dropping.value) follow()
         })
-        .onFinalize(() => {
+        .onFinalize((_event, success) => {
           if (owner.value !== id) return
           owner.value = 0
-          if (drag.active.value && drag.name.value === name && !drag.dropping.value) finish()
+          if (drag.active.value && drag.name.value === name && !drag.dropping.value) finish(success)
         })
       return id === LONG_PRESS ? gesture.activateAfterLongPress(LONG_PRESS_MS) : gesture.minDistance(0)
     }
     return { grip: pan(GRIP), longPress: pan(LONG_PRESS) }
-  }, [name, draggable, drag, cardRef, owner, fingerY, grabDelta, shownTop, follow, lift, drop])
+  }, [name, draggable, drag, cardRef, listRef, owner, fingerY, grabDelta, shownTop, seenSession, shownIndex, translate, follow, lift, drop])
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -410,10 +420,12 @@ function DraggableGroupCard({
   return (
     <Reanimated.View
       ref={cardRef}
-      layout={animateLayout ? BODY_TRANSITION : undefined}
+      collapsable={false}
       style={lifted ? styles.draggingCard : null}
     >
-      {/* A new key on every drop remounts this view in the same React commit as the reorder.
+      {/* Only the inner view translates; this measured wrapper never has a native layout
+          animation that could keep writing an obsolete origin after a reorder.
+          A new key on every drop remounts this view in the same React commit as the reorder.
           Its first style comes from that commit (settling, so no offset), instead of the UI
           thread zeroing the offset a frame before the new order is on screen. */}
       <Reanimated.View key={dropCount} style={[cardStyle, lifted ? liftedStyle : null, animatedStyle]}>
@@ -479,18 +491,17 @@ export default function EnvelopesScreen() {
 
   // Group drag-to-reorder. Same local-order and stable-responder approach as
   // DraggableCategoryList (see the comments there). On top of that, every group collapses to
-  // its header while one is dragged, so each slot is one uniform `groupStep()` tall.
+  // its header while one is dragged, so each slot is one uniform header height plus gap.
   const [groupOrder, setGroupOrder] = useState<string[]>(groups)
+  // The UI-thread lock spans dragging, the reorder commit, and restoring expanded bodies.
+  const [dragPhase, setDragPhase] = useState<'idle' | 'dragging' | 'settling' | 'restoring'>('idle')
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- local order must be able to lead the groups query on drop
+    if (dragPhase !== 'idle' || moveGroup.isPending) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- defer query updates until the current gesture and queued writes settle
     setGroupOrder(groups)
-  }, [groups])
-  // idle, dragging (a card is held), settling (dropped, reorder committing, animations off).
-  const [dragPhase, setDragPhase] = useState<'idle' | 'dragging' | 'settling'>('idle')
+  }, [groups, dragPhase, moveGroup.isPending])
   const [liftedGroup, setLiftedGroup] = useState<string | null>(null)
   const [dropCount, setDropCount] = useState(0)
-  const [collapseAll, setCollapseAll] = useState(false)
-  const [animateCards, setAnimateCards] = useState(true)
   const listRef = useAnimatedRef<Reanimated.View>()
   const dragActive = useSharedValue(false)
   const dragSession = useSharedValue(0)
@@ -516,14 +527,11 @@ export default function EnvelopesScreen() {
     [dragActive, dragSession, dragName, dragOrder, dragFrom, dragTo, dragDropping, dragStep],
   )
   useEffect(() => {
-    if (dragPhase === 'idle') groupDrag.order.value = groupOrder
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are stable refs
-  }, [groupOrder, dragPhase])
+    if (dragPhase === 'idle' && !groupDrag.active.value) groupDrag.order.value = groupOrder
+  }, [groupOrder, dragPhase, groupDrag])
 
   function liftGroup(name: string) {
     Haptics.selectionAsync().catch(() => {})
-    setAnimateCards(false)
-    setCollapseAll(true)
     setLiftedGroup(name)
     setDragPhase('dragging')
   }
@@ -533,29 +541,29 @@ export default function EnvelopesScreen() {
     setLiftedGroup(null)
     if (to !== from) {
       setGroupOrder((cur) => moveItem(cur, name, to))
-      moveGroup.mutate({ name, toIndex: to })
+      moveGroup.mutate({ name, toIndex: to }, { onError: () => showToast('Could not save group order. Please try again.') })
     }
     setDragPhase('settling')
   }
 
-  // Once the reorder has been painted, every card's translate is back to ~0, so the drag
-  // session can end without a visible jump. Then layout animations come back on, and a frame
-  // later the groups spring open.
+  // Keep the UI-thread lock until the reordered list AND restored bodies have committed.
+  // Restoring in its own phase prevents effect cleanup from canceling the reopen frame.
   useEffect(() => {
-    if (dragPhase !== 'settling') return
+    if (dragPhase !== 'settling' && dragPhase !== 'restoring') return
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
-        groupDrag.active.value = false
-        groupDrag.name.value = ''
-        groupDrag.dropping.value = false
-        setDragPhase('idle')
-        setAnimateCards(true)
-        frame = requestAnimationFrame(() => setCollapseAll(false))
+        if (dragPhase === 'settling') {
+          setDragPhase('restoring')
+        } else {
+          groupDrag.active.value = false
+          groupDrag.name.value = ''
+          groupDrag.dropping.value = false
+          setDragPhase('idle')
+        }
       })
     })
     return () => cancelAnimationFrame(frame)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- shared values are stable refs
-  }, [dragPhase])
+  }, [dragPhase, groupDrag])
 
   const groupedCategories = useMemo(() => {
     const byGroup = new Map<string, CategoryRow[]>()
@@ -789,10 +797,10 @@ export default function EnvelopesScreen() {
             />
           }
         >
-          <Reanimated.View ref={listRef} style={styles.groupList}>
+          <Reanimated.View ref={listRef} collapsable={false} style={styles.groupList}>
             {groupedCategories.map(({ name, items }) => {
               const key = name || OTHER_LABEL
-              const collapsed = collapseAll || collapsedGroups.has(key)
+              const collapsed = dragPhase === 'dragging' || dragPhase === 'settling' || collapsedGroups.has(key)
               return (
                 <DraggableGroupCard
                   key={key}
@@ -801,10 +809,9 @@ export default function EnvelopesScreen() {
                   drag={groupDrag}
                   listRef={listRef}
                   dragging={dragPhase !== 'idle'}
-                  settling={dragPhase === 'settling'}
+                  settling={dragPhase !== 'dragging'}
                   dropCount={dropCount}
                   lifted={name !== '' && liftedGroup === name}
-                  animateLayout={animateCards}
                   onLift={liftGroup}
                   onDrop={dropGroup}
                   cardStyle={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
