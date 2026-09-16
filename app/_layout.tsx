@@ -3,6 +3,7 @@ import { CurrencyProvider } from '@/src/context/CurrencyProvider'
 import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
+import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -168,8 +169,34 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const ready = fontsLoaded && authReady
   const resolving = !ready || (hasSession && onboarded === null)
 
+  // log-expense is the launch screen (declared first below). When /loading
+  // (or /setup) unregisters, the stack is rebuilt with nothing underneath, so
+  // a fade there shows the black root bg between two orange screens. Read off
+  // the pathname, not a latch set in an effect: pathname still reads the old
+  // route during the rebuild commit, so the landing gets 'none' while every
+  // later push from a tab still fades.
+  // The bird splash is an overlay above the Stack, not the /loading route's
+  // content: swapping /loading for the landing screen is a native stack
+  // operation, and for a few frames neither screen is painted, which showed
+  // as a black flash. The overlay stays up until the landing screen reports
+  // it has actually appeared (transitionEnd fires from native onAppear), so
+  // the splash hands off straight to a painted screen. The timer is only a
+  // fallback in case that event never arrives.
+  const [splashUp, setSplashUp] = useState(true)
+  useEffect(() => {
+    if (resolving) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- re-raises the overlay whenever the guards fall back to /loading (e.g. sign-in)
+      setSplashUp(true)
+      return
+    }
+    const timer = setTimeout(() => setSplashUp(false), 1500)
+    return () => clearTimeout(timer)
+  }, [resolving])
+
+  const logExpenseAnimation = pathname === '/loading' || pathname === '/setup' ? 'none' : 'fade'
+
   // The native splash only covers the pre-JS gap: it hides as soon as fonts
-  // are ready (the /loading route's BirdLandingSplash needs Fredoka to draw
+  // are ready (the BirdLandingSplash overlay needs Fredoka to draw
   // its wordmark), not the whole auth/onboarding resolve. That's deliberate —
   // an earlier JS splash forced a 2s minimum plus a remote Lottie fetch on
   // every cold boot. The local bird animation fetches nothing; it fills
@@ -217,7 +244,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           initialRouteName prop can't do this job: the router is built once, on
           the first render, when only /loading exists. So every block below
           leads with the screen that state opens on. */}
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}>
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: tokens.bg } }}
+        screenListeners={({ route }) => ({
+          transitionEnd: (e) => {
+            if (!resolving && route.name !== 'loading' && !e.data.closing) setSplashUp(false)
+          },
+        })}
+      >
         <Stack.Protected guard={resolving}>
           {/* fade, not the Stack default: this is the screen the native splash
               hands off to, so a hard cut would show through as a flash. */}
@@ -240,7 +274,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
               exits.
               card (not fullScreenModal): a real native modal presentation covers
               the whole window on iOS, hiding the persistent nav below it. */}
-          <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: 'fade' }} />
+          <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: logExpenseAnimation, contentStyle: { backgroundColor: tokens.accent } }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -278,6 +312,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       </Stack>
       <LogExpenseNavigation />
+      {splashUp ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only

@@ -177,7 +177,7 @@ export function FloatingNav({
   addDisabled?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, space, elevation, radius, scheme } = useTheme()
+  const { tokens, space, elevation, scheme } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
@@ -201,8 +201,10 @@ export function FloatingNav({
 
   const scrollRef = useAnimatedRef<Reanimated.ScrollView>()
   const scrollX = useSharedValue(0)
-  // Captured once at mount, for the initial contentOffset below.
-  const [initialIndex] = useState(() => (activeIndex === -1 ? 0 : activeIndex))
+  // Captured once at mount, for the initial contentOffset below. The nav mounts
+  // on /loading (no active slot) and the app lands on log-expense, so rest on
+  // the add slot rather than scrolling over from Home on first show.
+  const [initialIndex] = useState(() => (activeIndex === -1 ? ADD_INDEX : activeIndex))
   // Tracks the slot the carousel is actually resting on, so a route change
   // that only mirrors our own snap (see onMomentumScrollEnd) doesn't scroll
   // again, and a real external change (tap, deep link) does.
@@ -266,19 +268,6 @@ export function FloatingNav({
       style={[styles.wrap, { paddingBottom: space.xs }]}
     >
       {children}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.backdrop,
-          {
-            // Log-expense is a full-bleed accent flood; the strip behind the
-            // nav matches it there instead of always reading as a page footer.
-            backgroundColor: addActive ? tokens.accent : tokens.bg,
-            borderTopLeftRadius: radius.xl,
-            borderTopRightRadius: radius.xl,
-          },
-        ]}
-      />
       <Reanimated.ScrollView
         ref={scrollRef}
         horizontal
@@ -351,6 +340,32 @@ export function FloatingNav({
         )}
       </Reanimated.ScrollView>
     </View>
+  )
+}
+
+/**
+ * The opaque strip behind the nav, rendered by the (tabs) layout rather than
+ * by FloatingNav itself: the nav is a root overlay that switches state the
+ * instant the pathname changes, while the screens underneath fade. Owned by
+ * the screen, the strip fades with it instead of flipping color early.
+ * Log-expense has no strip; its accent flood already fills the area.
+ */
+export function NavBackdrop() {
+  const { tokens, space, radius } = useTheme()
+  const insets = useSafeAreaInsets()
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.backdrop,
+        {
+          height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + space.xs,
+          backgroundColor: tokens.bg,
+          borderTopLeftRadius: radius.xl,
+          borderTopRightRadius: radius.xl,
+        },
+      ]}
+    />
   )
 }
 
@@ -533,7 +548,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: ROW_TOP_BLEED - BACKDROP_PAD,
     bottom: 0,
   },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
