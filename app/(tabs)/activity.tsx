@@ -139,7 +139,7 @@ export default function ActivityScreen() {
 
   const changePage = useCallback((next: number) => {
     setPage(next);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
 
   const params = useLocalSearchParams<{
