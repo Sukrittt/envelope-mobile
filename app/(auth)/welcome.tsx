@@ -8,13 +8,12 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { IndianRupee } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { useSignIn } from "@/src/api/useSignIn";
 import { AuthBackdrop } from "@/src/components/auth/AuthBackdrop";
-import { Icon } from "@/src/components/shared/Icon";
+import { BirdLandingMark } from "@/src/components/splash/BirdLandingMark";
 import { BASE_URL } from "@/src/api/client";
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
@@ -66,7 +65,7 @@ export default function WelcomeScreen() {
                 { backgroundColor: tokens.accent, shadowColor: tokens.accent },
               ]}
             >
-              <Icon icon={IndianRupee} size={28} color={tokens.onAccent} />
+              <BirdLandingMark size={40} color={tokens.onAccent} autoplay={false} />
             </View>
             <Text
               style={[
