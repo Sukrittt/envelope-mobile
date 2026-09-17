@@ -1,8 +1,5 @@
 import { act, fireEvent } from '@testing-library/react-native'
-import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getUser } from '@/src/api/account'
-import { getExpenses } from '@/src/api/expenses'
 import { useEffect } from 'react'
 import { LogExpenseSubmitProvider, useLogExpenseSubmitPublisher, type LogExpenseSubmitSnapshot } from '@/src/features/log-expense/SubmitContext'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -14,9 +11,6 @@ function NavigationHarness() {
 }
 
 function TabBar() { return <LogExpenseSubmitProvider><NavigationHarness /></LogExpenseSubmitProvider> }
-jest.mock('@/src/api/account', () => ({ getUser: jest.fn() }))
-jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
-
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
 const mockNavigate = jest.fn()
@@ -27,15 +21,10 @@ jest.mock('expo-router', () => ({
   usePathname: () => mockPathname,
 }))
 
-const mockGetUser = getUser as jest.Mock
-const mockGetExpenses = getExpenses as jest.Mock
-
 beforeEach(() => {
   jest.clearAllMocks()
   snapshot = undefined
   mockPathname = '/'
-  mockGetUser.mockResolvedValue({ onboardedAt: '2026-01-01' })
-  mockGetExpenses.mockResolvedValue([])
 })
 
 it('navigates to log-expense when the add circle is tapped elsewhere', async () => {
@@ -83,13 +72,4 @@ describe('on the log-expense screen', () => {
 
     expect(getByLabelText('Log expense').props.accessibilityState.disabled).toBe(false)
   })
-})
-
-it('shows the Home-tab hint, not the log-expense one, on Home with no transactions', async () => {
-  const { findByTestId, queryByTestId } = renderWithProviders(<TabBar />)
-  expect(await findByTestId('first-expense-hint')).toBeTruthy()
-  expect(queryByTestId('first-expense-hint-arrow')).toBeTruthy()
-
-  const arrowStyle = StyleSheet.flatten((await findByTestId('first-expense-hint-arrow')).props.style)
-  expect(arrowStyle.transform).toContainEqual({ translateX: 144 })
 })

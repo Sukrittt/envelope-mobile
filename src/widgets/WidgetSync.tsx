@@ -1,9 +1,8 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 // Pushes live data to the Android widgets while the app is running. Mounted
-// only while the signed-in screens are (see app/_layout.tsx) — same reason
-// TabBar's FirstExpenseHintGate is conditionally rendered rather than always
-// mounted: firing these queries before auth resolves would mean an
-// unauthenticated /api/budgets call on every cold boot, guest or not.
+// only while the signed-in screens are (see app/_layout.tsx): firing these
+// queries before auth resolves would mean an unauthenticated /api/budgets
+// call on every cold boot, guest or not.
 //
 // The headless widget-task-handler covers everything this can't reach: app
 // killed, a widget freshly added, or the 30-minute OS timer.
