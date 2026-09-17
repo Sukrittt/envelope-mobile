@@ -1,3 +1,4 @@
+import { Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { useUser } from '@/src/hooks/useUser'
@@ -6,11 +7,16 @@ import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
+import { getSystemStatus } from '@/src/api/systemStatus'
 import MoreScreen from './more'
 
 jest.mock('@/src/hooks/useUser', () => ({
   useUpdateUser: () => ({ mutate: jest.fn(), isPending: false, isError: false }), useUser: jest.fn() }))
 jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: jest.fn() }))
+jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn() }))
+// Expo Go reports its own host version. The More screen must ignore it and
+// display Aviary's app.json version instead.
+jest.mock('expo-application', () => ({ nativeApplicationVersion: '57.0.9', nativeBuildVersion: '57' }))
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
@@ -46,6 +52,7 @@ jest.mock('expo-image-picker', () => ({
 
 const mockUseUser = useUser as jest.Mock
 const mockUseWrappedStatus = useWrappedStatus as jest.Mock
+const mockGetSystemStatus = getSystemStatus as jest.Mock
 
 /** Flushes react-query's promise chain so the categories query lands before an assertion. */
 async function flushCategories() {
@@ -58,6 +65,7 @@ async function flushCategories() {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' })
   ;(sessionId as jest.Mock).mockReturnValue('session_1')
   ;(clearAccess as jest.Mock).mockResolvedValue(undefined)
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Essentials' }])
@@ -72,6 +80,9 @@ beforeEach(() => {
       currentMonthCount: 3,
     },
   })
+  // Most tests do not care about this background query; keep it pending so it
+  // does not schedule unrelated React state updates after their assertions.
+  mockGetSystemStatus.mockReturnValue(new Promise(() => {}))
   mockRequestLibrary.mockResolvedValue({ granted: true })
   mockRequestCamera.mockResolvedValue({ granted: true })
   mockLaunchLibrary.mockResolvedValue({
@@ -79,6 +90,37 @@ beforeEach(() => {
     assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
   })
   takePendingScanImage() // drain anything a prior test left queued
+})
+
+describe('More tab · app version', () => {
+  it('offers the Play Store update when the configured version is newer', async () => {
+    const storeUrl = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
+    mockGetSystemStatus.mockResolvedValue({
+      aiDisabled: false,
+      maintenance: { on: false, message: '' },
+      appUpdate: { android: { latestVersion: '2.3.0', storeUrl } },
+    })
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+
+    const { findByText } = renderWithProviders(<MoreScreen />)
+    fireEvent.press(await findByText('Update available · v2.3.0 →'))
+
+    expect(openUrl).toHaveBeenCalledWith(storeUrl)
+    openUrl.mockRestore()
+  })
+
+  it('keeps the existing version footer when the installed app is current', async () => {
+    mockGetSystemStatus.mockResolvedValue({
+      aiDisabled: false,
+      maintenance: { on: false, message: '' },
+      appUpdate: { android: { latestVersion: '2.2.1', storeUrl: 'https://play.google.com/' } },
+    })
+
+    const { findByText, queryByText } = renderWithProviders(<MoreScreen />)
+    expect(await findByText('v2.2.1 · built in the open')).toBeTruthy()
+    await waitFor(() => expect(mockGetSystemStatus).toHaveBeenCalled())
+    expect(queryByText(/Update available/)).toBeNull()
+  })
 })
 
 describe('More tab · Expense Wrapped row', () => {

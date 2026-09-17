@@ -15,7 +15,8 @@ describe('MaintenanceBanner', () => {
     const { findByText, getByLabelText, queryByText } = renderWithProviders(<MaintenanceBanner />)
     await findByText('Down for maintenance at 11pm')
     fireEvent.press(getByLabelText('Dismiss'))
-    expect(queryByText('Down for maintenance at 11pm')).toBeNull()
+    // Still mounted while it animates out, but hidden from the accessibility tree.
+    expect(queryByText('Down for maintenance at 11pm', { includeHiddenElements: false })).toBeNull()
   })
 
   it('renders nothing when maintenance is off', async () => {

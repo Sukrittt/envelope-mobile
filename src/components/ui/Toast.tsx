@@ -14,7 +14,16 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const VISIBLE_MS = 2600
 // Bouncier than motion.spring: the drop-in should land with a little overshoot.
-const DROP_SPRING = { mass: 0.8, damping: 13, stiffness: 190 }
+export const DROP_SPRING = { mass: 0.8, damping: 13, stiffness: 190 }
+
+/** The drop-in look for a 0..1 progress: fades in, slides down 28pt, and grows from 86%. Shared with MaintenanceBanner. */
+export function dropInStyle(progress: number, bump = 1, wiggle = 0) {
+  'worklet'
+  return {
+    opacity: Math.min(1, progress * 1.5),
+    transform: [{ translateY: (1 - progress) * -28 }, { scale: (0.86 + progress * 0.14) * bump }, { rotate: `${wiggle * 3}deg` }],
+  }
+}
 
 /**
  * A pill that drops in from the top, squashes a little as it lands, and floats
@@ -75,14 +84,7 @@ export function Toast({
     // Re-runs per trigger so a repeat tap wiggles and restarts the timer.
   }, [shown, trigger, reduceMotion, progress, wiggle, bump])
 
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(1, progress.value * 1.5),
-    transform: [
-      { translateY: (1 - progress.value) * -28 },
-      { scale: (0.86 + progress.value * 0.14) * bump.value },
-      { rotate: `${wiggle.value * 3}deg` },
-    ],
-  }))
+  const animStyle = useAnimatedStyle(() => dropInStyle(progress.value, bump.value, wiggle.value))
 
   return (
     <Reanimated.View pointerEvents="none" style={[styles.wrap, style, animStyle]}>

@@ -2,6 +2,7 @@ import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, RefreshControl, Switch, Linking, Platform, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
@@ -20,6 +21,7 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
 import { BASE_URL } from '@/src/api/client'
+import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import { useCategories } from '@/src/hooks/useCategories'
@@ -29,6 +31,7 @@ import { count as pendingCount } from '@/src/lib/pendingExpenses'
 import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
+import { isVersionNewer } from '@/src/lib/version'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -56,6 +59,14 @@ export default function MoreScreen() {
   const user = userQuery.data
   const wrappedStatus = useWrappedStatus().data
   const categoriesQ = useCategories()
+  const systemStatusQ = useQuery({
+    queryKey: ['system-status'],
+    queryFn: getSystemStatus,
+    staleTime: 5 * 60_000,
+  })
+  const installedVersion = appJson.expo.version
+  const androidUpdate = Platform.OS === 'android' ? systemStatusQ.data?.appUpdate?.android : undefined
+  const updateAvailable = !!androidUpdate && isVersionNewer(androidUpdate.latestVersion, installedVersion)
 
   async function doSignOut() {
     // The revoke is a network round-trip (up to apiFetch's 15s timeout),
@@ -326,9 +337,12 @@ export default function MoreScreen() {
                 <View style={{ opacity: 0.5 }}>
                   <Icon icon={CreditCard} size={16} color={tokens.text} />
                 </View>
-                <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text3, textDecorationLine: 'line-through', fontFamily: fontFamily.bodySemiBold }]}>
-                  Plan & billing
-                </Text>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.rowLabel, { color: tokens.text3, textDecorationLine: 'line-through', fontFamily: fontFamily.bodySemiBold }]}>
+                    Plan & billing
+                  </Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>{"You're on the trial plan while we build payments"}</Text>
+                </View>
                 <Pressable
                   onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
                   style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
@@ -380,9 +394,18 @@ export default function MoreScreen() {
             </Text>
           </Pressable>
 
-          <Text style={[styles.version, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            v{appJson.expo.version} · built in the open
-          </Text>
+          <View style={styles.versionBlock}>
+            <Text style={[styles.version, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+              v{installedVersion} · built in the open
+            </Text>
+            {updateAvailable && androidUpdate && (
+              <Pressable accessibilityRole="link" onPress={() => Linking.openURL(androidUpdate.storeUrl)} hitSlop={8}>
+                <Text style={[styles.updateLink, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>
+                  Update available · v{androidUpdate.latestVersion} →
+                </Text>
+              </Pressable>
+            )}
+          </View>
       </Screen>
 
       <BottomSheet visible={scanPickerOpen} onClose={() => setScanPickerOpen(false)}>
@@ -546,6 +569,8 @@ const styles = StyleSheet.create({
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
   version: { fontSize: 11, textAlign: 'center' },
+  versionBlock: { alignItems: 'center', gap: 7 },
+  updateLink: { fontSize: 12, textAlign: 'center' },
   sheetTitle: { fontSize: 17, marginBottom: 12 },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, padding: 14 },
   sourceLabel: { fontSize: 15 },
