@@ -10,10 +10,11 @@ const { apiFetch } = jest.requireMock('@/src/api/client') as { apiFetch: jest.Mo
 const status = (on: boolean, message: string) => ({ ok: true, json: async () => ({ aiDisabled: false, maintenance: { on, message } }) })
 
 describe('MaintenanceBanner', () => {
-  it('shows the message when maintenance is on, and hides it on tap', async () => {
+  it('shows the message when maintenance is on, and hides it when dismissed', async () => {
     apiFetch.mockResolvedValue(status(true, 'Down for maintenance at 11pm'))
-    const { findByText, queryByText } = renderWithProviders(<MaintenanceBanner />)
-    fireEvent.press(await findByText('Down for maintenance at 11pm'))
+    const { findByText, getByLabelText, queryByText } = renderWithProviders(<MaintenanceBanner />)
+    await findByText('Down for maintenance at 11pm')
+    fireEvent.press(getByLabelText('Dismiss'))
     expect(queryByText('Down for maintenance at 11pm')).toBeNull()
   })
 
