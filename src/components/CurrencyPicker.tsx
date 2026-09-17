@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Check, ChevronRight, X } from 'lucide-react-native'
-import { CURRENCIES, currencyInfo } from '@/src/lib/currencies'
+import { currencyInfo, searchCurrencies } from '@/src/lib/currencies'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useUpdateUser } from '@/src/hooks/useUser'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -23,7 +23,7 @@ export function CurrencyPicker({
   const { tokens, scheme } = useTheme()
   const [search, setSearch] = useState('')
   const selected = currencyInfo(value)
-  const matches = CURRENCIES.filter(c => `${c.name} ${c.code} ${c.symbol}`.toLowerCase().includes(search.trim().toLowerCase()))
+  const matches = searchCurrencies(search)
   return <View style={[styles.picker, fillAvailableSpace && styles.pickerFill]}>
     <View
       accessible
@@ -42,7 +42,7 @@ export function CurrencyPicker({
     </View>
     <TextInput
       accessibilityLabel="Search currencies"
-      placeholder="Search currency or code"
+      placeholder="Search currency, country or code"
       placeholderTextColor={tokens.text3}
       value={search}
       onChangeText={setSearch}

@@ -233,3 +233,18 @@ it('opens the tour directly when the setup completion button signals onboarding'
   expect(getAllByTestId('screen:account/guided-tour')).toHaveLength(1)
   expect(mockPush).not.toHaveBeenCalled()
 })
+
+// A fresh sign-in leaves the ungated (auth)/email screen under /setup, so when
+// setup unregisters the stack isn't empty and never rebuilds onto the tour —
+// it falls back to (auth)/email, and the auth-screen redirect has to pick the tour.
+it('sends a just-onboarded user who surfaces on an auth screen to the tour, not log expense', async () => {
+  mockFontsLoaded = true
+  mockSegments = ['(auth)', 'email']
+  mockInitAccessMode.mockResolvedValue('real')
+  mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null })
+  render(<RootLayout />)
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
+  act(() => signalOnboarded())
+  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/account/guided-tour'))
+  expect(mockReplace).not.toHaveBeenCalledWith('/modals/log-expense')
+})

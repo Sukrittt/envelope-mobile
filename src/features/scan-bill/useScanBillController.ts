@@ -87,7 +87,8 @@ export function useScanBillController() {
         onSuccess: (res) => {
           setMerchant(res.merchant);
           setCategory(res.category ?? "");
-          setDate(res.date ?? todayIST());
+          // Always the upload day — a bill's printed date lands the expense in a month the user isn't looking at.
+          setDate(todayIST());
           actions.load(res);
           setQuery("");
           resetSelection();

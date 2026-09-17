@@ -214,11 +214,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // from those screens removes nothing and leaves the user sitting on them.
   // Safe as an imperative call now — the Stack is mounted from the first render,
   // and the destination's guard is computed in this same render.
+  // The sign-in pushes also leave (auth)/email under /setup, so finishing setup
+  // doesn't empty the stack onto the tour. It surfaces the auth screen instead,
+  // and this effect has to send a just-onboarded user on to the tour.
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace(onboarded ? LOG_EXPENSE_PATH : '/setup')
-  }, [resolving, hasSession, onboarded, segments, authScreenMode, router])
+    router.replace(!onboarded ? '/setup' : justOnboarded ? '/account/guided-tour' : LOG_EXPENSE_PATH)
+  }, [resolving, hasSession, onboarded, justOnboarded, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.

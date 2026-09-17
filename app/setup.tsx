@@ -275,31 +275,34 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     try {
       const month = currentMonthKey()
       const incomeValue = Math.round(Number(income)) || 0
-      await updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' })
+      const categories = selectedGroups.flatMap((g) =>
+        (cats[g.id] ?? []).filter((c) => c.on && c.name.trim()).map((c) => ({ name: label(c), group: label(g) })),
+      )
 
-      for (const g of selectedGroups) {
-        await addGroup(label(g)).catch(ignoreConflict)
-      }
+      // Groups and categories each run in their own sequential chain: the
+      // server numbers `order` as max+1, so parallel inserts within one
+      // collection would race and scramble the order the user picked. Budget
+      // rows are independent upserts, so they all go out at once alongside.
+      await Promise.all([
+        (async () => {
+          for (const g of selectedGroups) await addGroup(label(g)).catch(ignoreConflict)
+        })(),
+        (async () => {
+          for (const c of categories) await addCategory(c.name, c.group).catch(ignoreConflict)
+        })(),
+        updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' }),
+        ...liveCats().map((item) =>
+          updateBudget(month, `${item.emoji} ${item.name.trim()}`, { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' }),
+        ),
+      ])
+      const categoryCount = categories.length
 
-      let categoryCount = 0
-      const items = liveCats()
-      for (const g of selectedGroups) {
-        const groupLabel = label(g)
-        const rows = (cats[g.id] ?? []).filter((c) => c.on && c.name.trim())
-        for (const c of rows) {
-          await addCategory(label(c), groupLabel).catch(ignoreConflict)
-          categoryCount += 1
-        }
-      }
-
-      for (const item of items) {
-        const catLabel = `${item.emoji} ${item.name.trim()}`
-        await updateBudget(month, catLabel, { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' })
-      }
-
+      // Last, so a failed write above leaves the user un-onboarded and retrying.
       const savedUser = await updateUser({ currencyCode, onboardedAt: new Date().toISOString() })
       qc.setQueryData(['user'], savedUser)
-      await qc.invalidateQueries()
+      // Not awaited: this refetches every cached query, and the celebration
+      // screen doesn't need any of them.
+      void qc.invalidateQueries()
       // signalOnboarded() is deferred to the celebration screen's CTA — firing
       // it here would flip the root layout's guard and swap this screen out
       // before the user has seen step 5.

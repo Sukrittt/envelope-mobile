@@ -9,7 +9,6 @@ export interface ScanItem {
 export interface ScanResult {
   merchant: string
   total: number
-  date?: string
   category?: string
   items: ScanItem[]
 }

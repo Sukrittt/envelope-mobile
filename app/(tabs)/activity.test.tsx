@@ -29,6 +29,7 @@ jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => true }))
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
   useLocalSearchParams: () => ({}),
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories can't reference out-of-scope imports (hoisting)
   useFocusEffect: (cb: () => void) => require('react').useEffect(cb, []),
   useIsFocused: () => true,
 }))
