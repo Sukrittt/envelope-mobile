@@ -153,6 +153,7 @@ export function FloatingNav({
   onSelect,
   onAdd,
   onAddLongPress,
+  onAddInvalid,
   addActive = false,
   addSaving = false,
   addSuccess = false,
@@ -165,6 +166,8 @@ export function FloatingNav({
   onAdd: () => void
   /** Long-press shortcut on the add slot only — the carousel-commit path (drag to centre) stays press-only. */
   onAddLongPress?: () => void
+  /** Called alongside the shake when an incomplete active add is tapped, so the form can point at what's missing. */
+  onAddInvalid?: () => void
   /** True on the log-expense screen: the add slot becomes "you are here". */
   addActive?: boolean
   /** Meaningful only when addActive: submit in flight, shows a spinner in place of the glyph. */
@@ -185,10 +188,11 @@ export function FloatingNav({
   const handleAdd = useCallback(() => {
     if (addActive && addInvalid) {
       triggerInvalidFeedback()
+      onAddInvalid?.()
       return
     }
     onAdd()
-  }, [addActive, addInvalid, onAdd, triggerInvalidFeedback])
+  }, [addActive, addInvalid, onAdd, onAddInvalid, triggerInvalidFeedback])
 
   // On log-expense the strip sits over the accent flood in both schemes, so
   // the idle circles stay white there too instead of dark-mode's near-black cardSolid.

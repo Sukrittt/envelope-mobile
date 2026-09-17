@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 
 export const LOG_EXPENSE_PATH = '/modals/log-expense'
-export type LogExpenseSubmitSnapshot = { canSubmit: boolean; saving: boolean; success: boolean; submit: () => void }
-export const EMPTY_SUBMIT: LogExpenseSubmitSnapshot = { canSubmit: false, saving: false, success: false, submit: () => { } }
+export type LogExpenseSubmitSnapshot = { canSubmit: boolean; saving: boolean; success: boolean; submit: () => void; onInvalid: () => void }
+export const EMPTY_SUBMIT: LogExpenseSubmitSnapshot = { canSubmit: false, saving: false, success: false, submit: () => { }, onInvalid: () => { } }
 const StateContext = createContext(EMPTY_SUBMIT)
 const PublishContext = createContext<Dispatch<SetStateAction<LogExpenseSubmitSnapshot>>>(() => { })
 

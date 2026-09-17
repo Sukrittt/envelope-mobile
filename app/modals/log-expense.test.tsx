@@ -37,8 +37,9 @@ jest.mock('expo-router', () => ({
 
 // Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
-  const { submit } = useLogExpenseSubmitState()
+  const { submit, onInvalid } = useLogExpenseSubmitState()
   ;(globalThis as any).__submit = submit
+  ;(globalThis as any).__onInvalid = onInvalid
   return null
 }
 
@@ -125,4 +126,20 @@ it('navigates to the success screen only after the save animation, not immediate
     jest.advanceTimersByTime(100)
   })
   expect(mockReplace).toHaveBeenCalled()
+})
+
+it('names what is still missing when an incomplete submit is blocked', async () => {
+  const utils = setup()
+  const { getByLabelText, getByPlaceholderText, queryByText, findByText } = utils
+  expect(queryByText('Add an amount, item and category')).toBeNull()
+
+  fireEvent.press(getByLabelText('4'))
+  act(() => {
+    ;(globalThis as any).__onInvalid()
+  })
+  expect(await findByText('Add an item and category')).toBeTruthy()
+
+  // The copy tracks the form live while the toast is up.
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
+  expect(await findByText('Pick a category')).toBeTruthy()
 })

@@ -6,11 +6,17 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Chip } from "@/src/components/ui/Chip";
 import { Numpad } from "@/src/components/ui/Numpad";
+import { Nudge } from "@/src/components/ui/Nudge";
+import { Toast } from "@/src/components/ui/Toast";
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry';
 import {
 EMPTY_SUBMIT,
 useLogExpenseSubmitPublisher,
 } from "@/src/features/log-expense/SubmitContext";
+import {
+missingFields,
+missingFieldsMessage,
+} from "@/src/features/log-expense/missingFields";
 import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
@@ -25,7 +31,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown, PencilLine, Tag, WalletMinimal } from "lucide-react-native";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -122,6 +128,10 @@ export default function LogExpenseScreen() {
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Bumped each time the nav's add circle is tapped with the form incomplete.
+  // 0 = never, so nothing is highlighted before the first blocked submit.
+  const [nudge, setNudge] = useState(0);
+  const onInvalid = useCallback(() => setNudge((n) => n + 1), []);
   // Set only by a successful add (never an edit) right before setLogSuccess —
   // the effect below reads it to tell the two cases apart.
   const pendingAddNavRef = useRef<null | {
@@ -161,11 +171,9 @@ export default function LogExpenseScreen() {
   const selectedCategory = categories.find((c) => c.name === category);
 
   const parsedAmount = Number(amount);
-  const canSubmit =
-    item.trim() !== "" &&
-    category !== "" &&
-    !Number.isNaN(parsedAmount) &&
-    parsedAmount > 0;
+  const missing = missingFields({ amount, item, category });
+  const canSubmit = missing.length === 0;
+  const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending;
 
   // Edit: let the inline checkmark finish drawing before navigating back
@@ -297,8 +305,9 @@ export default function LogExpenseScreen() {
       saving,
       success: logSuccess,
       submit: handleSubmit,
+      onInvalid,
     });
-  }, [canSubmit, saving, logSuccess, handleSubmit, publishLogExpenseSubmit]);
+  }, [canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
   useEffect(() => () => publishLogExpenseSubmit(EMPTY_SUBMIT), [publishLogExpenseSubmit]);
 
   const onAccentDim = "rgba(255, 255, 255, 0.7)";
@@ -328,6 +337,14 @@ export default function LogExpenseScreen() {
         </Text>
       </View>
 
+      <Toast
+        trigger={nudge}
+        message={missingFieldsMessage(missing)}
+        icon={missing[0] === "amount" ? WalletMinimal : missing[0] === "item" ? PencilLine : Tag}
+        // Clear of the header title with room to breathe.
+        style={{ top: insets.top + space.xxxl + space.xl }}
+      />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -337,6 +354,7 @@ export default function LogExpenseScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.amountWrap, { gap: space.sm }]}>
+          <Nudge trigger={nudge} active={missing.includes("amount")}>
           <Animated.View
             style={{
               transform: [
@@ -353,12 +371,13 @@ export default function LogExpenseScreen() {
               value={parsedAmount || 0}
               rawText={formatAmountInput(amount)}
               size={type.hero * 1.3}
-              color={amount === "" ? onAccentDim : "#ffffff"}
+              color={amount === "" && !flag("amount") ? onAccentDim : "#ffffff"}
               weight="displayBold"
               animate
               ignoreHide
             />
           </Animated.View>
+          </Nudge>
 
           <Pressable
             onPress={() => setShowMore(true)}
@@ -404,6 +423,7 @@ export default function LogExpenseScreen() {
         )}
 
         <View style={styles.itemRow}>
+          <Nudge trigger={nudge} active={missing.includes("item")}>
           <TextInput
             value={item}
             onChangeText={setItem}
@@ -415,18 +435,25 @@ export default function LogExpenseScreen() {
               {
                 backgroundColor: fieldBg,
                 borderRadius: radius.md,
+                borderColor: flag("item") ? "#ffffff" : "transparent",
                 color: "#ffffff",
                 fontFamily: fontFamily.bodySemiBold,
                 fontSize: type.bodyLg,
               },
             ]}
           />
+          </Nudge>
+          <Nudge
+            trigger={nudge}
+            active={missing.includes("category")}
+            style={styles.categoryPill}
+          >
           <Pressable
             onPress={() => setPickerOpen(true)}
             style={[
-              styles.categoryPill,
+              styles.categoryPillInner,
               {
-                backgroundColor: "rgba(255, 255, 255, 0.3)",
+                backgroundColor: flag("category") ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
                 borderRadius: radius.full,
               },
             ]}
@@ -459,7 +486,7 @@ export default function LogExpenseScreen() {
                 style={[
                   styles.categoryPillText,
                   {
-                    color: tokens.onAccent,
+                    color: flag("category") ? tokens.accent : tokens.onAccent,
                     fontFamily: fontFamily.bodySemiBold,
                   },
                 ]}
@@ -468,6 +495,7 @@ export default function LogExpenseScreen() {
               </Text>
             )}
           </Pressable>
+          </Nudge>
         </View>
 
         <Numpad
@@ -645,11 +673,16 @@ const styles = StyleSheet.create({
   amountWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   itemRow: { justifyContent: "center" },
   itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
-  itemInputWithPill: { paddingRight: 110 },
-  categoryPill: {
-    position: "absolute",
-    right: 6,
-    maxWidth: 108,
+  // Border is always 2px (transparent until highlighted) so it doesn't shift
+  // layout when it appears; padding is trimmed by the same 2px to compensate.
+  itemInputWithPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingRight: 108,
+    borderWidth: 2,
+  },
+  categoryPill: { position: "absolute", right: 6, maxWidth: 108 },
+  categoryPillInner: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,

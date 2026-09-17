@@ -150,8 +150,9 @@ describe('FloatingNav', () => {
     const shakeAnimation = { start: jest.fn() }
     const sequenceSpy = jest.spyOn(Animated, 'sequence').mockReturnValue(shakeAnimation as never)
     const onAdd = jest.fn()
+    const onAddInvalid = jest.fn()
     const { getByLabelText } = renderWithProviders(
-      <FloatingNav active={null} addActive addInvalid onSelect={jest.fn()} onAdd={onAdd} />,
+      <FloatingNav active={null} addActive addInvalid onSelect={jest.fn()} onAdd={onAdd} onAddInvalid={onAddInvalid} />,
     )
     const circle = getByLabelText('Log expense')
 
@@ -161,6 +162,7 @@ describe('FloatingNav', () => {
     })
 
     expect(onAdd).not.toHaveBeenCalled()
+    expect(onAddInvalid).toHaveBeenCalledTimes(1)
     expect(Haptics.notificationAsync).toHaveBeenCalledWith(Haptics.NotificationFeedbackType.Error)
     expect(Haptics.impactAsync).not.toHaveBeenCalled()
     expect(sequenceSpy).toHaveBeenCalled()

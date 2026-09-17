@@ -29,6 +29,7 @@ export function LogExpenseNavigation() {
         addDisabled={addActive && addDisabled}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
+        onAddInvalid={submitState.onInvalid}
         onAddLongPress={() => router.push('/modals/scan-bill')}
       />
     } />

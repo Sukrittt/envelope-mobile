@@ -42,7 +42,7 @@ describe('on the log-expense screen', () => {
 
   it('submits (not router.back) when the add circle is tapped', async () => {
     const submit = jest.fn()
-    snapshot = { canSubmit: true, saving: false, success: false, submit }
+    snapshot = { canSubmit: true, saving: false, success: false, submit, onInvalid: jest.fn() }
 
     const { getByLabelText } = renderWithProviders(<TabBar />)
     await act(async () => {})
@@ -54,7 +54,7 @@ describe('on the log-expense screen', () => {
 
   it('disables the circle and blocks submit while saving', async () => {
     const submit = jest.fn()
-    snapshot = { canSubmit: true, saving: true, success: false, submit }
+    snapshot = { canSubmit: true, saving: true, success: false, submit, onInvalid: jest.fn() }
 
     const { getByLabelText } = renderWithProviders(<TabBar />)
     await act(async () => {})
@@ -65,7 +65,7 @@ describe('on the log-expense screen', () => {
   })
 
   it('keeps the circle tappable when required fields are missing', async () => {
-    snapshot = { canSubmit: false, saving: false, success: false, submit: jest.fn() }
+    snapshot = { canSubmit: false, saving: false, success: false, submit: jest.fn(), onInvalid: jest.fn() }
 
     const { getByLabelText } = renderWithProviders(<TabBar />)
     await act(async () => {})
