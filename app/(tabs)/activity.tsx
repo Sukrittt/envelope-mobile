@@ -137,9 +137,11 @@ export default function ActivityScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
 
-  const changePage = useCallback((next: number) => {
+  const changePage = useCallback((next: number, scrollToTop = false) => {
     setPage(next);
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    if (scrollToTop) {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
   }, []);
 
   const params = useLocalSearchParams<{
@@ -632,7 +634,7 @@ export default function ActivityScreen() {
               Page {page} of {totalPages}
             </Text>
             <Pressable
-              onPress={() => changePage(page + 1)}
+              onPress={() => changePage(page + 1, true)}
               disabled={page >= totalPages}
               accessibilityRole="button"
               accessibilityLabel="Next page"

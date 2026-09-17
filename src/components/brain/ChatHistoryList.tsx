@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -60,6 +61,16 @@ export function ChatHistoryList({
   onStartNewChat,
 }: Props) {
   const { tokens } = useTheme()
+  const scrollRef = useRef<ScrollView>(null)
+
+  // Smooth-scroll to top only when moving forward (mirrors archive.tsx's pager) —
+  // going back to a page the user just scrolled down shouldn't yank them to the top.
+  const goToPage = (target: number) => {
+    onPageChange(target)
+    if (target > page) {
+      scrollRef.current?.scrollTo({ y: 0, animated: true })
+    }
+  }
 
   const groups = DAY_ORDER.map((label) => ({
     label,
@@ -110,7 +121,7 @@ export function ChatHistoryList({
           ) : null}
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.list}>
           {groups.map((g) => (
             <View key={g.label} style={{ gap: 8 }}>
               <Text style={[styles.groupLabel, { color: tokens.text3 }]}>{g.label.toUpperCase()}</Text>
@@ -149,7 +160,7 @@ export function ChatHistoryList({
       {pageCount > 1 && (
         <View style={[styles.pager, { backgroundColor: tokens.headerBg, borderTopColor: tokens.border }]}>
           <Pressable
-            onPress={() => page > 1 && onPageChange(page - 1)}
+            onPress={() => page > 1 && goToPage(page - 1)}
             disabled={page <= 1}
             style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page <= 1 ? 0.4 : 1 }]}
           >
@@ -159,7 +170,7 @@ export function ChatHistoryList({
             {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
               <Pressable
                 key={p}
-                onPress={() => onPageChange(p)}
+                onPress={() => goToPage(p)}
                 style={[
                   styles.pagePill,
                   p === page
@@ -180,7 +191,7 @@ export function ChatHistoryList({
             ))}
           </View>
           <Pressable
-            onPress={() => page < pageCount && onPageChange(page + 1)}
+            onPress={() => page < pageCount && goToPage(page + 1)}
             disabled={page >= pageCount}
             style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page >= pageCount ? 0.4 : 1 }]}
           >
