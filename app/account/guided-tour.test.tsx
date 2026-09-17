@@ -73,11 +73,42 @@ it('October restarts Credit Card Payment at zero and drops leftovers', async () 
   expect(getByText("restarts at zero · it was last month's bill")).toBeTruthy()
 })
 
+it('pings only the highest threshold crossed, then over budget', async () => {
+  const { getByText, queryByText } = renderWithProviders(<GuidedTourScreen />)
+  openChapter(getByText, 'Notifications')
+
+  fireEvent.press(getByText('Spend ₹1,700'))
+  await waitFor(() => expect(getByText('Groceries is at 52%')).toBeTruthy())
+
+  fireEvent.press(getByText('Spend ₹1,700'))
+  expect(queryByText('Groceries is at 71%')).toBeNull()
+
+  fireEvent.press(getByText('Spend ₹1,700'))
+  await waitFor(() => expect(getByText('Groceries is at 90%')).toBeTruthy())
+
+  fireEvent.press(getByText('Spend ₹1,700'))
+  await waitFor(() => expect(getByText('Groceries is over budget')).toBeTruthy())
+  expect(getByText("You've overspent ₹800 in Groceries this month.")).toBeTruthy()
+})
+
+it('turning the digest off silences the AI coach but not Wrapped', async () => {
+  const { getByText, queryByText } = renderWithProviders(<GuidedTourScreen />)
+  openChapter(getByText, 'Notifications')
+
+  fireEvent.press(getByText('Off'))
+  fireEvent.press(getByText('🧠  AI coach'))
+  await waitFor(() => expect(getByText('Silenced · your digest is Off')).toBeTruthy())
+  expect(queryByText('Heads up on this month')).toBeNull()
+
+  fireEvent.press(getByText('🎧  Wrapped'))
+  await waitFor(() => expect(getByText('Your Wrapped is ready')).toBeTruthy())
+})
+
 it('walks hub to chapter, opens the real screen, and skips to Home', async () => {
   const { getByText } = renderWithProviders(<GuidedTourScreen />)
 
   fireEvent.press(getByText('Start the tour'))
-  expect(getByText('CHAPTER 1 OF 6')).toBeTruthy()
+  expect(getByText('CHAPTER 1 OF 7')).toBeTruthy()
 
   fireEvent.press(getByText('Try it for real · Open Home'))
   expect(mockNavigate).toHaveBeenCalledWith('/(tabs)')

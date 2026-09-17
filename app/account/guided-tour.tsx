@@ -18,12 +18,13 @@ import { LogDemo } from '@/src/components/tour/demos/LogDemo'
 import { MoveDemo } from '@/src/components/tour/demos/MoveDemo'
 import { RolloverDemo } from '@/src/components/tour/demos/RolloverDemo'
 import { InsightsDemo } from '@/src/components/tour/demos/InsightsDemo'
+import { NotifyDemo } from '@/src/components/tour/demos/NotifyDemo'
 import { ExtrasList } from '@/src/components/tour/demos/ExtrasList'
 
 type View3 = 'hub' | 'chapter' | 'done'
 
 /**
- * The guided tour: six chapters that explain the app by letting you poke at a
+ * The guided tour: seven chapters that explain the app by letting you poke at a
  * fake copy of it. Every demo is local state over the constants in
  * src/components/tour/content.ts, so nothing here can touch real money.
  */
@@ -69,7 +70,7 @@ export default function GuidedTourScreen() {
     view === 'hub'
       ? doneCount
         ? `${doneCount} of ${CHAPTERS.length} chapters done`
-        : 'The whole app in 2 minutes'
+        : 'The whole app in 3 minutes'
       : view === 'done'
         ? 'Tour complete'
         : current.title
@@ -232,6 +233,7 @@ function ChapterDemo({ index, onComplete }: { index: number; onComplete: () => v
   if (index === 2) return <MoveDemo onComplete={onComplete} />
   if (index === 3) return <RolloverDemo onComplete={onComplete} />
   if (index === 4) return <InsightsDemo onComplete={onComplete} />
+  if (index === 5) return <NotifyDemo onComplete={onComplete} />
   return <ExtrasList onComplete={onComplete} />
 }
 
@@ -280,7 +282,7 @@ function Hub({
               Your money gets a job.
             </Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, lineHeight: 19 }}>
-              Six short chapters. All of them are pokeable, none of them touch your real money.
+              Seven short chapters. All of them are pokeable, none of them touch your real money.
             </Text>
           </View>
         </View>
@@ -346,7 +348,7 @@ function Hub({
           onPress={onStart}
         />
         <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, textAlign: 'center' }}>
-          Jump in anywhere · about 2 minutes end to end
+          Jump in anywhere · about 3 minutes end to end
         </Text>
       </View>
     </>
