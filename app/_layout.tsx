@@ -6,6 +6,7 @@ import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
+import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 import { identifyUser,initAnalytics,track,trackScreen } from '@/src/lib/analytics'
@@ -322,6 +323,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         <Stack.Screen name="(auth)/code" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       </Stack>
       <LogExpenseNavigation />
+      {splashUp ? null : <MaintenanceBanner />}
       {splashUp ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
