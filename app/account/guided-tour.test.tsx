@@ -6,9 +6,11 @@ import GuidedTourScreen from './guided-tour'
 const mockReplace = jest.fn()
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
+let mockSearchParams: { fresh?: string } = {}
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.requireActual('react').useEffect,
   useRouter: () => ({ replace: mockReplace, push: mockPush, navigate: mockNavigate, back: jest.fn() }),
+  useLocalSearchParams: () => mockSearchParams,
 }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -19,7 +21,10 @@ jest.mock('@/src/api/accessMode', () => ({
   accessMode: { subscribeLogout: () => () => {} },
 }))
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockSearchParams = {}
+})
 
 /** Opens a chapter from the hub by its row title. */
 function openChapter(getByText: ReturnType<typeof renderWithProviders>['getByText'], title: string) {
@@ -129,6 +134,15 @@ it('returns to Home after finishing the tour', () => {
   fireEvent.press(getByText('Finish the tour'))
   fireEvent.press(getByText('Back to my money'))
   expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+})
+
+it('sends fresh onboarding to the trial notice instead of Home', () => {
+  mockSearchParams = { fresh: '1' }
+  const { getByText } = renderWithProviders(<GuidedTourScreen />)
+  openChapter(getByText, 'Everything else')
+  fireEvent.press(getByText('Finish the tour'))
+  fireEvent.press(getByText('Back to my money'))
+  expect(mockReplace).toHaveBeenCalledWith('/account/trial-notice')
 })
 
 it('handles Android back and removes the listener when leaving the tour', () => {

@@ -44,10 +44,8 @@ export function Button({
   const { tokens, radius, space, type } = useTheme()
   const press = usePressSpring()
 
-  // `accentInk` rather than `accent` for the primary fill: it is the variant that
-  // clears 4.5:1 against a small onAccent label.
   const bg =
-    variant === 'primary' ? tokens.accentInk : variant === 'secondary' ? tokens.pillBg : 'transparent'
+    variant === 'primary' ? tokens.accent : variant === 'secondary' ? tokens.pillBg : 'transparent'
   const fg = variant === 'primary' ? tokens.onAccent : tokens.text
   const border = variant === 'secondary' ? tokens.border : 'transparent'
 

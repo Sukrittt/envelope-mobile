@@ -283,6 +283,6 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, gap: 6 },
   currency: { fontSize: 18 },
   amountInput: { flex: 1, fontSize: 18, paddingVertical: 14 },
-  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
+  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
 })

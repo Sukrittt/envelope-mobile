@@ -245,6 +245,6 @@ it('sends a just-onboarded user who surfaces on an auth screen to the tour, not 
   render(<RootLayout />)
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
   act(() => signalOnboarded())
-  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/account/guided-tour'))
+  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/account/guided-tour?fresh=1'))
   expect(mockReplace).not.toHaveBeenCalledWith('/modals/log-expense')
 })

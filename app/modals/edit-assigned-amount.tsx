@@ -363,5 +363,5 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: 'center', paddingVertical: 8 },
   quickRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   quickChip: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
-  confirmButton: { paddingVertical: 15, alignItems: 'center' },
+  confirmButton: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })

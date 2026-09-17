@@ -382,5 +382,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   amountWrap: { alignItems: "center", paddingVertical: 8 },
-  confirmButton: { paddingVertical: 15, alignItems: "center" },
+  confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });

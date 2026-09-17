@@ -392,7 +392,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{title}</Text>
       <Text style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{blurb}</Text>
 
-      {step === 0 && (<View style={styles.stepBody}><CurrencyPicker value={currencyCode} onChange={onCurrencyChange} fillAvailableSpace /></View>)}
+      {step === 0 && (<View style={[styles.stepBody, { paddingTop: 10 }]}><CurrencyPicker value={currencyCode} onChange={onCurrencyChange} fillAvailableSpace /></View>)}
 
       {step === 1 && (
         <View style={styles.stepBody}>
@@ -405,12 +405,14 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             ))}
           </View>
           <View style={{ flex: 1, minHeight: 10 }} />
-          <Numpad
-            extraKey="00"
-            onDigit={pressIncomeDigit}
-            onBackspace={pressIncomeBackspace}
-            onClear={() => setIncome('')}
-          />
+          <View style={{ marginBottom: 14 }}>
+            <Numpad
+              extraKey="00"
+              onDigit={pressIncomeDigit}
+              onBackspace={pressIncomeBackspace}
+              onClear={() => setIncome('')}
+            />
+          </View>
         </View>
       )}
 
@@ -496,7 +498,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
               <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>Split evenly</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.sectionList} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={[styles.sectionList, { paddingTop: 22 }]} showsVerticalScrollIndicator={false}>
             {selectedGroups.map((g) => {
               const rows = (cats[g.id] ?? []).filter((c) => c.on && c.name.trim())
               const subtotal = rows.reduce((n, c) => n + (amounts[`${g.id}:${c.id}`] ?? 0), 0)
@@ -633,7 +635,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 27, fontWeight: '600', lineHeight: 31, marginTop: 16, letterSpacing: -0.2 },
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   stepBody: { flex: 1, marginTop: 4 },
-  amountWrap: { paddingVertical: 20 },
+  amountWrap: { paddingTop: 28, paddingBottom: 20 },
   quickRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', flexWrap: 'wrap' },
   quickPick: { paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1 },
   quickPickLabel: { fontSize: 12, fontWeight: '700' },
@@ -654,7 +656,7 @@ const styles = StyleSheet.create({
   ctaText: { fontSize: 15 },
   ctaHint: { fontSize: 11, textAlign: 'center', marginTop: 8, minHeight: 15 },
 
-  remChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 12, paddingHorizontal: 15, borderRadius: 16, borderWidth: 1 },
+  remChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, paddingVertical: 12, paddingHorizontal: 15, borderRadius: 16, borderWidth: 1 },
   remLabel: { fontSize: 12, fontWeight: '800' },
   remValue: { fontSize: 20 },
   splitRow: { flexDirection: 'row', gap: 7, marginTop: 10 },

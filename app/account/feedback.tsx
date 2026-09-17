@@ -147,6 +147,6 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
   textArea: { minHeight: 110, textAlignVertical: 'top' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
-  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
+  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
 })

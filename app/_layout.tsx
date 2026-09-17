@@ -23,7 +23,7 @@ import { clearSnapshot } from '@/src/widgets/snapshot'
 import { WidgetSync } from '@/src/widgets/WidgetSync'
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
-import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments } from 'expo-router'
+import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect,useState } from 'react'
 import { StyleSheet,View } from 'react-native'
@@ -221,7 +221,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace(!onboarded ? '/setup' : justOnboarded ? '/account/guided-tour' : LOG_EXPENSE_PATH)
+    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/guided-tour?fresh=1' : LOG_EXPENSE_PATH) as Href)
   }, [resolving, hasSession, onboarded, justOnboarded, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
@@ -278,6 +278,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           {/* Fresh setup lands directly in the existing tour. Both screens stay
               available afterwards; normal session restores still open logging. */}
           {justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
+          {justOnboarded && <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
           {/* First for returning users: logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
               rebuilds itself from when the loading screen unregisters, so the

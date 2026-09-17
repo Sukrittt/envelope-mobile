@@ -333,23 +333,21 @@ export default function MoreScreen() {
                 </>
               )}
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <View style={styles.row}>
-                <View style={{ opacity: 0.5 }}>
-                  <Icon icon={CreditCard} size={16} color={tokens.text} />
-                </View>
+              <Pressable onPress={() => router.push('/account/trial-notice?from=more')} style={styles.row}>
+                <Icon icon={CreditCard} size={16} color={tokens.text} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.rowLabel, { color: tokens.text3, textDecorationLine: 'line-through', fontFamily: fontFamily.bodySemiBold }]}>
+                  <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
                     Plan & billing
                   </Text>
-                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>{"You're on the trial plan while we build payments"}</Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>{"You're on the trial plan"}</Text>
                 </View>
                 <Pressable
                   onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
                   style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
                 >
-                  <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Free & open source</Text>
+                  <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Open source</Text>
                 </Pressable>
-              </View>
+              </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />

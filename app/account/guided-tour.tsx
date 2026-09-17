@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { BackHandler, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useFocusEffect, useRouter, type Href } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
@@ -34,7 +34,14 @@ export default function GuidedTourScreen() {
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const exitTour = useCallback(() => router.replace('/(tabs)'), [router])
+  // Fresh onboarding links here with ?fresh=1 (see app/_layout.tsx) so the
+  // trial notice shows once, right before the app's first real screen.
+  // Reopening the tour later from More has no param, so it exits straight back.
+  const { fresh } = useLocalSearchParams<{ fresh?: string }>()
+  const exitTour = useCallback(
+    () => router.replace(fresh ? '/account/trial-notice' : '/(tabs)'),
+    [router, fresh],
+  )
 
   // After setup this is the root screen, so Android back must also have an
   // explicit destination. Only intercept it while the tour itself is focused.

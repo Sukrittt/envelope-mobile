@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, textTransform: 'capitalize' },
   categoryHint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
-  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 4 },
+  confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
   dangerZone: { marginTop: 24, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
