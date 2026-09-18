@@ -71,9 +71,12 @@ export function BirdLandingSplash() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-  // paddingRight compensates negative letterSpacing: Android's Text layout
-  // trims the box to the tracked width, which was clipping the final "y".
-  wordmark: { fontFamily: fontFamily.displaySemiBold, fontSize: 34, letterSpacing: -0.5, color: CREAM, marginTop: -6, paddingRight: 4 },
+  // Fixed width instead of shrink-to-fit: negative letterSpacing makes the
+  // box size depend on the exact glyph metrics used at layout time, and a
+  // paddingRight compensation (previous fix) wasn't enough once production's
+  // metrics differed from dev's, still clipping the final "y". A width wide
+  // enough for "Aviary" at this font/size is immune to that either way.
+  wordmark: { fontFamily: fontFamily.displaySemiBold, fontSize: 34, letterSpacing: -0.5, color: CREAM, marginTop: -6, width: 160, textAlign: 'center' },
   dots: { flexDirection: 'row', gap: 9, marginTop: 28 },
   dot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: CREAM },
 })
