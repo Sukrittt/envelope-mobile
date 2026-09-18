@@ -43,7 +43,7 @@ beforeEach(() => {
 it('useAddHolding does not report success until invalidateQueries settles', async () => {
   ;(addHolding as jest.Mock).mockResolvedValue(undefined)
 
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const gate = deferred<void>()
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries').mockReturnValue(gate.promise)
 

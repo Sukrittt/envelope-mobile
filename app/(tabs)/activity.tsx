@@ -1,7 +1,8 @@
+import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen';
+import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   View,
   Text,
   TextInput,
@@ -134,6 +135,7 @@ export default function ActivityScreen() {
 
   const categoriesQ = useCategories();
   const deleteExpense = useDeleteExpense();
+  const [deleteNotice, setDeleteNotice] = useState<{ status?: number } | null>(null);
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
@@ -349,7 +351,7 @@ export default function ActivityScreen() {
       // round trip. On failure the row does come back, which is the signal.
       { onError: (err) => {
         setPendingDelete(null);
-        Alert.alert('Could not delete transaction', err instanceof Error ? err.message : 'Refresh and try again.');
+        setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
     );
   }
@@ -391,6 +393,7 @@ export default function ActivityScreen() {
 
   return (
     <AnimatedTabContent>
+      {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
       <Screen
         ref={scrollRef}
         title="Activity"

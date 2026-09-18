@@ -36,7 +36,7 @@ function wrapper(queryClient: QueryClient) {
 
 it('useSubscriptions resolves the query with the API result', async () => {
   ;(getSubscriptions as jest.Mock).mockResolvedValue([{ service: 'Netflix' }])
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const { result } = renderHook(() => useSubscriptions(), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data).toEqual([{ service: 'Netflix' }])
@@ -48,7 +48,7 @@ it('useSubscriptions resolves the query with the API result', async () => {
 describe('every mutation invalidates both subscriptions and ai-brief', () => {
   it('useAddSubscription', async () => {
     ;(addSubscription as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useAddSubscription(), { wrapper: wrapper(queryClient) })
 
@@ -61,7 +61,7 @@ describe('every mutation invalidates both subscriptions and ai-brief', () => {
 
   it('useUpdateSubscription', async () => {
     ;(updateSubscription as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useUpdateSubscription(), { wrapper: wrapper(queryClient) })
 
@@ -74,7 +74,7 @@ describe('every mutation invalidates both subscriptions and ai-brief', () => {
 
   it('useCancelSubscription', async () => {
     ;(cancelSubscription as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useCancelSubscription(), { wrapper: wrapper(queryClient) })
 
@@ -87,7 +87,7 @@ describe('every mutation invalidates both subscriptions and ai-brief', () => {
 
   it('useReactivateSubscription', async () => {
     ;(reactivateSubscription as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useReactivateSubscription(), { wrapper: wrapper(queryClient) })
 
@@ -100,7 +100,7 @@ describe('every mutation invalidates both subscriptions and ai-brief', () => {
 
   it('useDeleteSubscription', async () => {
     ;(deleteSubscription as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
     const { result } = renderHook(() => useDeleteSubscription(), { wrapper: wrapper(queryClient) })
 

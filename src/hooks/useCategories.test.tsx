@@ -42,7 +42,7 @@ it('optimistically reorders within the group on mutate', async () => {
   ;(moveCategory as jest.Mock).mockImplementation(
     () => new Promise<void>((resolve) => { resolveMove = resolve }),
   )
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   queryClient.setQueryData(key, rows)
   const { result } = renderHook(() => useMoveCategory(), { wrapper: wrapper(queryClient) })
 
@@ -59,7 +59,7 @@ it('optimistically reorders within the group on mutate', async () => {
 
 it('rolls back to the previous list when the mutation errors', async () => {
   ;(moveCategory as jest.Mock).mockRejectedValue(new Error('network error'))
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   queryClient.setQueryData(key, rows)
   const { result } = renderHook(() => useMoveCategory(), { wrapper: wrapper(queryClient) })
 
@@ -75,7 +75,7 @@ describe('category cache write-through (offline sync §2)', () => {
 
   it('a successful fetch writes the cache', async () => {
     ;(getCategories as jest.Mock).mockResolvedValue(rows)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { result } = renderHook(() => useCategories(), { wrapper: wrapper(queryClient) })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -85,7 +85,7 @@ describe('category cache write-through (offline sync §2)', () => {
   it('adding a category rewrites the cache', async () => {
     ;(getCategories as jest.Mock).mockResolvedValue(rows)
     ;(addCategory as jest.Mock).mockResolvedValue(undefined)
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const categories = renderHook(() => useCategories(), { wrapper: wrapper(queryClient) })
     await waitFor(() => expect(categories.result.current.isSuccess).toBe(true))
     ;(writeCategoryCache as jest.Mock).mockClear()
@@ -102,7 +102,7 @@ describe('category cache write-through (offline sync §2)', () => {
 
   it('a boot with no network renders the cached list', async () => {
     ;(getCategories as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     // Mirrors app/_layout.tsx hydrating ['categories'] from disk at boot,
     // before any component mounts.
     queryClient.setQueryData(key, rows)

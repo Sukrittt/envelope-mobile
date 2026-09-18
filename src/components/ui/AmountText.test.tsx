@@ -63,7 +63,7 @@ describe('AmountText', () => {
     // '1' when "1000" -> "100" removes the comma. Those must render
     // statically (no stacked old-char frame), or the odometer freezes on
     // ",000" until the roll finishes.
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { rerender, queryByText } = renderWithProviders(<AmountText value={1000} size={40} animate />)
     rerender(wrapWithProviders(<AmountText value={100} size={40} animate />, queryClient))
     expect(queryByText(',')).toBeNull()
@@ -76,7 +76,7 @@ describe('AmountText', () => {
     // effect keyed only on [newChar] never fires here, freezing the slot on
     // its old character forever — the "shows 00 instead of 10" bug.
     const timingSpy = jest.spyOn(Animated, 'timing')
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { rerender } = renderWithProviders(<AmountText value={100} size={40} animate />)
     timingSpy.mockClear()
     rerender(wrapWithProviders(<AmountText value={10} size={40} animate />, queryClient))
@@ -86,7 +86,7 @@ describe('AmountText', () => {
 
   it('rolls up when the value increases and down when it decreases', () => {
     const timingSpy = jest.spyOn(Animated, 'timing')
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
 
     const { rerender } = renderWithProviders(<AmountText value={100} size={40} animate />)
     timingSpy.mockClear()
@@ -108,7 +108,7 @@ describe('AmountText', () => {
     // shorter new text — without forcing a roll on length change, this
     // specific transition animates nothing at all.
     const timingSpy = jest.spyOn(Animated, 'timing')
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { rerender } = renderWithProviders(<AmountText value={400} size={40} animate />)
     timingSpy.mockClear()
     rerender(wrapWithProviders(<AmountText value={0} size={40} animate />, queryClient))
@@ -137,13 +137,13 @@ describe('AmountText', () => {
   })
 
   it('masks the amount when the hide toggle is on', () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { getByText } = renderWithProviders(wrapHiddenWithProviders(<AmountText value={1200} size={20} />, queryClient))
     expect(getByText('₹••••')).toBeTruthy()
   })
 
   it('keeps the amount visible on the log screen even when hide is on', () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { getByText } = renderWithProviders(
       wrapHiddenWithProviders(<AmountText value={1200} size={20} ignoreHide />, queryClient),
     )
@@ -151,7 +151,7 @@ describe('AmountText', () => {
   })
 
   it('keeps an in-progress numpad string visible when hide is on', () => {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { getByText } = renderWithProviders(
       wrapHiddenWithProviders(<AmountText value={1200} size={20} rawText="1200." ignoreHide />, queryClient),
     )

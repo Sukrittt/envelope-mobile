@@ -1,3 +1,5 @@
+import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
+import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
@@ -37,6 +39,7 @@ import { ChevronDown, PencilLine, Tag, WalletMinimal } from "lucide-react-native
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
+Keyboard,
 Pressable,
 ScrollView,
 StyleSheet,
@@ -130,6 +133,7 @@ export default function LogExpenseScreen() {
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
   const [conflict, setConflict] = useState<ExpenseRow | null>(null);
   const [deleted, setDeleted] = useState(false);
+  const [showDeletedNotice, setShowDeletedNotice] = useState(false);
   const [error, setError] = useState("");
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -241,8 +245,15 @@ export default function LogExpenseScreen() {
           onSuccess: () => setLogSuccess(true),
           onError: (err) => {
             if (err instanceof ExpenseWriteError) {
-              if (err.status === 409 && err.current) setConflict(err.current);
-              if (err.status === 404) setDeleted(true);
+              if (err.status === 409 && err.current) {
+                Keyboard.dismiss();
+                setConflict(err.current);
+                setError('');
+                return;
+              }
+              if (err.status === 404) {
+                Keyboard.dismiss(); setDeleted(true); setShowDeletedNotice(true); setError(''); return;
+              }
             }
             setError(err instanceof Error ? err.message : "Could not save. Check your connection and try again.");
           },
@@ -335,6 +346,11 @@ export default function LogExpenseScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
+      {showDeletedNotice && <ExpenseNoticeScreen status={404} action="edit" onBack={() => setShowDeletedNotice(false)} />}
+      {conflict && (
+        <ExpenseConflictReview latest={conflict} original={base} draft={{ item, amount, date, category }}
+          onChoose={reviewLatest} onClose={() => { setConflict(null); setError(''); }} />
+      )}
       <View
         style={[
           styles.header,
@@ -431,20 +447,6 @@ export default function LogExpenseScreen() {
           },
         ]}
       >
-        {conflict && (
-          <View accessibilityRole="alert" style={{ gap: space.sm }}>
-            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Review changes</Text>
-            <Text style={{ color: tokens.onAccent }}>Latest saved: {conflict.item} · {conflict.amount_inr} · {conflict.date} · {conflict.category}</Text>
-            <Text style={{ color: tokens.onAccent }}>Your draft: {item} · {amount} · {date} · {category}</Text>
-            <Text style={{ color: tokens.onAccent }}>Choose values to review, then save again.</Text>
-            <Pressable accessibilityRole="button" onPress={() => reviewLatest(false)} style={{ paddingVertical: space.sm }}>
-              <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Reload latest</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => reviewLatest(true)} style={{ paddingVertical: space.sm }}>
-              <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Keep my changes</Text>
-            </Pressable>
-          </View>
-        )}
         {error !== "" && (
           <Text
             style={[

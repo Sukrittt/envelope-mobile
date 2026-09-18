@@ -12,7 +12,12 @@ import { PrivacyProvider } from '@/src/context/PrivacyContext'
  */
 export function renderWithProviders(ui: ReactElement, options?: RenderOptions) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    // Unit-test clients should not keep Jest alive with React Query's
+    // production cache-GC timers after the rendered tree is gone.
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { gcTime: Infinity },
+    },
   })
   return render(
     <QueryClientProvider client={queryClient}>

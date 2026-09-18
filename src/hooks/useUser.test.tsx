@@ -21,7 +21,7 @@ function wrapper(queryClient: QueryClient) {
 
 it('useUser resolves the profile from the API', async () => {
   ;(getUser as jest.Mock).mockResolvedValue({ email: 'a@b.com', emailVerified: true })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const { result } = renderHook(() => useUser(), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data?.email).toBe('a@b.com')
@@ -29,7 +29,7 @@ it('useUser resolves the profile from the API', async () => {
 
 it('useUpdateUser writes the server response into the cache on success, without a refetch', async () => {
   ;(updateUser as jest.Mock).mockResolvedValue({ email: 'a@b.com', emailVerified: true, name: 'Sukrit' })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
   const { result } = renderHook(() => useUpdateUser(), { wrapper: wrapper(queryClient) })
 
@@ -47,7 +47,7 @@ it('applies the patch optimistically before the API call resolves', async () => 
   ;(updateUser as jest.Mock).mockImplementation(
     () => new Promise<UserProfile>((resolve) => { resolveUpdate = () => resolve({ email: 'a@b.com', emailVerified: true, notifyCadence: 'daily' }) }),
   )
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   queryClient.setQueryData(userKey, { email: 'a@b.com', emailVerified: true, notifyCadence: 'off' })
   const { result } = renderHook(() => useUpdateUser(), { wrapper: wrapper(queryClient) })
 
@@ -64,7 +64,7 @@ it('applies the patch optimistically before the API call resolves', async () => 
 
 it('rolls back the optimistic patch when the API call errors', async () => {
   ;(updateUser as jest.Mock).mockRejectedValue(new Error('network error'))
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   queryClient.setQueryData(userKey, { email: 'a@b.com', emailVerified: true, notifyCadence: 'off' })
   const { result } = renderHook(() => useUpdateUser(), { wrapper: wrapper(queryClient) })
 
@@ -77,7 +77,7 @@ it('rolls back the optimistic patch when the API call errors', async () => {
 
 it('useRestoreAccount invalidates every query on success', async () => {
   ;(restoreAccount as jest.Mock).mockResolvedValue(undefined)
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
   const { result } = renderHook(() => useRestoreAccount(), { wrapper: wrapper(queryClient) })
 
@@ -89,7 +89,7 @@ it('useRestoreAccount invalidates every query on success', async () => {
 
 it('rolls back a failed currency change without changing any amounts', async () => {
   ;(updateUser as jest.Mock).mockRejectedValueOnce(new Error('currency save failed'))
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   queryClient.setQueryData(userKey, { email: 'a@b.com', currencyCode: 'INR' })
   queryClient.setQueryData(['expenses'], [{ amount_inr: '500' }])
   const { result, unmount } = renderHook(() => useUpdateUser(), { wrapper: wrapper(queryClient) })

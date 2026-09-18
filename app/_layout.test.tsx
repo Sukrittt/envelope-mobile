@@ -51,6 +51,7 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve()),
 }))
 jest.mock('expo-audio', () => ({ setAudioModeAsync: jest.fn(() => Promise.resolve()) }))
+jest.mock('@/src/sync/flush', () => ({ startAutoFlush: jest.fn(() => jest.fn()) }))
 jest.mock('@/src/lib/notifications', () => ({
   configureNotificationHandler: jest.fn(),
   registerForPushNotificationsAsync: jest.fn(),

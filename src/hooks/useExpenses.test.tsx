@@ -37,7 +37,7 @@ function wrapper(queryClient: QueryClient) {
 
 it('useExpenses resolves the query with the API result', async () => {
   ;(getExpenses as jest.Mock).mockResolvedValue([{ item: 'Coffee' }])
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const { result } = renderHook(() => useExpenses(), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data).toEqual([{ item: 'Coffee' }])
@@ -45,7 +45,7 @@ it('useExpenses resolves the query with the API result', async () => {
 
 it('useAddExpense invalidates both the expenses and ai-brief queries on success', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' })
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
   const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
 
@@ -70,7 +70,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
       client_id: 'client-offline-1',
     })
     ;(postExpensePayload as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
 
     result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food' })
@@ -84,7 +84,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
 
   it('a 4xx still rejects', async () => {
     ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(400, 'item, amount_inr, category required'))
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
     const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
 
     result.current.mutate({ item: '', amount_inr: '150', category: 'Food' })
@@ -99,7 +99,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
 // Envelopes shows a stale balance until its 30s staleTime lapses.
 it('useUpdateExpense also invalidates the budgets query on success', async () => {
   ;(updateExpense as jest.Mock).mockResolvedValue(undefined)
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
   const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
   const { result } = renderHook(() => useUpdateExpense(), { wrapper: wrapper(queryClient) })
 

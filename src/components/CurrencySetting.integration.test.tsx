@@ -22,7 +22,7 @@ it('updates the visible currency before the save request settles', async () => {
   let resolveUpdate: (profile: UserProfile) => void = () => {}
   ;(getUser as jest.Mock).mockResolvedValue({ email: 'a@b.com', emailVerified: true, currencyCode: 'INR' })
   ;(updateUser as jest.Mock).mockImplementation(() => new Promise<UserProfile>((resolve) => { resolveUpdate = resolve }))
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
 
   render(
     <QueryClientProvider client={queryClient}>

@@ -35,7 +35,7 @@ function wrapper(queryClient: QueryClient) {
 }
 
 function client() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
 }
 
 it('useRecurringExpenses resolves the query with the API result', async () => {

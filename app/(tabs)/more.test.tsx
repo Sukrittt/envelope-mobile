@@ -98,12 +98,12 @@ describe('More tab · app version', () => {
     mockGetSystemStatus.mockResolvedValue({
       aiDisabled: false,
       maintenance: { on: false, message: '' },
-      appUpdate: { android: { latestVersion: '2.4.0', storeUrl } },
+      appUpdate: { android: { latestVersion: '2.5.0', storeUrl } },
     })
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
 
     const { findByText } = renderWithProviders(<MoreScreen />)
-    fireEvent.press(await findByText('Update available · v2.4.0 →'))
+    fireEvent.press(await findByText('Update available · v2.5.0 →'))
 
     expect(openUrl).toHaveBeenCalledWith(storeUrl)
     openUrl.mockRestore()
@@ -113,11 +113,11 @@ describe('More tab · app version', () => {
     mockGetSystemStatus.mockResolvedValue({
       aiDisabled: false,
       maintenance: { on: false, message: '' },
-      appUpdate: { android: { latestVersion: '2.3.0', storeUrl: 'https://play.google.com/' } },
+      appUpdate: { android: { latestVersion: '2.4.0', storeUrl: 'https://play.google.com/' } },
     })
 
     const { findByText, queryByText } = renderWithProviders(<MoreScreen />)
-    expect(await findByText('v2.3.0 · built in the open')).toBeTruthy()
+    expect(await findByText('v2.4.0 · built in the open')).toBeTruthy()
     await waitFor(() => expect(mockGetSystemStatus).toHaveBeenCalled())
     expect(queryByText(/Update available/)).toBeNull()
   })

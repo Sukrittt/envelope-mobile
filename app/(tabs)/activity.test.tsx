@@ -1,3 +1,4 @@
+import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ReactNode } from 'react'
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
@@ -5,10 +6,11 @@ import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
+const mockDelete = jest.fn()
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
-  useDeleteExpense: () => ({ mutate: jest.fn() }),
+  useDeleteExpense: () => ({ mutate: mockDelete }),
   prefetchExpensesPage: jest.fn(),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
@@ -133,4 +135,29 @@ it('pages through the Activity list via server-side pagination', () => {
 
   expect(getByText('Page 2 of 3')).toBeTruthy()
   expect(getByLabelText('Previous page').props.accessibilityState.disabled).toBe(false)
+})
+
+
+// Complete the collapse immediately: this test covers the deletion response,
+// not the animation clock.
+jest.mock('@/src/components/activity/DeletingRow', () => ({
+  DeletingRow: ({ children, active, onDone }: { children: ReactNode; active: boolean; onDone: () => void }) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('react').useEffect(() => { if (active) onDone() }, [active])
+    return children
+  },
+}))
+
+it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', (status, title) => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset().mockImplementation((_params, options) => options.onError(new ExpenseWriteError(Number(status), 'Raw API error')))
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.press(screen.getByText('Item 1'))
+  fireEvent.press(screen.getByText('Delete'))
+  fireEvent.press(screen.getByText('Delete'))
+  expect(screen.getByText(String(title))).toBeTruthy()
+  expect(screen.queryByText('Raw API error')).toBeNull()
+  fireEvent.press(screen.getByText('Back to transactions'))
+  expect(screen.queryByText(String(title))).toBeNull()
+  expect(mockDelete).toHaveBeenCalledTimes(1)
 })

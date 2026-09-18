@@ -124,7 +124,7 @@ describe('edit mode', () => {
     ;(getHoldings as jest.Mock).mockReturnValue(holdingsGate.promise)
     ;(updateHolding as jest.Mock).mockResolvedValue(undefined)
 
-    const { getByRole, getByPlaceholderText, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
+    const { getByRole, findByPlaceholderText, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
     await findByText('Bonds')
 
     // React Query's notifyManager batches observer notifications via a real
@@ -137,7 +137,7 @@ describe('edit mode', () => {
     })
 
     fireEvent(getByRole('switch'), 'valueChange', true)
-    fireEvent.changeText(getByPlaceholderText('0'), '3600')
+    fireEvent.changeText(await findByPlaceholderText('0'), '3600')
     fireEvent.press(getByText('Save changes'))
 
     await waitFor(() =>
