@@ -97,6 +97,10 @@ const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
 // don't cover the gaps between slots or the safe-area strip below them, so
 // without this a scrolled row (or the home-indicator area) shows through.
 const BACKDROP_PAD = 7
+// Gap between the ring and the screen edge, on top of the safe-area inset.
+// 4px (space.xs) read as flush against the Android 3-button nav bar in
+// testing — bumped so the strip visibly clears it.
+const NAV_BOTTOM_GAP = 10
 
 /** Carousel x-offset that puts slot `i` at the centre of the screen. */
 export const slotOffset = (i: number): number => i * SLOT
@@ -180,7 +184,7 @@ export function FloatingNav({
   addDisabled?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, space, elevation, scheme } = useTheme()
+  const { tokens, elevation, scheme } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
@@ -269,7 +273,7 @@ export function FloatingNav({
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.wrap, { paddingBottom: space.xs }]}
+      style={[styles.wrap, { paddingBottom: NAV_BOTTOM_GAP }]}
     >
       {children}
       <Reanimated.ScrollView
@@ -355,7 +359,7 @@ export function FloatingNav({
  * Log-expense has no strip; its accent flood already fills the area.
  */
 export function NavBackdrop() {
-  const { tokens, space, radius } = useTheme()
+  const { tokens, radius } = useTheme()
   const insets = useSafeAreaInsets()
   return (
     <View
@@ -363,7 +367,7 @@ export function NavBackdrop() {
       style={[
         styles.backdrop,
         {
-          height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + space.xs,
+          height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + NAV_BOTTOM_GAP,
           backgroundColor: tokens.bg,
           borderTopLeftRadius: radius.xl,
           borderTopRightRadius: radius.xl,

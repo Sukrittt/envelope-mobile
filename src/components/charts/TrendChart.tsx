@@ -51,8 +51,6 @@ const MAX_BAR_W = 56
 const STAGGER_STEP = 30
 const GROW_DURATION = 350
 
-/** Compact axis label: 1234 -> "₹1.2k", 950 -> "₹950". */
-
 interface BarProps {
   x: number
   y: number
