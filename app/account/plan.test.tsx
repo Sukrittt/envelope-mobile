@@ -4,9 +4,10 @@ import type { BillingStatus } from '@/src/api/billing'
 import PlanScreen from './plan'
 
 const mockPush = jest.fn()
+const mockReplace = jest.fn()
 let mockCanGoBack = true
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), canGoBack: () => mockCanGoBack }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: mockReplace, canGoBack: () => mockCanGoBack }),
 }))
 
 let mockStatus: BillingStatus | undefined
@@ -70,4 +71,20 @@ it('shows a paying account its plan, renewal and what it includes', () => {
   expect(getByText('No ads. Ever.')).toBeTruthy()
   expect(getByText('Manage in Google Play')).toBeTruthy()
   expect(queryByText('Manage or delete account')).toBeNull()
+})
+
+it('goes Home when unlocked with nothing to go back to, as right after a purchase', () => {
+  mockCanGoBack = false
+  mockStatus = { ...base, mode: 'paid', productId: 'monthly', paidExpiresAt: '2099-10-18T12:00:00Z', autoRenew: true, renewalState: 'active' }
+  const { getByLabelText } = renderWithProviders(<PlanScreen />)
+
+  fireEvent.press(getByLabelText('Back'))
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+})
+
+it('has no back button while locked', () => {
+  mockCanGoBack = true
+  mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
+  const { queryByLabelText } = renderWithProviders(<PlanScreen />)
+  expect(queryByLabelText('Back')).toBeNull()
 })

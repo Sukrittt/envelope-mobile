@@ -94,8 +94,11 @@ export default function PlanScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        {router.canGoBack() ? (
-          <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        {/* No way out while locked: this screen is the whole app then. Once
+            access returns (say, straight after a purchase) the stack was
+            rebuilt with this screen at the bottom, so back goes Home. */}
+        {!locked ? (
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <Icon icon={ArrowLeft} size={20} color={tokens.text} />
           </Pressable>
         ) : null}
