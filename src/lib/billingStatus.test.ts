@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, lockedReason, planSummary, trialReminderBucket } from './billingStatus'
+import { accessAllowed, billingVisible, lockedReason, planSummary, trialReminderBucket, yearlySavingsPercent } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -92,5 +92,17 @@ describe('copy', () => {
     expect(lockedReason(status({ mode: 'trial' }))).toMatch(/free trial has ended/)
     expect(lockedReason(status({ mode: 'expired', productId: 'envelope_individual' }))).toMatch(/subscription has ended/)
     expect(lockedReason(status({ renewalState: 'on_hold' }))).toMatch(/on hold/)
+  })
+})
+
+describe('yearlySavingsPercent', () => {
+  it('rounds the saving down so the badge never overstates it', () => {
+    expect(yearlySavingsPercent(39, 399)).toBe(14)
+    expect(yearlySavingsPercent(9.99, 79.99)).toBe(33)
+  })
+
+  it('claims nothing when yearly is not cheaper', () => {
+    expect(yearlySavingsPercent(39, 468)).toBeNull()
+    expect(yearlySavingsPercent(0, 399)).toBeNull()
   })
 })

@@ -96,3 +96,10 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+/** Whole-percent saving of yearly over twelve months of monthly, or null if there's no real saving to claim. */
+export function yearlySavingsPercent(monthlyPrice: number, yearlyPrice: number): number | null {
+  if (monthlyPrice <= 0) return null
+  const pct = Math.floor((1 - yearlyPrice / (monthlyPrice * 12)) * 100)
+  return pct > 0 ? pct : null
+}

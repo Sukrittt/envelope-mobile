@@ -4,9 +4,9 @@ import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, ChevronRight, Database, ExternalLink, HelpCircle, Lock, LogOut, RotateCcw, type LucideIcon } from 'lucide-react-native'
-import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
+import type { PurchasesPackage } from 'react-native-purchases'
 import { Alert } from '@/src/components/ui/AlertHost'
-import { Button } from '@/src/components/ui/Button'
+import { PlanPicker } from '@/src/components/billing/PlanPicker'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -124,28 +124,20 @@ export default function PlanScreen() {
             </View>
 
             {showPlans ? (
-              <View style={{ gap: 8 }}>
-                {!canBuy ? (
-                  <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
-                    {`You can subscribe from ${formatDate(status.trialEndsAt)}, when your trial ends.`}
-                  </Text>
-                ) : null}
-                {packagesQuery.isLoading ? <ActivityIndicator color={tokens.accent} /> : null}
-                {packagesQuery.data?.map((pkg) => (
-                  <Button
-                    key={pkg.identifier}
-                    label={busy === pkg.identifier ? 'Opening Google Play…' : `${pkg.product.priceString} / ${pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'year' : 'month'}`}
-                    variant={pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'primary' : 'secondary'}
-                    disabled={!canBuy || busy !== null}
-                    onPress={() => void buy(pkg)}
-                  />
-                ))}
-                {packagesQuery.data?.length === 0 || packagesQuery.isError ? (
-                  <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
-                    Plans aren&apos;t available right now. Try again in a little while.
-                  </Text>
-                ) : null}
-              </View>
+              packagesQuery.data?.length ? (
+                <PlanPicker
+                  packages={packagesQuery.data}
+                  unlockDate={canBuy ? null : formatDate(status.trialEndsAt)}
+                  busy={busy !== null}
+                  onBuy={(pkg) => void buy(pkg)}
+                />
+              ) : packagesQuery.isLoading ? (
+                <ActivityIndicator color={tokens.accent} />
+              ) : (
+                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
+                  Plans aren&apos;t available right now. Try again in a little while.
+                </Text>
+              )
             ) : null}
 
             <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
