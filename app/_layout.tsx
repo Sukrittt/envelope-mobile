@@ -11,6 +11,7 @@ import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavig
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 import { identifyUser,initAnalytics,track,trackScreen } from '@/src/lib/analytics'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
+import { initPurchases } from '@/src/lib/purchases'
 import {
 addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
 registerForPushNotificationsAsync,unregisterDevicePushToken
@@ -33,6 +34,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 SplashScreen.preventAutoHideAsync().catch(() => {})
 configureNotificationHandler()
 initAnalytics()
+// Beside initAnalytics for the same reason: accessMode is the one choke point
+// every sign-in path passes through, so the billing customer identity is
+// bound there rather than at four separate call sites.
+initPurchases()
 // Default playsInSilentMode is false — success/delete sound effects would be
 // silently muted whenever the iOS ring switch is off.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})

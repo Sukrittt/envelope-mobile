@@ -93,3 +93,24 @@ jest.mock('react-native-gesture-handler', () => ({
   ...jest.requireActual('react-native-gesture-handler'),
   GestureDetector: ({ children }) => children,
 }))
+
+// react-native-purchases has no JS fallback — its native module is absent
+// under Jest, and src/lib/purchases.ts is imported at module scope by
+// app/_layout.tsx. The functions are no-ops here on purpose: checkout is
+// verified against a real store build, not a mock, and every test that
+// matters asserts on the *server's* access answer rather than the SDK's.
+jest.mock('react-native-purchases', () => ({
+  __esModule: true,
+  default: {
+    configure: jest.fn(),
+    setLogLevel: jest.fn(),
+    logIn: jest.fn(async () => ({})),
+    logOut: jest.fn(async () => ({})),
+    getOfferings: jest.fn(async () => ({ current: null })),
+    getCustomerInfo: jest.fn(async () => ({ managementURL: null })),
+    purchasePackage: jest.fn(async () => ({})),
+    restorePurchases: jest.fn(async () => ({})),
+  },
+  LOG_LEVEL: { DEBUG: 'DEBUG', ERROR: 'ERROR' },
+  PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
+}))
