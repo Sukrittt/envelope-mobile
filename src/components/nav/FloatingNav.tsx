@@ -208,11 +208,14 @@ export function FloatingNav({
   const activeIndex = addActive ? ADD_INDEX : indexOfRoute(active)
 
   const scrollRef = useAnimatedRef<Reanimated.ScrollView>()
-  const scrollX = useSharedValue(0)
   // Captured once at mount, for the initial contentOffset below. The nav mounts
   // on /loading (no active slot) and the app lands on log-expense, so rest on
   // the add slot rather than scrolling over from Home on first show.
   const [initialIndex] = useState(() => (activeIndex === -1 ? ADD_INDEX : activeIndex))
+  // Seeded to match contentOffset: the initial offset fires no onScroll on
+  // Android, so a 0 here leaves Home sized/lit as the centre slot until the
+  // first touch.
+  const scrollX = useSharedValue(slotOffset(initialIndex))
   // Tracks the slot the carousel is actually resting on, so a route change
   // that only mirrors our own snap (see onMomentumScrollEnd) doesn't scroll
   // again, and a real external change (tap, deep link) does.
