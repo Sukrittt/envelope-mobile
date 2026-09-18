@@ -53,6 +53,12 @@
       "com.sukrit04.envelope"
     ],
     "plugins": [
+      [
+        "./plugins/withAndroidAdaptiveIconInset",
+        {
+          "insetDp": 16
+        }
+      ],
       "expo-router",
       "expo-status-bar",
       "expo-secure-store",
