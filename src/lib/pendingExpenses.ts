@@ -109,3 +109,23 @@ export function clearAll(): Promise<void> {
     await AsyncStorage.multiRemove(keys)
   })
 }
+
+const CSV_COLUMNS = ['date', 'item', 'amount_inr', 'category', 'payment_method', 'notes'] as const
+
+/**
+ * Expenses logged on this device that the server has never seen — queued, or
+ * given up on — as CSV. The server-built export cannot include them, and a
+ * user leaving after their trial ends should not lose the last few days of
+ * spending they logged offline.
+ */
+export function toCsv(entries: PendingExpense[]): string {
+  const cell = (v: string | undefined) => `"${(v ?? '').replace(/"/g, '""')}"`
+  const rows = entries.map((e) => CSV_COLUMNS.map((c) => cell(e.payload[c])).join(','))
+  return [CSV_COLUMNS.join(','), ...rows].join('\n')
+}
+
+/** Every unsynced expense on this device, pending and failed alike. */
+export async function listUnsynced(): Promise<PendingExpense[]> {
+  const [pending, failed] = await Promise.all([list(), listFailed()])
+  return [...pending, ...failed]
+}

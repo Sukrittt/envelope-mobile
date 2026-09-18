@@ -1,0 +1,213 @@
+import { useState } from 'react'
+import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleSheet } from 'react-native'
+import { useRouter } from 'expo-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ArrowLeft, ChevronRight, Database, ExternalLink, HelpCircle, Lock, LogOut, RotateCcw, type LucideIcon } from 'lucide-react-native'
+import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
+import { Alert } from '@/src/components/ui/AlertHost'
+import { Button } from '@/src/components/ui/Button'
+import { Icon } from '@/src/components/shared/Icon'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
+import { clearAccess, sessionId } from '@/src/api/accessMode'
+import { revokeSession } from '@/src/api/account'
+import { useBillingStatus, seedBillingStatus } from '@/src/hooks/useBillingStatus'
+import { getPackages, managementUrl, purchase, purchasesAvailable, restore } from '@/src/lib/purchases'
+import { accessAllowed, formatDate, lockedReason, planSummary, trialRemainingLabel } from '@/src/lib/billingStatus'
+
+const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
+
+/**
+ * Plan & billing — and, while access is off, the whole app.
+ *
+ * app/_layout.tsx registers this as the first screen of the restricted
+ * block, so an expired account lands here with nothing underneath. That is
+ * why the exits the plan promises (export, account, delete, sign out) live
+ * on this screen rather than behind navigation the user can no longer reach.
+ *
+ * The device never decides access: every purchase and restore ends with the
+ * server's answer, seeded into the cache (see src/lib/purchases.ts).
+ */
+export default function PlanScreen() {
+  const { tokens } = useTheme()
+  const insets = useSafeAreaInsets()
+  const router = useRouter()
+  const qc = useQueryClient()
+  const { data: status, isLoading } = useBillingStatus()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const locked = !accessAllowed(status)
+  // Checkout opens at trial expiry for v1 (payment-subscriptions-plan.md), so
+  // nobody pays while they still have free days left.
+  const canBuy = !!status?.purchaseEnabled && purchasesAvailable() && status.mode === 'expired'
+  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: canBuy })
+  const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
+
+  async function buy(pkg: PurchasesPackage) {
+    setBusy(pkg.identifier)
+    const outcome = await purchase(pkg)
+    setBusy(null)
+    if (outcome.status === 'purchased') {
+      seedBillingStatus(qc, outcome.access)
+      if (!outcome.access.allowed) Alert.alert('Almost there', "Google Play took the payment, but we couldn't confirm it yet. Give it a minute and tap Restore purchases.")
+    } else if (outcome.status === 'pending') {
+      void qc.invalidateQueries({ queryKey: ['billing-status'] })
+      Alert.alert('Payment pending', "Google Play is still confirming your payment. We'll unlock Aviary as soon as it clears. No need to pay again.")
+    } else if (outcome.status === 'failed') {
+      Alert.alert("Couldn't complete purchase", 'Google Play didn\'t finish the payment. Check your connection and try again.')
+    }
+  }
+
+  async function doRestore() {
+    setBusy('restore')
+    try {
+      const next = await restore()
+      seedBillingStatus(qc, next)
+      if (!next.allowed) Alert.alert('Nothing to restore', "We didn't find an active subscription for this Google account. Subscriptions belong to the Aviary account that bought them.")
+    } catch {
+      Alert.alert("Couldn't reach the store", 'Check your connection and try again.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function openManage() {
+    await Linking.openURL((await managementUrl()) ?? PLAY_SUBSCRIPTIONS_URL)
+  }
+
+  async function signOut() {
+    setBusy('signout')
+    const sid = sessionId()
+    if (sid) await revokeSession(sid).catch(() => {})
+    // Unmounts this screen via the root navigator's session guard.
+    await clearAccess()
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
+      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
+        {router.canGoBack() ? (
+          <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <Icon icon={ArrowLeft} size={20} color={tokens.text} />
+          </Pressable>
+        ) : null}
+        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Plan & billing</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
+        {isLoading || !status ? (
+          <ActivityIndicator color={tokens.accent} style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{planSummary(status)}</Text>
+              {locked ? (
+                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{lockedReason(status)}</Text>
+              ) : status.mode === 'trial' ? (
+                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                  {`Everything is free until ${formatDate(status.trialEndsAt)} (${trialRemainingLabel(status.trialDaysRemaining).toLowerCase()}). You can pick a plan when it ends. Nothing is charged automatically.`}
+                </Text>
+              ) : status.renewalState === 'grace' ? (
+                <Text style={[styles.cardMeta, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
+                  Your last payment didn&apos;t go through. Update your payment method in Google Play to keep your subscription.
+                </Text>
+              ) : null}
+              {locked ? (
+                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                  Your data is safe, and you can export it any time for free.
+                </Text>
+              ) : null}
+            </View>
+
+            {canBuy ? (
+              <View style={{ gap: 8 }}>
+                {packagesQuery.isLoading ? <ActivityIndicator color={tokens.accent} /> : null}
+                {packagesQuery.data?.map((pkg) => (
+                  <Button
+                    key={pkg.identifier}
+                    label={busy === pkg.identifier ? 'Opening Google Play…' : `${pkg.product.priceString} / ${pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'year' : 'month'}`}
+                    variant={pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'primary' : 'secondary'}
+                    disabled={busy !== null}
+                    onPress={() => void buy(pkg)}
+                  />
+                ))}
+                {packagesQuery.data?.length === 0 || packagesQuery.isError ? (
+                  <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
+                    Plans aren&apos;t available right now. Try again in a little while.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <Row icon={RotateCcw} label={busy === 'restore' ? 'Checking…' : 'Restore purchases'} onPress={() => void doRestore()} disabled={busy !== null} tokens={tokens} />
+              {manageable ? (
+                <>
+                  <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                  <Row icon={ExternalLink} label="Manage in Google Play" onPress={() => void openManage()} tokens={tokens} />
+                </>
+              ) : null}
+            </View>
+
+            {locked ? (
+              <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                <Row icon={Database} label="Export your data" onPress={() => router.push('/account/data')} tokens={tokens} />
+                <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                <Row icon={Lock} label="Account & delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
+                <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                <Row icon={HelpCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+                <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                <Row icon={LogOut} label={busy === 'signout' ? 'Signing out…' : 'Sign out'} onPress={() => void signOut()} disabled={busy !== null} tokens={tokens} />
+              </View>
+            ) : null}
+
+            {manageable ? (
+              <Text style={[styles.footnote, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                Deleting your Aviary account doesn&apos;t cancel a Google Play subscription. Cancel it in Google Play first.
+              </Text>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
+    </View>
+  )
+}
+
+function Row({
+  icon,
+  label,
+  onPress,
+  disabled,
+  tokens,
+}: {
+  icon: LucideIcon
+  label: string
+  onPress: () => void
+  disabled?: boolean
+  tokens: ReturnType<typeof useTheme>['tokens']
+}) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={[styles.row, disabled && { opacity: 0.5 }]}>
+      <Icon icon={icon} size={16} />
+      <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+      <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+    </Pressable>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 19 },
+  scrollContent: { padding: 16, gap: 12 },
+  card: { padding: 16, borderWidth: 1, borderRadius: 20, gap: 6 },
+  list: { padding: 0, gap: 0, overflow: 'hidden' },
+  cardTitle: { fontSize: 16 },
+  cardMeta: { fontSize: 13, lineHeight: 19 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  rowLabel: { fontSize: 14 },
+  divider: { height: StyleSheet.hairlineWidth },
+  footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
+})

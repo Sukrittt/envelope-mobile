@@ -112,5 +112,6 @@ jest.mock('react-native-purchases', () => ({
     restorePurchases: jest.fn(async () => ({})),
   },
   LOG_LEVEL: { DEBUG: 'DEBUG', ERROR: 'ERROR' },
+  PACKAGE_TYPE: { MONTHLY: 'MONTHLY', ANNUAL: 'ANNUAL' },
   PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
 }))

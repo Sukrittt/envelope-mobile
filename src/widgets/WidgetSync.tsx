@@ -22,7 +22,9 @@ import {
 } from "@/src/lib/envelope";
 import { todayIST } from "@/src/lib/date";
 import { toWidgetData } from "./data";
-import { writeSnapshot } from "./snapshot";
+import { clearSnapshot, writeSnapshot } from "./snapshot";
+import { SignInWidget } from "./SignInWidget";
+import type { ThemePreference } from "@/src/theme/pref";
 import { variants } from "./variants";
 import { EnvelopeWidget } from "./EnvelopeWidget";
 import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
@@ -97,4 +99,24 @@ export function WidgetSync() {
   ]);
 
   return null;
+}
+
+/**
+ * Blank the home-screen widgets once the account has lost access. The app
+ * hides its budget screens at that point, and a widget still showing them
+ * would be the one place the budget stayed readable. Clearing the snapshot
+ * keeps the headless task (widget-task-handler.tsx) from redrawing it later.
+ */
+export async function lockWidgets(preference: ThemePreference): Promise<void> {
+  if (Platform.OS !== "android") return;
+  await clearSnapshot();
+  for (const widgetName of ["Envelope", "EnvelopeBar", "EnvelopeMini"]) {
+    void requestWidgetUpdate({
+      widgetName,
+      renderWidget: () =>
+        variants(preference, (tokens, scheme) => (
+          <SignInWidget tokens={tokens} scheme={scheme} compact={widgetName !== "Envelope"} />
+        )),
+    });
+  }
 }

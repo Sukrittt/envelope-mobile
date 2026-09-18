@@ -27,6 +27,8 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
+import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
@@ -60,6 +62,13 @@ export default function HomeScreen() {
   const month = currentMonthKey()
   const prevMonth = prevMonthKey(month)
   const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(prevMonth)
+  // Trial reminders at 7, 3 and 1 days left. Same dismiss-once storage as the
+  // rollover banner, keyed by threshold, so dismissing at 7 days still lets
+  // the 3-day reminder through.
+  const billing = useBillingStatus().data
+  const trialBucket = trialReminderBucket(billing)
+  const [trialDismissed, setTrialDismissed] = useDismissedRolloverBanner(`trial-${trialBucket}`)
+  const showTrialBanner = trialBucket !== null && trialDismissed === false
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('home')
   // How many envelope action sheets are currently open — a plain boolean would
   // do since only one can be open at a time in practice, but a count is safe
@@ -229,6 +238,19 @@ export default function HomeScreen() {
         {/* The lasting record lives in Insights' "Where it went" card (any
             month, not just last), so this banner can stay a dismissable
             one-time heads-up rather than growing into one. */}
+        {showTrialBanner && billing && (
+          <Card style={styles.rolloverCard} elevated={false}>
+            <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                Free trial · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See your options.
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+            </Pressable>
+          </Card>
+        )}
+
         {showRolloverBanner && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>

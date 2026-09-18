@@ -21,7 +21,8 @@ import { startAutoFlush } from '@/src/sync/flush'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { clearSnapshot } from '@/src/widgets/snapshot'
-import { WidgetSync } from '@/src/widgets/WidgetSync'
+import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
+import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
@@ -68,7 +69,7 @@ const queryClient = new QueryClient({
  * exist.
  */
 function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
-  const { tokens } = useTheme()
+  const { tokens, preference } = useTheme()
   const router = useRouter()
   const segments = useSegments()
   const pathname = usePathname()
@@ -178,6 +179,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   const ready = fontsLoaded && authReady
   const resolving = !ready || (hasSession && onboarded === null)
+  const signedIn = !resolving && hasSession && onboarded === true
+  // Subscription access. Unknown counts as allowed (see accessAllowed), so
+  // this never holds a paying user on a lock screen while the status loads.
+  const accessOk = useAccessAllowed(signedIn)
+
+  useEffect(() => {
+    if (signedIn && !accessOk) void lockWidgets(preference)
+  }, [signedIn, accessOk, preference])
 
   // log-expense is the launch screen (declared first below). When /loading
   // (or /setup) unregisters, the stack is rebuilt with nothing underneath, so
@@ -279,7 +288,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="setup" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
 
-        <Stack.Protected guard={!resolving && hasSession && onboarded === true}>
+        <Stack.Protected guard={signedIn && accessOk}>
           {/* Fresh setup lands directly in the existing tour. Both screens stay
               available afterwards; normal session restores still open logging. */}
           {justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
@@ -294,13 +303,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: logExpenseAnimation, contentStyle: { backgroundColor: tokens.accent } }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-          <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-          <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/archive" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/bill-scans" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-          <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           {!justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="subscriptions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -320,6 +326,18 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
 
+        {/* Reachable with or without subscription access: billing, and the exits
+            payment-subscriptions-plan.md promises an expired account (export,
+            account deletion, help). When access is lost the block above
+            unregisters, so account/plan, first here, is what the stack rebuilds
+            from, with nothing underneath to go back to. */}
+        <Stack.Protected guard={signedIn}>
+          <Stack.Screen name="account/plan" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        </Stack.Protected>
+
         {/* Ungated: these are reached both signed out (from welcome) and signed
             in (the change-email flow from Account & security). A guard can't
             read the `mode` param that distinguishes them — that param only
@@ -336,7 +354,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           budgets/expenses queries those screens already fetch, so it must only
           run once they're reachable — not on every cold boot regardless of
           auth state. */}
-      {!resolving && hasSession && onboarded === true ? <WidgetSync /> : null}
+      {signedIn && accessOk ? <WidgetSync /> : null}
     </View></CurrencyProvider>
   )
 }

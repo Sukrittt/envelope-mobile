@@ -101,3 +101,19 @@ it('clears pending and failed queues for every cached account', async () => {
  expect(await pending.listFailed()).toEqual([])
  expect(await pending.list()).toEqual([])
 })
+
+describe('toCsv', () => {
+  it('writes a header and quotes every cell, escaping embedded quotes', () => {
+    const payload = {
+      client_id: 'c1',
+      date: '2026-10-01',
+      timestamp: '2026-10-01T10:00:00+05:30',
+      item: 'Chai, "large"',
+      amount_inr: '40',
+      category: 'Food',
+    } as ExpensePayload
+    expect(pending.toCsv([{ payload, attempts: 0 }])).toBe(
+      'date,item,amount_inr,category,payment_method,notes\n"2026-10-01","Chai, ""large""","40","Food","",""',
+    )
+  })
+})

@@ -23,6 +23,8 @@ import { setPendingScanImage } from '@/src/lib/pendingScanImage'
 import { BASE_URL } from '@/src/api/client'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
+import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { billingVisible, planSummary } from '@/src/lib/billingStatus'
 import { useWrappedStatus } from '@/src/hooks/useWrapped'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useRefresh } from '@/src/hooks/useRefresh'
@@ -58,6 +60,10 @@ export default function MoreScreen() {
   const userQuery = useUser()
   const user = userQuery.data
   const wrappedStatus = useWrappedStatus().data
+  const billing = useBillingStatus().data
+  // Before launch there's nothing to manage, so the row keeps pointing at the
+  // "payments are coming" note it always has.
+  const showBilling = billingVisible(billing)
   const categoriesQ = useCategories()
   const systemStatusQ = useQuery({
     queryKey: ['system-status'],
@@ -333,13 +339,13 @@ export default function MoreScreen() {
                 </>
               )}
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <Pressable onPress={() => router.push('/account/trial-notice?from=more')} style={styles.row}>
+              <Pressable onPress={() => router.push(showBilling ? '/account/plan' : '/account/trial-notice?from=more')} style={styles.row}>
                 <Icon icon={CreditCard} size={16} color={tokens.text} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
                     Plan & billing
                   </Text>
-                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>{"You're on the trial plan"}</Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>{showBilling && billing ? planSummary(billing) : "You're on the trial plan"}</Text>
                 </View>
                 <Pressable
                   onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}

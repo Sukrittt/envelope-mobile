@@ -7,6 +7,8 @@ import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { billingVisible, formatDate } from '@/src/lib/billingStatus'
 
 /**
  * Shown once, right after the guided tour finishes onboarding. Payments
@@ -21,6 +23,10 @@ export default function TrialNoticeScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { from } = useLocalSearchParams<{ from?: string }>()
+  // Once subscriptions launch the trial is real and dated, so say so instead
+  // of the "payments are coming" note.
+  const billing = useBillingStatus().data
+  const live = billingVisible(billing)
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
@@ -46,17 +52,21 @@ export default function TrialNoticeScreen() {
             {"You're on the trial plan"}
           </Text>
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
-            {"We're still building payments, so everything's free while you wait. No card needed, nothing to cancel."}
+            {live
+              ? `Everything's free until ${formatDate(billing?.trialEndsAt)}. No card needed, nothing to cancel.`
+              : "We're still building payments, so everything's free while you wait. No card needed, nothing to cancel."}
           </Text>
         </PopIn>
 
         <PopIn play delay={160} style={{ width: '100%' }}>
           <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>
-              What happens once payments are ready
+              {live ? 'What happens when it ends' : 'What happens once payments are ready'}
             </Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, lineHeight: 20 }}>
-              {"You'll get a full 45-day trial from that point, we'll tell you before it starts. We haven't landed on a price yet, but it'll be easy on your wallet."}
+              {live
+                ? "We'll remind you a week before. Then you can pick a monthly or yearly plan in the app. Nothing is charged automatically, and you can always export your data for free."
+                : "You'll get a full 45-day trial from that point, we'll tell you before it starts. We haven't landed on a price yet, but it'll be easy on your wallet."}
             </Text>
           </View>
         </PopIn>
