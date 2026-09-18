@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -313,6 +314,7 @@ export default function ActivityScreen() {
       pathname: "/modals/log-expense",
       params: {
         id: t.id ?? "",
+        version: t.version === undefined ? "" : String(t.version),
         timestamp: t.timestamp,
         item: t.item,
         amountInr: t.amount_inr,
@@ -337,6 +339,7 @@ export default function ActivityScreen() {
     deleteExpense.mutate(
       {
         id: t.id,
+        version: t.version,
         timestamp: t.timestamp,
         item: t.item,
         amountInr: Number(t.amount_inr) || 0,
@@ -344,7 +347,10 @@ export default function ActivityScreen() {
       // Left set on success so the row stays collapsed until the refetch drops
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
-      { onError: () => setPendingDelete(null) },
+      { onError: (err) => {
+        setPendingDelete(null);
+        Alert.alert('Could not delete transaction', err instanceof Error ? err.message : 'Refresh and try again.');
+      } },
     );
   }
 

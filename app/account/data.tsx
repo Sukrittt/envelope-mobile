@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Switch,
   Linking,
+  Share,
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -46,6 +47,7 @@ import {
   type ExportRow,
 } from "@/src/api/account";
 import { isAnalyticsEnabled, setAnalyticsEnabled } from "@/src/lib/analytics";
+import { listUnsynced, toCsv } from "@/src/lib/pendingExpenses";
 
 function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
   switch (status) {
@@ -132,6 +134,15 @@ export default function DataScreen() {
         : false,
   });
 
+  // Logged on this device but never reached the server, so the export above
+  // cannot contain them. Shared as CSV straight from the device instead.
+  const unsyncedQuery = useQuery({
+    queryKey: ["unsynced-expenses"],
+    queryFn: listUnsynced,
+  });
+  const unsynced = unsyncedQuery.data ?? [];
+  const shareUnsynced = () =>
+    void Share.share({ title: "Unsynced expenses", message: toCsv(unsynced) });
   const [starting, setStarting] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
@@ -414,6 +425,55 @@ export default function DataScreen() {
             </Animated.View>
           ) : null}
         </View>
+
+        {unsynced.length > 0 ? (
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: tokens.card, borderColor: tokens.border },
+            ]}
+          >
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: tokens.text, fontFamily: fontFamily.bodyExtraBold },
+              ]}
+            >
+              Not synced yet
+            </Text>
+            <Text
+              style={[
+                styles.cardMeta,
+                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+              ]}
+            >
+              {unsynced.length === 1
+                ? "1 expense on this phone hasn't reached your account, so it isn't in the export."
+                : `${unsynced.length} expenses on this phone haven't reached your account, so they aren't in the export.`}
+            </Text>
+            <View style={styles.exportRow}>
+              <Pressable
+                onPress={shareUnsynced}
+                style={[
+                  styles.exportButton,
+                  {
+                    borderColor: tokens.borderStrong,
+                    backgroundColor: tokens.inputBg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                  ]}
+                >
+                  Share as CSV
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         <View
           style={[

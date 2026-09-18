@@ -21,6 +21,7 @@ import { updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
 import { updateUser } from '@/src/api/account'
+import { completeOnboarding } from '@/src/api/billing'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { DEFAULT_ALERT_PCTS } from '@/src/lib/alerts'
 
@@ -298,8 +299,12 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       const categoryCount = categories.length
 
       // Last, so a failed write above leaves the user un-onboarded and retrying.
-      const savedUser = await updateUser({ currencyCode, onboardedAt: new Date().toISOString() })
-      qc.setQueryData(['user'], savedUser)
+      // Two calls rather than one: the currency is an ordinary profile field,
+      // but completing onboarding starts the 45-day trial, so its instant is
+      // the server's — this device's clock has no say in when the trial ends.
+      await updateUser({ currencyCode })
+      await completeOnboarding()
+      qc.invalidateQueries({ queryKey: ['user'] })
       // Not awaited: this refetches every cached query, and the celebration
       // screen doesn't need any of them.
       void qc.invalidateQueries()

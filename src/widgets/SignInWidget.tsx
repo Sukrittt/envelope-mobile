@@ -1,6 +1,6 @@
 // Shared no-snapshot state for all three widget sizes — rendered whenever
 // there's nothing to show yet (never signed in) or the snapshot was cleared
-// on logout.
+// on logout or when the account lost access (see lockWidgets in WidgetSync).
 import { TextWidget } from 'react-native-android-widget'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -23,7 +23,7 @@ export function SignInWidget({
       />
       {!compact && (
         <TextWidget
-          text="Sign in to see your budget"
+          text="Open Aviary to see your budget"
           style={{ fontSize: 12, fontFamily: fontFamily.bodyMedium, color: color(tokens.text3), marginTop: 4, textAlign: 'center' }}
         />
       )}

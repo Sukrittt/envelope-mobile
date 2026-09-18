@@ -1,3 +1,5 @@
+import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
+import type { ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
@@ -124,6 +126,10 @@ export default function LogExpenseScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
     str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank",
   );
+  const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
+  const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
+  const [conflict, setConflict] = useState<ExpenseRow | null>(null);
+  const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState("");
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
@@ -172,7 +178,7 @@ export default function LogExpenseScreen() {
 
   const parsedAmount = Number(amount);
   const missing = missingFields({ amount, item, category });
-  const canSubmit = missing.length === 0;
+  const canSubmit = missing.length === 0 && !conflict && !deleted;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending;
 
@@ -220,23 +226,26 @@ export default function LogExpenseScreen() {
     if (!canSubmit) return;
     setError("");
     if (isEdit) {
+      const updates = expenseChanges(base, { item, amount, date, category });
+      if (!Object.keys(updates).length) { setLogSuccess(true); return; }
       updateMutate(
         {
           id: origId,
+          version: expectedVersion,
           timestamp: origTimestamp,
           item: origItem,
           amountInr: origAmountInr,
-          updates: {
-            new_item: item.trim(),
-            new_amount_inr: String(parsedAmount),
-            new_date: date,
-            category,
-          },
+          updates,
         },
         {
           onSuccess: () => setLogSuccess(true),
-          onError: () =>
-            setError("Could not save. Check your connection and try again."),
+          onError: (err) => {
+            if (err instanceof ExpenseWriteError) {
+              if (err.status === 409 && err.current) setConflict(err.current);
+              if (err.status === 404) setDeleted(true);
+            }
+            setError(err instanceof Error ? err.message : "Could not save. Check your connection and try again.");
+          },
         },
       );
     } else {
@@ -260,6 +269,7 @@ export default function LogExpenseScreen() {
               pathname: "/modals/expense-added",
               params: {
                 id: res.id ?? "",
+                version: res.version === undefined ? "" : String(res.version),
                 clientId: res.clientId,
                 pending: res.pending ? "1" : "",
                 timestamp: res.timestamp ?? "",
@@ -296,7 +306,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
+  }, [canSubmit, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -309,6 +319,16 @@ export default function LogExpenseScreen() {
     });
   }, [canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
   useEffect(() => () => publishLogExpenseSubmit(EMPTY_SUBMIT), [publishLogExpenseSubmit]);
+
+  function reviewLatest(keepDraft: boolean) {
+    if (!conflict) return;
+    const draft = keepDraft ? rebaseExpenseDraft(base, { item, amount, date, category }, conflict) : expenseDraft(conflict);
+    setBase(expenseDraft(conflict));
+    setExpectedVersion(conflict.version);
+    setItem(draft.item); setAmount(draft.amount); setDate(draft.date); setCategory(draft.category);
+    setCategoryTouched(true);
+    setConflict(null); setError('');
+  }
 
   const onAccentDim = "rgba(255, 255, 255, 0.7)";
   const fieldBg = "rgba(255, 255, 255, 0.16)";
@@ -411,6 +431,20 @@ export default function LogExpenseScreen() {
           },
         ]}
       >
+        {conflict && (
+          <View accessibilityRole="alert" style={{ gap: space.sm }}>
+            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Review changes</Text>
+            <Text style={{ color: tokens.onAccent }}>Latest saved: {conflict.item} · {conflict.amount_inr} · {conflict.date} · {conflict.category}</Text>
+            <Text style={{ color: tokens.onAccent }}>Your draft: {item} · {amount} · {date} · {category}</Text>
+            <Text style={{ color: tokens.onAccent }}>Choose values to review, then save again.</Text>
+            <Pressable accessibilityRole="button" onPress={() => reviewLatest(false)} style={{ paddingVertical: space.sm }}>
+              <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Reload latest</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => reviewLatest(true)} style={{ paddingVertical: space.sm }}>
+              <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>Keep my changes</Text>
+            </Pressable>
+          </View>
+        )}
         {error !== "" && (
           <Text
             style={[

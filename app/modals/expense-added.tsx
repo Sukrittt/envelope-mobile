@@ -309,7 +309,7 @@ export default function ExpenseAddedScreen() {
     }
     if (deleteExpense.isPending) return;
     deleteExpense.mutate(
-      { id: id || undefined, timestamp, item, amountInr: amount },
+      { id: id || undefined, version: str(params.version) === "" ? undefined : Number(str(params.version)), timestamp, item, amountInr: amount },
       {
         onSuccess: () =>
           router.replace({
@@ -323,8 +323,8 @@ export default function ExpenseAddedScreen() {
               paymentMethod,
             },
           }),
-        onError: () =>
-          setUndoError("Could not undo. The expense is still saved."),
+        onError: (err) =>
+          setUndoError(err instanceof Error ? err.message : "Could not undo. The expense is still saved."),
       },
     );
   }

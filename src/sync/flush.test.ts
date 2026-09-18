@@ -104,3 +104,36 @@ it('two concurrent flush() calls make only one round of requests', async () => {
   expect(pending.list).toHaveBeenCalledTimes(1)
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
 })
+
+/**
+ * A 402 is the subscription gate, not a bad request. Without this, every
+ * queued expense burns an attempt each time the queue drains, and three
+ * rounds later — about ninety seconds after a trial quietly expires — they
+ * are dead-lettered. The user renews and the expenses they logged offline
+ * are gone. Losing someone's data because their card expired is the worst
+ * outcome this feature has.
+ */
+it('a 402 leaves the queue intact and burns no attempts', async () => {
+  ;(pending.list as jest.Mock).mockResolvedValue([entry('c1'), entry('c2')])
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(402, 'SUBSCRIPTION_REQUIRED'))
+
+  await flush()
+
+  expect(pending.bumpAttempts).not.toHaveBeenCalled()
+  expect(pending.remove).not.toHaveBeenCalled()
+  // Stops the whole drain: every remaining entry would hit the same gate, so
+  // continuing is just noise against an API that is already saying no.
+  expect(postExpensePayload).toHaveBeenCalledTimes(1)
+})
+
+it('resumes draining the same entries once access is restored', async () => {
+  ;(pending.list as jest.Mock).mockResolvedValue([entry('c1'), entry('c2')])
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(402, 'SUBSCRIPTION_REQUIRED'))
+  await flush()
+
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: 'ts' })
+  await flush()
+
+  expect(pending.remove).toHaveBeenCalledWith('c1')
+  expect(pending.remove).toHaveBeenCalledWith('c2')
+})
