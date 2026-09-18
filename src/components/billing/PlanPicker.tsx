@@ -14,12 +14,13 @@ import { yearlySavingsPercent } from '@/src/lib/billingStatus'
  * (pricing.md): allowances are still to be set.
  */
 const BENEFITS = [
-  'Envelope budgeting, with unlimited envelopes and expenses',
-  'AI bill scanning and the Money Brain coach',
-  'Insights, reports and your monthly Wrapped',
-  'Bills, subscriptions and investments in one place',
-  'Home screen widgets, and the web app on the same account',
-  'No ads, ever',
+  'As many envelopes and expenses as you like',
+  'Snap a bill instead of typing it in',
+  'Ask Money Brain where your money went',
+  'Monthly Wrapped and spending insights',
+  'Track bills, subscriptions and investments',
+  'Widgets on your home screen, plus the web app',
+  'No ads. Ever.',
 ]
 
 /**
@@ -54,9 +55,9 @@ export function PlanPicker({
   return (
     <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: tokens.accentSoft }]}>
       <View style={{ gap: 4 }}>
-        <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>AVIARY</Text>
-        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Keep budgeting with Aviary</Text>
-        <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>One plan with everything in the app.</Text>
+        <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>AVIARY PRO</Text>
+        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Keep your budget going</Text>
+        <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>One plan. Everything&apos;s included.</Text>
       </View>
 
       <View style={{ gap: 8 }}>
@@ -107,7 +108,7 @@ export function PlanPicker({
         <Text style={[styles.fine, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
           {unlockDate
             ? "Your free trial runs until then. You won't be charged unless you subscribe."
-            : `Billed through Google Play. Renews every ${isYearly ? 'year' : 'month'} until you cancel, which you can do anytime in Google Play. Exporting your data stays free.`}
+            : `Renews every ${isYearly ? 'year' : 'month'} through Google Play. Cancel anytime from the Play Store.`}
         </Text>
       </View>
     </View>

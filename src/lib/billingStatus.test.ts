@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, lockedReason, planSummary, trialReminderBucket, yearlySavingsPercent } from './billingStatus'
+import { accessAllowed, billingVisible, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -89,9 +89,9 @@ describe('copy', () => {
   })
 
   it('explains a lapsed trial as a trial, even from a stale cached status', () => {
-    expect(lockedReason(status({ mode: 'trial' }))).toMatch(/free trial has ended/)
-    expect(lockedReason(status({ mode: 'expired', productId: 'envelope_individual' }))).toMatch(/subscription has ended/)
-    expect(lockedReason(status({ renewalState: 'on_hold' }))).toMatch(/on hold/)
+    expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your free trial has ended')
+    expect(lockedCopy(status({ mode: 'expired', productId: 'envelope_individual' })).title).toBe('Your subscription has ended')
+    expect(lockedCopy(status({ renewalState: 'on_hold' })).title).toBe("A payment didn't go through")
   })
 })
 

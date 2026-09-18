@@ -41,7 +41,7 @@ it('shows the trial countdown without the lock-screen exits', () => {
   const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
 
   expect(getByText('Free trial · 12 days left')).toBeTruthy()
-  expect(queryByText('Export your data')).toBeNull()
+  expect(queryByText(/Export it free/)).toBeNull()
 })
 
 it('gives an expired account every exit the plan promises', () => {
@@ -49,12 +49,12 @@ it('gives an expired account every exit the plan promises', () => {
   mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
   const { getByText } = renderWithProviders(<PlanScreen />)
 
-  expect(getByText(/free trial has ended/)).toBeTruthy()
+  expect(getByText('Your free trial has ended')).toBeTruthy()
   expect(getByText('Restore purchases')).toBeTruthy()
   expect(getByText('Sign out')).toBeTruthy()
 
-  fireEvent.press(getByText('Export your data'))
+  fireEvent.press(getByText(/Export it free/))
   expect(mockPush).toHaveBeenCalledWith('/account/data')
-  fireEvent.press(getByText('Account & delete account'))
+  fireEvent.press(getByText('Manage or delete account'))
   expect(mockPush).toHaveBeenCalledWith('/account/security')
 })

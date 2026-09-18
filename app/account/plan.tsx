@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleShe
 import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, ChevronRight, Database, ExternalLink, HelpCircle, Lock, LogOut, RotateCcw, type LucideIcon } from 'lucide-react-native'
+import { ArrowLeft, ChevronRight, ExternalLink, HelpCircle, Lock, LogOut, RotateCcw, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react-native'
 import type { PurchasesPackage } from 'react-native-purchases'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
@@ -14,7 +14,7 @@ import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { useBillingStatus, seedBillingStatus } from '@/src/hooks/useBillingStatus'
 import { getPackages, managementUrl, purchase, purchasesAvailable, restore } from '@/src/lib/purchases'
-import { accessAllowed, formatDate, lockedReason, planSummary, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { accessAllowed, formatDate, lockedCopy, planSummary } from '@/src/lib/billingStatus'
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
 
@@ -103,25 +103,40 @@ export default function PlanScreen() {
           <ActivityIndicator color={tokens.accent} style={{ marginTop: 40 }} />
         ) : (
           <>
-            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{planSummary(status)}</Text>
-              {locked ? (
-                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{lockedReason(status)}</Text>
-              ) : status.mode === 'trial' ? (
-                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                  {`Everything is free until ${formatDate(status.trialEndsAt)} (${trialRemainingLabel(status.trialDaysRemaining).toLowerCase()}). You can pick a plan when it ends. Nothing is charged automatically.`}
-                </Text>
-              ) : status.renewalState === 'grace' ? (
-                <Text style={[styles.cardMeta, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
-                  Your last payment didn&apos;t go through. Update your payment method in Google Play to keep your subscription.
-                </Text>
-              ) : null}
-              {locked ? (
-                <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                  Your data is safe, and you can export it any time for free.
-                </Text>
-              ) : null}
-            </View>
+            {locked ? (
+              <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, padding: 0, gap: 0 }]}>
+                <View style={styles.lockHead}>
+                  <View style={[styles.lockBadge, { backgroundColor: tokens.accentSoft }]}>
+                    <Icon icon={Lock} size={18} color={tokens.accentInk} strokeWidth={2.4} />
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={[styles.lockTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{lockedCopy(status).title}</Text>
+                    <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{lockedCopy(status).body}</Text>
+                  </View>
+                </View>
+                <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                <Pressable onPress={() => router.push('/account/data')} style={styles.row}>
+                  <Icon icon={ShieldCheck} size={16} color={tokens.mint} />
+                  <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                    Your data&apos;s safe. Export it free, anytime.
+                  </Text>
+                  <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+                </Pressable>
+              </View>
+            ) : (
+              <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{planSummary(status)}</Text>
+                {status.mode === 'trial' ? (
+                  <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                    {`Free until ${formatDate(status.trialEndsAt)}. You won't be charged unless you pick a plan.`}
+                  </Text>
+                ) : status.renewalState === 'grace' ? (
+                  <Text style={[styles.cardMeta, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
+                    Your last payment didn&apos;t go through. Update your payment method in Google Play to keep your plan.
+                  </Text>
+                ) : null}
+              </View>
+            )}
 
             {showPlans ? (
               packagesQuery.data?.length ? (
@@ -152,9 +167,7 @@ export default function PlanScreen() {
 
             {locked ? (
               <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                <Row icon={Database} label="Export your data" onPress={() => router.push('/account/data')} tokens={tokens} />
-                <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                <Row icon={Lock} label="Account & delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
+                <Row icon={UserRound} label="Manage or delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
                 <View style={[styles.divider, { backgroundColor: tokens.border }]} />
                 <Row icon={HelpCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
                 <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -209,5 +222,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
   divider: { height: StyleSheet.hairlineWidth },
+  lockHead: { flexDirection: 'row', gap: 14, padding: 16, alignItems: 'flex-start' },
+  lockBadge: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  lockTitle: { fontSize: 19 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
 })

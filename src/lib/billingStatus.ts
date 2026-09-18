@@ -68,26 +68,27 @@ export function planSummary(status: BillingStatus): string {
 }
 
 /**
- * Why the account is locked, in the user's terms. Each case names something
- * the user can act on — "your payment did not go through" is useful, "status:
- * on_hold" is not.
+ * Why the account is locked, as a headline and one follow-up line. Each case
+ * names something the user can act on: "a payment didn't go through" is
+ * useful, "status: on_hold" isn't.
  */
-export function lockedReason(status: BillingStatus | undefined): string {
+export function lockedCopy(status: BillingStatus | undefined): { title: string; body: string } {
   switch (status?.renewalState) {
     case 'on_hold':
-      return "Your subscription is on hold because a payment didn't go through. Updating your payment method in Google Play restores access."
+      return { title: "A payment didn't go through", body: 'Update your payment method in Google Play to get back in.' }
     case 'paused':
-      return 'Your subscription is paused. You can resume it from Google Play.'
+      return { title: 'Your subscription is paused', body: "Resume it in Google Play whenever you're ready." }
     case 'revoked':
-      return 'Your subscription was refunded, so it no longer provides access.'
+      return { title: 'Your subscription was refunded', body: "It's no longer active. Pick a plan to carry on." }
     case 'pending':
-      return 'Your payment is still being confirmed. This can take a little while with some payment methods. No need to pay again.'
+      return { title: 'Your payment is on its way', body: 'Some payment methods take a while to clear. No need to pay again.' }
     default:
-      // Keyed on "never bought", not mode: a trial that ran out while the app
-      // was offline is still reported as mode 'trial' by the cached status.
-      return status?.trialEndsAt && !status.productId
-        ? 'Your 45-day free trial has ended. Subscribe to carry on budgeting.'
-        : 'Your subscription has ended. Subscribe to carry on budgeting.'
+      return {
+        // Keyed on "never bought", not mode: a trial that ran out while the app
+        // was offline is still reported as mode 'trial' by the cached status.
+        title: status?.trialEndsAt && !status.productId ? 'Your free trial has ended' : 'Your subscription has ended',
+        body: 'Everything you logged is still here. Pick a plan to carry on.',
+      }
   }
 }
 
