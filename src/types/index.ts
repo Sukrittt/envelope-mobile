@@ -14,6 +14,7 @@ export interface BudgetRow {
 }
 
 export interface ExpenseRow {
+  version?: number
   id?: string
   timestamp: string
   date: string

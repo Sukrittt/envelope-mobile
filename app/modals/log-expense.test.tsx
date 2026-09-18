@@ -1,6 +1,8 @@
+import { ExpenseWriteError } from '@/src/lib/expenseConflict'
+import type { ExpenseRow } from '@/src/types'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getExpenses, postExpensePayload } from '@/src/api/expenses'
+import { getExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
@@ -43,8 +45,8 @@ function Harness() {
   return null
 }
 
-function setup() {
-  mockParams = {}
+function setup(params: Record<string, string> = {}) {
+  mockParams = params
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
@@ -142,4 +144,34 @@ it('names what is still missing when an incomplete submit is blocked', async () 
   // The copy tracks the form live while the toast is up.
   fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
   expect(await findByText('Pick a category')).toBeTruthy()
+})
+
+
+it('preserves an edit draft on conflict and only reapplies changed fields after review', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18' })
+  ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed on another device', {
+    id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries',
+  } as ExpenseRow)).mockResolvedValueOnce(undefined)
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(1) })
+  expect(utils.getByText('Review changes')).toBeTruthy()
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Dinner')
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 0)
+  fireEvent.press(utils.getByText('Keep my changes'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 1)
+})
+
+it('keeps the draft and shows a deleted-elsewhere message', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18' })
+  ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(404, 'This transaction was deleted on another device.'))
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(1) })
+  expect(utils.getByText('This transaction was deleted on another device.')).toBeTruthy()
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Dinner')
+  ;(updateExpense as jest.Mock).mockClear()
+  await act(async () => { (globalThis as any).__submit() })
+  expect(updateExpense).not.toHaveBeenCalled()
 })

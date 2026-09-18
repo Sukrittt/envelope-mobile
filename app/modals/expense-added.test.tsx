@@ -66,6 +66,7 @@ const MONTH_LABEL = MONTHS[Number(MONTH.slice(5)) - 1]
 const YEAR2 = MONTH.slice(2, 4)
 
 const BASE_PARAMS = {
+  version: '0',
   id: 'abc123',
   timestamp: `${TODAY}T01:24:00`,
   item: 'Milk',
@@ -235,7 +236,7 @@ it('deletes by id and reopens a prefilled entry screen on undo', async () => {
   ;(deleteExpense as jest.Mock).mockResolvedValue(undefined)
   const { getByText } = setup()
   fireEvent.press(getByText('Undo'))
-  await waitFor(() => expect(deleteExpense).toHaveBeenCalledWith('abc123', BASE_PARAMS.timestamp, 'Milk', 450))
+  await waitFor(() => expect(deleteExpense).toHaveBeenCalledWith('abc123', BASE_PARAMS.timestamp, 'Milk', 450, 0))
   await waitFor(() =>
     expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/modals/log-expense',
