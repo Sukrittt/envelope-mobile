@@ -22,7 +22,7 @@ export function ExpenseNoticeScreen({ status, action, onBack }: { status?: numbe
             <Text accessibilityRole="header" style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.heading, marginBottom: space.md }}>{copy.title}</Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.body, lineHeight: type.body * 1.55 }}>{copy.message}</Text>
             <Pressable accessibilityRole="button" onPress={onBack}
-              style={({ pressed }) => ({ minHeight: 50, padding: space.lg, marginTop: space.xxl, borderRadius: radius.full, backgroundColor: tokens.accentInk, flexDirection: 'row', gap: space.sm, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
+              style={({ pressed }) => ({ minHeight: 50, padding: space.lg, marginTop: space.xxl, borderRadius: radius.full, backgroundColor: tokens.accent, flexDirection: 'row', gap: space.sm, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
               <ArrowLeft size={18} color={tokens.onAccent} />
               <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.body, flexShrink: 1, textAlign: 'center' }}>{copy.backLabel}</Text>
             </Pressable>

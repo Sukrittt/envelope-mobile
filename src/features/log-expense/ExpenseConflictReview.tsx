@@ -1,5 +1,5 @@
 import { AccessibilityInfo, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
-import { ArrowRight, RotateCw, X } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -38,13 +38,13 @@ export function ExpenseConflictReview({ latest, original, draft, onChoose, onClo
       onShow={() => AccessibilityInfo.announceForAccessibility('This transaction was updated. Your edits are still here.')}>
       <View style={[styles.screen, { backgroundColor: tokens.bg }]} accessibilityViewIsModal>
         <ScrollView testID="expense-conflict-scroll" keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xl, paddingHorizontal: space.xl }}>
+          contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.xl, paddingHorizontal: space.xl }}>
           <View style={styles.content}>
-            <View style={[styles.header, { borderBottomColor: tokens.border, paddingBottom: space.md, marginBottom: space.xl }]}>
-              <Text accessibilityRole="header" style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>Edit transaction</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Back to editing" onPress={onClose} style={styles.close}>
-                <X size={22} color={tokens.text2} />
+            <View style={[styles.header, { borderBottomColor: tokens.border, marginBottom: space.xl }]}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Back to editing" onPress={onClose} style={styles.back}>
+                <ArrowLeft size={22} color={tokens.text} />
               </Pressable>
+              <Text accessibilityRole="header" style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>Edit transaction</Text>
             </View>
             <View style={[styles.icon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
               <RotateCw size={24} color={tokens.accentInk} />
@@ -77,7 +77,7 @@ export function ExpenseConflictReview({ latest, original, draft, onChoose, onClo
             <Text style={[body, { marginTop: rows.length ? 0 : space.xl }]}>Continue with your edits and keep other updates. You can review everything before saving.</Text>
             <View style={{ gap: space.md, marginTop: space.xl }}>
               <Pressable accessibilityRole="button" accessibilityLabel="Continue with my changes" onPress={() => onChoose(true)}
-                style={({ pressed }) => [styles.button, { backgroundColor: tokens.accentInk, borderRadius: radius.full, opacity: pressed ? 0.8 : 1 }]}>
+                style={({ pressed }) => [styles.button, { backgroundColor: tokens.accent, borderRadius: radius.full, opacity: pressed ? 0.8 : 1 }]}>
                 <Text style={[styles.buttonLabel, { color: tokens.onAccent }]}>Continue with my changes</Text>
                 <ArrowRight size={18} color={tokens.onAccent} />
               </Pressable>
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { width: '100%', maxWidth: 520, alignSelf: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1 },
-  close: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  back: { width: 48, height: 48, marginLeft: -12, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   columns: { flexDirection: 'row', gap: 16 },
   column: { flex: 1, minWidth: 0 },
