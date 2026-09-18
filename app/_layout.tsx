@@ -23,6 +23,7 @@ import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { clearSnapshot } from '@/src/widgets/snapshot'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
+import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
@@ -188,6 +189,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     if (signedIn && !accessOk) void lockWidgets(preference)
   }, [signedIn, accessOk, preference])
 
+  // A chat or bill scan the server refused because this month's AI allowance
+  // is spent. The screen is a modal over whatever the user was doing; a second
+  // refusal while it is already up must not stack another on top.
+  useEffect(() => {
+    if (!signedIn) return
+    return onAiAllowanceExceeded(() => {
+      if (pathname !== '/modals/ai-allowance') router.push('/modals/ai-allowance' as Href)
+    })
+  }, [signedIn, pathname, router])
+
   // log-expense is the launch screen (declared first below). When /loading
   // (or /setup) unregisters, the stack is rebuilt with nothing underneath, so
   // a fade there shows the black root bg between two orange screens. Read off
@@ -320,6 +331,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/ai-allowance" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/recurring-expense" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />

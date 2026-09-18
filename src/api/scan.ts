@@ -1,4 +1,5 @@
 import { apiFetch, apiErrorMessage } from './client'
+import { rejectIfAllowanceExceeded } from '@/src/lib/aiAllowance'
 
 export interface ScanItem {
   name: string
@@ -29,6 +30,7 @@ export async function scanBill(params: {
     body: JSON.stringify(params),
     signal: AbortSignal.timeout(45_000),
   })
+  await rejectIfAllowanceExceeded(resp, true)
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to scan bill'))
   return resp.json()
 }

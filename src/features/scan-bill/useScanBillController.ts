@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBulkSelection } from './useBulkSelection';
+import { isAiAllowanceError } from "@/src/lib/aiAllowance";
 
 
 type Phase = "scanning" | "review" | "confirm" | "error";
@@ -94,9 +95,12 @@ export function useScanBillController() {
           resetSelection();
           setPhase("review");
         },
-        onError: () => {
+        onError: (err) => {
+          // Retrying a clearer photo can't help when the month's AI is spent.
           setErrorMsg(
-            "Couldn't read that bill. Try a clearer photo, or enter this expense manually.",
+            isAiAllowanceError(err)
+              ? "You've used this month's AI allowance. You can still enter this expense manually."
+              : "Couldn't read that bill. Try a clearer photo, or enter this expense manually.",
           );
           setPhase("error");
         },

@@ -21,6 +21,7 @@ import { useExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import { useMoneyBrief } from '@/src/hooks/useMoneyBrief'
+import { isAiAllowanceError } from '@/src/lib/aiAllowance'
 import { useChatSessions, useChatSessionsCount } from '@/src/hooks/useChatSessions'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 
@@ -160,12 +161,12 @@ export default function MoneyBrainModal() {
       controller.signal,
     )
       .then((resolvedSessionId) => setSessionId(resolvedSessionId))
-      .catch(() => {
+      .catch((err) => {
         setMessages((prev) => {
           const copy = [...prev]
           copy[copy.length - 1] = {
             role: 'model',
-            text: 'Something went wrong. Try again.',
+            text: isAiAllowanceError(err) ? "You've used this month's AI allowance." : 'Something went wrong. Try again.',
           }
           return copy
         })
@@ -304,6 +305,10 @@ export default function MoneyBrainModal() {
             <View style={{ marginTop: 12 }}>
               <LoadingCaption />
             </View>
+          ) : isAiAllowanceError(briefQ.error) ? (
+            <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodyMedium, marginTop: 12 }}>
+              {"You've used this month's AI allowance. Your brief is back on the 1st."}
+            </Text>
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
               <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodyMedium, flex: 1 }}>

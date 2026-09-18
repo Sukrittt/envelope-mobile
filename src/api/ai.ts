@@ -1,6 +1,7 @@
 import { fetch as expoFetch } from 'expo/fetch'
 import { apiFetch, BASE_URL, handleUnauthorized } from './client'
 import { getValidToken } from './accessMode'
+import { rejectIfAllowanceExceeded } from '@/src/lib/aiAllowance'
 
 export interface BriefCard {
   icon: string
@@ -71,6 +72,9 @@ export async function getChatSession(id: string): Promise<ChatSessionDetail> {
 
 export async function fetchBrief(): Promise<Brief> {
   const resp = await apiFetch('/api/ai/brief')
+  // Not `notify`: the brief loads on its own, so a spent allowance is a quiet
+  // note on the card, not a screen the user never asked for.
+  await rejectIfAllowanceExceeded(resp, false)
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))
     throw new Error(detail.error ?? `Failed to load brief: ${resp.status}`)
@@ -109,6 +113,7 @@ export async function streamChat(
   // Bypasses apiFetch (needs expo/fetch for streaming), so this path must
   // separately route a revoked session into the same sign-in bounce.
   await handleUnauthorized(resp, token)
+  await rejectIfAllowanceExceeded(resp, true)
 
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))
