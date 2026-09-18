@@ -1,6 +1,7 @@
 // Subscription access, as the server sees it. The mobile app's only
 // authority on what this account may do — see src/lib/purchases.ts for why
 // the on-device RevenueCat entitlement is not used for this.
+import { markAccessAllowed, markAccessBlocked } from '@/src/lib/accessGate'
 import { apiFetch } from './client'
 
 /** Mirrors the `Access` shape returned by Web/app/api/billing/status. */
@@ -25,10 +26,22 @@ export interface BillingStatus {
   refreshed?: boolean
 }
 
+/**
+ * Reconcile the app-wide gate with what the server just said. This endpoint
+ * stays reachable while expired, so its own 200 proves nothing — `allowed` in
+ * the body is the answer, and it is the only thing that reopens the app after
+ * a 402.
+ */
+function applyGate(status: BillingStatus): BillingStatus {
+  if (status.allowed) markAccessAllowed()
+  else markAccessBlocked()
+  return status
+}
+
 export async function getBillingStatus(): Promise<BillingStatus> {
   const resp = await apiFetch('/api/billing/status')
   if (!resp.ok) throw new Error(`Failed to load billing status: ${resp.status}`)
-  return resp.json()
+  return applyGate(await resp.json())
 }
 
 /**
@@ -43,9 +56,9 @@ export async function getBillingStatus(): Promise<BillingStatus> {
  */
 export async function syncBilling(): Promise<BillingStatus> {
   const resp = await apiFetch('/api/billing/sync', { method: 'POST' })
-  if (resp.status === 503) return resp.json()
+  if (resp.status === 503) return applyGate(await resp.json())
   if (!resp.ok) throw new Error(`Failed to refresh subscription: ${resp.status}`)
-  return resp.json()
+  return applyGate(await resp.json())
 }
 
 /**
@@ -56,5 +69,7 @@ export async function syncBilling(): Promise<BillingStatus> {
 export async function completeOnboarding(): Promise<{ onboardedAt: string; access: BillingStatus }> {
   const resp = await apiFetch('/api/onboarding/complete', { method: 'POST' })
   if (!resp.ok) throw new Error(`Failed to complete onboarding: ${resp.status}`)
-  return resp.json()
+  const body = await resp.json()
+  applyGate(body.access)
+  return body
 }

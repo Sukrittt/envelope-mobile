@@ -4,6 +4,7 @@ import { HttpError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { onOnlineTransition } from '@/src/lib/netStatus'
+import { SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 
 /** An entry that has failed this many times will never succeed on its own — move it aside and stop retrying it. */
 const MAX_ATTEMPTS = 3
@@ -39,6 +40,13 @@ async function drain(): Promise<void> {
       await pending.remove(entry.payload.client_id)
     } catch (err) {
       if (err instanceof HttpError) {
+        // The subscription gate, not a bad entry. Stop the whole drain and
+        // leave the queue untouched: every remaining entry would hit the same
+        // gate, and bumping attempts here would dead-letter everything the
+        // user logged offline about ninety seconds after their trial quietly
+        // expired. They renew, and the expenses are gone. The queue waits
+        // instead, and drains when access comes back.
+        if (err.status === SUBSCRIPTION_REQUIRED_STATUS) return
         // This entry will never succeed as-is — bump it and move on to the
         // rest of the queue rather than blocking everything behind it.
         await pending.bumpAttempts(entry.payload.client_id, MAX_ATTEMPTS)

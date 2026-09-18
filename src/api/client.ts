@@ -2,6 +2,7 @@
 // instead of Next.js's own relative-path routes.
 import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
 import { setOnline, markSynced } from '@/src/lib/netStatus'
+import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -49,6 +50,11 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   setOnline(true)
   void markSynced()
   await handleUnauthorized(resp, token)
+  // A 402 is the subscription gate. Flipping it here, rather than waiting for
+  // a screen to notice, is what makes the app react the moment the API stops
+  // answering — the same contract as the 401 handling above, except this one
+  // must never end the session: the sign-in is fine, the subscription is not.
+  if (resp.status === SUBSCRIPTION_REQUIRED_STATUS) markAccessBlocked()
   return resp
 }
 
