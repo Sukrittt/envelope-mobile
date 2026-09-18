@@ -13,7 +13,7 @@ import { yearlySavingsPercent } from '@/src/lib/billingStatus'
  * this is the whole app, listed plainly. Nothing here promises unlimited AI
  * (pricing.md): allowances are still to be set.
  */
-const BENEFITS = [
+export const BENEFITS = [
   'As many envelopes and expenses as you like',
   'Snap a bill instead of typing it in',
   'Ask Money Brain where your money went',

@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent } from './billingStatus'
+import { accessAllowed, billingVisible, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -104,5 +104,20 @@ describe('yearlySavingsPercent', () => {
   it('claims nothing when yearly is not cheaper', () => {
     expect(yearlySavingsPercent(39, 468)).toBeNull()
     expect(yearlySavingsPercent(0, 399)).toBeNull()
+  })
+})
+
+describe('planPeriod and daysUntilLabel', () => {
+  it('reads the period from store ids', () => {
+    expect(planPeriod({ productId: 'monthly', basePlanId: null })).toBe('monthly')
+    expect(planPeriod({ productId: 'envelope_individual', basePlanId: 'annual' })).toBe('yearly')
+    expect(planPeriod({ productId: 'yearly', basePlanId: null })).toBe('yearly')
+  })
+
+  it('counts whole calendar days', () => {
+    const now = new Date(2026, 8, 18, 18, 0)
+    expect(daysUntilLabel(new Date(2026, 8, 18, 18, 5).toISOString(), now)).toBe('today')
+    expect(daysUntilLabel(new Date(2026, 8, 19, 1, 0).toISOString(), now)).toBe('tomorrow')
+    expect(daysUntilLabel(new Date(2026, 9, 18, 9, 0).toISOString(), now)).toBe('in 30 days')
   })
 })

@@ -104,3 +104,18 @@ export function yearlySavingsPercent(monthlyPrice: number, yearlyPrice: number):
   const pct = Math.floor((1 - yearlyPrice / (monthlyPrice * 12)) * 100)
   return pct > 0 ? pct : null
 }
+
+/** Monthly or yearly, read off the store's product/base-plan ids (`monthly`, `envelope_individual:annual`, …). */
+export function planPeriod(status: Pick<BillingStatus, 'productId' | 'basePlanId'>): 'monthly' | 'yearly' {
+  return /year|annual/i.test(`${status.productId ?? ''} ${status.basePlanId ?? ''}`) ? 'yearly' : 'monthly'
+}
+
+/** "today", "tomorrow", "in 12 days", counted in whole calendar days on this device. */
+export function daysUntilLabel(iso: string | null, now: Date = new Date()): string {
+  if (!iso) return ''
+  const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  const days = Math.round((day(new Date(iso)) - day(now)) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days} days`
+}

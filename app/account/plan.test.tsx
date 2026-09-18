@@ -58,3 +58,16 @@ it('gives an expired account every exit the plan promises', () => {
   fireEvent.press(getByText('Manage or delete account'))
   expect(mockPush).toHaveBeenCalledWith('/account/security')
 })
+
+it('shows a paying account its plan, renewal and what it includes', () => {
+  mockStatus = { ...base, mode: 'paid', productId: 'monthly', paidExpiresAt: '2099-10-18T12:00:00Z', autoRenew: true, renewalState: 'active' }
+  const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(getByText("You're on Aviary Pro")).toBeTruthy()
+  expect(getByText('Monthly')).toBeTruthy()
+  expect(getByText('Active')).toBeTruthy()
+  expect(getByText(/^October 18, 2099|^18 October 2099/)).toBeTruthy()
+  expect(getByText('No ads. Ever.')).toBeTruthy()
+  expect(getByText('Manage in Google Play')).toBeTruthy()
+  expect(queryByText('Manage or delete account')).toBeNull()
+})

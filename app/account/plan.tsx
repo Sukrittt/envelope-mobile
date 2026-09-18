@@ -7,6 +7,8 @@ import { ArrowLeft, ChevronRight, ExternalLink, HelpCircle, Lock, LogOut, Rotate
 import type { PurchasesPackage } from 'react-native-purchases'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
+import { CurrentPlan } from '@/src/components/billing/CurrentPlan'
+import { trackAviaryPro } from '@/src/lib/trackAviaryPro'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -44,7 +46,8 @@ export default function PlanScreen() {
   // shown with their prices, but can't be bought yet.
   const showPlans = !!status?.purchaseEnabled && purchasesAvailable() && (status.mode === 'expired' || status.mode === 'trial')
   const canBuy = showPlans && status?.mode === 'expired'
-  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans })
+  const paid = status?.mode === 'paid'
+  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans || (paid && purchasesAvailable()) })
   const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
 
   async function buy(pkg: PurchasesPackage) {
@@ -53,6 +56,7 @@ export default function PlanScreen() {
     setBusy(null)
     if (outcome.status === 'purchased') {
       seedBillingStatus(qc, outcome.access)
+      if (outcome.access.allowed) void trackAviaryPro(pkg, outcome.access.paidExpiresAt)
       if (!outcome.access.allowed) Alert.alert('Almost there', "Google Play took the payment, but we couldn't confirm it yet. Give it a minute and tap Restore purchases.")
     } else if (outcome.status === 'pending') {
       void qc.invalidateQueries({ queryKey: ['billing-status'] })
@@ -123,16 +127,14 @@ export default function PlanScreen() {
                   <Icon icon={ChevronRight} size={16} color={tokens.text3} />
                 </Pressable>
               </View>
+            ) : paid ? (
+              <CurrentPlan status={status} packages={packagesQuery.data ?? []} />
             ) : (
               <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{planSummary(status)}</Text>
                 {status.mode === 'trial' ? (
                   <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                     {`Free until ${formatDate(status.trialEndsAt)}. You won't be charged unless you pick a plan.`}
-                  </Text>
-                ) : status.renewalState === 'grace' ? (
-                  <Text style={[styles.cardMeta, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
-                    Your last payment didn&apos;t go through. Update your payment method in Google Play to keep your plan.
                   </Text>
                 ) : null}
               </View>
