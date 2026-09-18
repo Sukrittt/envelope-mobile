@@ -242,7 +242,7 @@ export default function HomeScreen() {
           <Card style={styles.rolloverCard} elevated={false}>
             <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
               <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                Free trial · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See your options.
+                Free trial · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See plans and prices.
               </Text>
             </Pressable>
             <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>

@@ -38,10 +38,13 @@ export default function PlanScreen() {
   const [busy, setBusy] = useState<string | null>(null)
 
   const locked = !accessAllowed(status)
-  // Checkout opens at trial expiry for v1 (payment-subscriptions-plan.md), so
-  // nobody pays while they still have free days left.
-  const canBuy = !!status?.purchaseEnabled && purchasesAvailable() && status.mode === 'expired'
-  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: canBuy })
+  // Checkout opens at trial expiry for v1 (payment-subscriptions-plan.md).
+  // Play charges the moment a subscription starts, so buying early would
+  // quietly forfeit the rest of the trial. During the trial the plans are
+  // shown with their prices, but can't be bought yet.
+  const showPlans = !!status?.purchaseEnabled && purchasesAvailable() && (status.mode === 'expired' || status.mode === 'trial')
+  const canBuy = showPlans && status?.mode === 'expired'
+  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans })
   const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
 
   async function buy(pkg: PurchasesPackage) {
@@ -120,15 +123,20 @@ export default function PlanScreen() {
               ) : null}
             </View>
 
-            {canBuy ? (
+            {showPlans ? (
               <View style={{ gap: 8 }}>
+                {!canBuy ? (
+                  <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
+                    {`You can subscribe from ${formatDate(status.trialEndsAt)}, when your trial ends.`}
+                  </Text>
+                ) : null}
                 {packagesQuery.isLoading ? <ActivityIndicator color={tokens.accent} /> : null}
                 {packagesQuery.data?.map((pkg) => (
                   <Button
                     key={pkg.identifier}
                     label={busy === pkg.identifier ? 'Opening Google Play…' : `${pkg.product.priceString} / ${pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'year' : 'month'}`}
                     variant={pkg.packageType === PACKAGE_TYPE.ANNUAL ? 'primary' : 'secondary'}
-                    disabled={busy !== null}
+                    disabled={!canBuy || busy !== null}
                     onPress={() => void buy(pkg)}
                   />
                 ))}
