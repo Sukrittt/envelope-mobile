@@ -5,7 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { splitEmoji } from '@/src/lib/emoji'
-import { toISTDateString } from '@/src/lib/date'
+import { toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import type { Envelope } from '@/src/lib/envelope'
@@ -24,11 +24,11 @@ function lastSpentLabel(iso: string | undefined): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   const today = new Date()
-  const todayStr = toISTDateString(today)
+  const todayStr = toLocalDateString(today)
   if (iso === todayStr) return 'Today'
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (iso === toISTDateString(yesterday)) return 'Yesterday'
+  if (iso === toLocalDateString(yesterday)) return 'Yesterday'
   const days = Math.round((today.getTime() - d.getTime()) / 86400000)
   if (days >= 1 && days <= 31) return `${days}d ago`
   return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`

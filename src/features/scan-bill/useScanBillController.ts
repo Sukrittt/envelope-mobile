@@ -3,7 +3,7 @@ import { useCategories } from "@/src/hooks/useCategories";
 import { useAddExpense } from "@/src/hooks/useExpenses";
 import { useSaveBillScan } from "@/src/hooks/useBillScans";
 import { useScanBill } from "@/src/hooks/useScanBill";
-import { todayIST } from "@/src/lib/date";
+import { todayLocal } from "@/src/lib/date";
 import { splitEmoji } from "@/src/lib/emoji";
 import { takePendingScanImage } from "@/src/lib/pendingScanImage";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -31,7 +31,7 @@ export function useScanBillController() {
 
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState("");
-  const [date, setDate] = useState(todayIST());
+  const [date, setDate] = useState(todayLocal());
   const { items, peopleCount, totals, actions } = useBillSplit();
   const { productItems, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets } = totals;
   const { updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount } = actions;
@@ -89,7 +89,7 @@ export function useScanBillController() {
           setMerchant(res.merchant);
           setCategory(res.category ?? "");
           // Always the upload day — a bill's printed date lands the expense in a month the user isn't looking at.
-          setDate(todayIST());
+          setDate(todayLocal());
           actions.load(res);
           setQuery("");
           resetSelection();

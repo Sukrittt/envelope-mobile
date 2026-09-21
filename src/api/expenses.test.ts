@@ -46,7 +46,7 @@ describe('addExpense', () => {
     expect(typeof body.client_id).toBe('string')
     expect(body.client_id.length).toBeGreaterThan(0)
     expect(body.date).toEqual(expect.any(String))
-    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+05:30$/)
+    expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/)
   })
 
   it('throws an HttpError carrying the status on a failed response', async () => {

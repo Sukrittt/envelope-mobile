@@ -70,7 +70,7 @@ jest.mock('@/src/api/accessMode', () => ({
   // getUser() chain that decides onboarding routing.
   currentUserId: jest.fn(() => 'user_test'),
 }))
-jest.mock('@/src/api/account', () => ({ getUser: jest.fn() }))
+jest.mock('@/src/api/account', () => ({ getUser: jest.fn(), syncTimezone: jest.fn() }))
 
 const mockInitAccessMode = initAccessMode as jest.MockedFunction<typeof initAccessMode>
 const mockGetUser = getUser as jest.MockedFunction<typeof getUser>

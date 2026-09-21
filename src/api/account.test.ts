@@ -2,6 +2,7 @@ import { apiFetch } from './client'
 import {
   getUser,
   updateUser,
+  syncTimezone,
   changeEmail,
   startExport,
   getExports,
@@ -19,6 +20,35 @@ const mockedApiFetch = apiFetch as jest.Mock
 
 beforeEach(() => {
   mockedApiFetch.mockReset()
+})
+
+jest.mock('@/src/lib/date', () => ({ deviceTimezone: () => 'America/New_York' }))
+
+describe('syncTimezone', () => {
+  const patched = () => mockedApiFetch.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+
+  it('reports the device zone when the server has none (pre-existing accounts)', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ email: 'a@b.com' }) })
+    await syncTimezone({ email: 'a@b.com', emailVerified: true })
+    expect(patched()).toHaveLength(1)
+    expect(JSON.parse(patched()[0][1].body)).toEqual({ timezone: 'America/New_York' })
+  })
+
+  it('updates when the traveller has moved zones', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ email: 'a@b.com' }) })
+    await syncTimezone({ email: 'a@b.com', emailVerified: true, timezone: 'Asia/Kolkata' })
+    expect(patched()).toHaveLength(1)
+  })
+
+  it('does nothing when the server already matches', async () => {
+    await syncTimezone({ email: 'a@b.com', emailVerified: true, timezone: 'America/New_York' })
+    expect(mockedApiFetch).not.toHaveBeenCalled()
+  })
+
+  it('never throws, so a failed sync cannot block launch', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
+    await expect(syncTimezone({ email: 'a@b.com', emailVerified: true })).resolves.toBeUndefined()
+  })
 })
 
 describe('getUser / updateUser', () => {

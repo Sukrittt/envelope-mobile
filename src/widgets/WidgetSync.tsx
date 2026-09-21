@@ -20,7 +20,7 @@ import {
   currentMonthKey,
   daysLeftInMonth,
 } from "@/src/lib/envelope";
-import { todayIST } from "@/src/lib/date";
+import { todayLocal } from "@/src/lib/date";
 import { toWidgetData } from "./data";
 import { clearSnapshot, writeSnapshot } from "./snapshot";
 import { SignInWidget } from "./SignInWidget";
@@ -52,7 +52,7 @@ export function WidgetSync() {
       state,
       expensesQ.data,
       daysLeftInMonth(),
-      todayIST(),
+      todayLocal(),
       currencyCode,
     );
     void writeSnapshot(data);

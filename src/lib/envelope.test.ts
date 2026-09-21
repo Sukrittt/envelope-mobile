@@ -25,10 +25,9 @@ describe('currentMonthKey / prevMonthKey', () => {
     expect(currentMonthKey(new Date(2026, 7, 25))).toBe('2026-08')
   })
 
-  it('uses the IST calendar date, not device-local time, across a month boundary', () => {
-    // 2026-08-31T20:00:00Z is already 2026-09-01 in IST (+5:30) — a device
-    // local to UTC (or anything west of IST) must still report September.
-    expect(currentMonthKey(new Date('2026-08-31T20:00:00Z'))).toBe('2026-09')
+  it('uses the device-local calendar date across a month boundary', () => {
+    expect(currentMonthKey(new Date(2026, 8, 1, 0, 30))).toBe('2026-09')
+    expect(currentMonthKey(new Date(2026, 7, 31, 23, 30))).toBe('2026-08')
   })
 
   it('rolls back across a year boundary', () => {

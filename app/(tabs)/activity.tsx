@@ -42,7 +42,7 @@ import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import type { ExpenseRow } from "@/src/types";
-import { toISTDateString } from "@/src/lib/date";
+import { toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 
@@ -65,7 +65,7 @@ const INCOME_CATEGORIES = new Set([
 ]);
 
 function toDateInput(d: Date): string {
-  return toISTDateString(d);
+  return toLocalDateString(d);
 }
 
 function formatDateHeader(iso: string): string {
@@ -257,15 +257,15 @@ export default function ActivityScreen() {
       };
     }
     if (period === "all") return { from: undefined, to: undefined };
-    // Compare as IST calendar-date strings (like the customRange branch above) rather than
-    // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight IST.
-    const endStr = toISTDateString(latestDate);
+    // Compare as local calendar-date strings (like the customRange branch above) rather than
+    // Date objects — avoids UTC/local timezone skew when the boundary falls near midnight.
+    const endStr = toLocalDateString(latestDate);
     let startStr: string;
     if (period === "week") {
       const start = new Date(latestDate);
       const diffToMonday = (start.getDay() + 6) % 7;
       start.setDate(start.getDate() - diffToMonday);
-      startStr = toISTDateString(start);
+      startStr = toLocalDateString(start);
     } else {
       startStr = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, "0")}-01`;
     }

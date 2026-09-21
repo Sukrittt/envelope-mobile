@@ -1,7 +1,7 @@
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { CurrencyProvider } from '@/src/context/CurrencyProvider'
 import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
-import { getUser } from '@/src/api/account'
+import { getUser, syncTimezone } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { AlertHost } from '@/src/components/ui/AlertHost'
@@ -145,6 +145,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         // attached the moment the session appeared, so a failure here just
         // leaves the person un-named.
         identifyUser(u)
+        void syncTimezone(u)
       })
       .catch(async () => {
         const currency = await readCurrencyPreference()

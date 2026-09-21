@@ -27,7 +27,7 @@ import {
 useAddExpense,
 useUpdateExpense,
 } from "@/src/hooks/useExpenses";
-import { todayIST } from "@/src/lib/date";
+import { todayLocal } from "@/src/lib/date";
 import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
 
 import { useOnline } from "@/src/lib/netStatus";
@@ -124,7 +124,7 @@ export default function LogExpenseScreen() {
   const [categoryTouched, setCategoryTouched] = useState(
     str(params.category) !== "",
   );
-  const [date, setDate] = useState(str(params.date).slice(0, 10) || todayIST());
+  const [date, setDate] = useState(str(params.date).slice(0, 10) || todayLocal());
   const [notes, setNotes] = useState(str(params.notes));
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
     str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank",

@@ -22,7 +22,7 @@ import {
   currentMonthKey,
   daysLeftInMonth,
 } from "@/src/lib/envelope";
-import { todayIST } from "@/src/lib/date";
+import { todayLocal } from "@/src/lib/date";
 import { toWidgetData } from "@/src/widgets/data";
 import { EnvelopeWidget } from "@/src/widgets/EnvelopeWidget";
 import { EnvelopeBarWidget } from "@/src/widgets/EnvelopeBarWidget";
@@ -76,7 +76,7 @@ export default function WidgetPreviewScreen() {
               state,
               expensesQ.data!,
               daysLeftInMonth(),
-              todayIST(),
+              todayLocal(),
               currencyCode,
             );
             return (

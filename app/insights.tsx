@@ -22,7 +22,7 @@ import {
   shiftMonthKey,
 } from "@/src/lib/envelope";
 import { formatDateShort } from "@/src/lib/format"
-import { todayIST } from "@/src/lib/date";
+import { todayLocal } from "@/src/lib/date";
 import { EMPTY } from "@/src/lib/constants";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -238,7 +238,7 @@ export default function InsightsScreen() {
     useSubscriptions();
 
   const month = currentMonthKey();
-  const todayIso = todayIST();
+  const todayIso = todayLocal();
 
   const [insightMonth, setInsightMonth] = useState(() => currentMonthKey());
   const [breakdownMode, setBreakdownMode] = useState<"category" | "group">(

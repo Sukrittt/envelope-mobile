@@ -7,7 +7,7 @@ import { getExpenses, mintExpensePayload, postExpensePayload } from '@/src/api/e
 import { scanBill } from '@/src/api/scan'
 import { saveBillScan } from '@/src/api/bills'
 import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
-import { todayIST } from '@/src/lib/date'
+import { todayLocal } from '@/src/lib/date'
 import ScanBillScreen from './scan-bill'
 
 jest.mock('@/src/api/categories', () => ({
@@ -117,7 +117,7 @@ describe('ScanBillScreen', () => {
         item: 'Blinkit',
         amount_inr: '880',
         category: 'Groceries',
-        date: todayIST(),
+        date: todayLocal(),
         payment_method: 'bank',
       }),
     )
@@ -134,7 +134,7 @@ describe('ScanBillScreen', () => {
         mimeType: 'image/png',
         merchant: 'Blinkit',
         category: 'Groceries',
-        date: todayIST(),
+        date: todayLocal(),
         total: 900,
         my_share: 880,
         expense_id: 'e1',

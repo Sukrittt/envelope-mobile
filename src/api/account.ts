@@ -5,10 +5,13 @@ import { sessionId, currentUserId } from './accessMode'
 // they ride apiFetch's automatic bearer-token attachment (unlike magicAuth.ts,
 // which talks to the API before any session exists).
 import { apiFetch } from './client'
+import { deviceTimezone } from '@/src/lib/date'
 
 export interface UserProfile {
   _id?: string
   currencyCode?: string
+  /** IANA zone the server dates this user's cron work in. Absent on accounts that predate it (treated as IST server-side). */
+  timezone?: string
   email: string
   emailVerified: boolean
   name?: string | null
@@ -52,6 +55,22 @@ export async function updateUser(patch: Partial<UserProfile>): Promise<UserProfi
   const user: UserProfile = await resp.json()
   await writeCurrencyPreference(user.currencyCode, userId)
   return user
+}
+
+/**
+ * Tells the server which timezone this device is in, so its daily notifications
+ * and auto-charged expenses land on the user's own morning/calendar day. Runs
+ * on every sign-in/launch, which covers both accounts that predate the field
+ * (no `timezone` yet) and travellers. Best effort — never throws.
+ */
+export async function syncTimezone(user: UserProfile): Promise<void> {
+  const timezone = deviceTimezone()
+  if (!timezone || user.timezone === timezone) return
+  try {
+    await updateUser({ timezone })
+  } catch (err) {
+    console.warn('[syncTimezone] failed:', err)
+  }
 }
 
 export async function deleteAccount(email: string): Promise<void> {

@@ -20,7 +20,7 @@ import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
-import { todayIST } from '@/src/lib/date'
+import { todayLocal } from '@/src/lib/date'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when a DatePicker above them opens/closes instead of snapping.
@@ -59,7 +59,7 @@ export default function RecurringExpenseModal() {
   const [item, setItem] = useState(existing?.item ?? '')
   const [amount, setAmount] = useState(existing?.amount_inr ?? '')
   const [frequency, setFrequency] = useState(existing?.frequency || 'monthly')
-  const [startDate, setStartDate] = useState(existing?.start_date || todayIST())
+  const [startDate, setStartDate] = useState(existing?.start_date || todayLocal())
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [category, setCategory] = useState(existing?.category ?? '')
@@ -75,7 +75,7 @@ export default function RecurringExpenseModal() {
     setItem(existing.item)
     setAmount(existing.amount_inr)
     setFrequency(existing.frequency || 'monthly')
-    setStartDate(existing.start_date || todayIST())
+    setStartDate(existing.start_date || todayLocal())
     setEndDate(existing.end_date ?? '')
     setNotes(existing.notes ?? '')
     setCategory(existing.category ?? '')

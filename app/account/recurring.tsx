@@ -20,7 +20,7 @@ import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { formatDateShort } from "@/src/lib/format"
 import { splitEmoji } from "@/src/lib/emoji";
-import { toISTDateString } from "@/src/lib/date";
+import { toLocalDateString } from "@/src/lib/date";
 import { useRecurringExpenses } from "@/src/hooks/useRecurringExpenses";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { AmountText } from "@/src/components/ui/AmountText";
@@ -76,14 +76,14 @@ function monthlyEquivalent(row: RecurringExpenseRow): number {
   }
 }
 
-/** Forward twin of EnvelopeRow.tsx's lastSpentLabel — no Intl, same IST date-string compare. */
+/** Forward twin of EnvelopeRow.tsx's lastSpentLabel — no Intl, same local date-string compare. */
 function dueLabel(nextRunDate: string): string {
   if (!nextRunDate) return "Not scheduled";
   const today = new Date();
-  if (nextRunDate === toISTDateString(today)) return "Due today";
+  if (nextRunDate === toLocalDateString(today)) return "Due today";
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  if (nextRunDate === toISTDateString(tomorrow)) return "Due tomorrow";
+  if (nextRunDate === toLocalDateString(tomorrow)) return "Due tomorrow";
   return `Next on ${formatDateShort(nextRunDate)}`;
 }
 
