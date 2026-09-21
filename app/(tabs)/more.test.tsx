@@ -236,6 +236,14 @@ describe('More tab · Scan a bill sheet', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
+  it('closes the sheet and opens Bills Scanned from the Previous scans link', async () => {
+    const { getByText, queryByText } = renderWithProviders(<MoreScreen />)
+    fireEvent.press(getByText('Scan a bill'))
+    fireEvent.press(getByText('Previous scans'))
+    expect(mockPush).toHaveBeenCalledWith('/account/bill-scans')
+    expect(queryByText('Take a photo')).toBeNull()
+  })
+
   it('hands off the picked image and navigates to the scan-bill route', async () => {
     const { getByText } = renderWithProviders(<MoreScreen />)
     await flushCategories()

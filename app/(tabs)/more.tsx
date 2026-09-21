@@ -429,6 +429,16 @@ export default function MoreScreen() {
             <Images size={20} color={tokens.text} />
             <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Choose a screenshot</Text>
           </Pressable>
+          <Pressable
+            onPress={() => {
+              setScanPickerOpen(false)
+              router.push('/account/bill-scans')
+            }}
+            style={styles.sourceRow}
+          >
+            <History size={20} color={tokens.text2} />
+            <Text style={[styles.sourceLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
+          </Pressable>
         </View>
       </BottomSheet>
     </AnimatedTabContent>
