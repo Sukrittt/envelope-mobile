@@ -451,7 +451,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
       </Text>
       <AmountText
         value={totalMonthly}
-        size={t.title}
+        size={t.display}
         weight="displayBold"
         style={{ marginTop: 2 }}
       />
