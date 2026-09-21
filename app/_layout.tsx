@@ -26,9 +26,10 @@ import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
+import { ObserveRoot,useObserve } from 'expo-observe'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { useEffect,useState } from 'react'
+import { useEffect,useRef,useState } from 'react'
 import { StyleSheet,View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -181,6 +182,17 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   const ready = fontsLoaded && authReady
   const resolving = !ready || (hasSession && onboarded === null)
+
+  // Cold-start TTI for Expo Observe: fonts loaded and auth/onboarding resolved,
+  // so the first real screen can paint. Once only — `resolving` re-raises on
+  // sign-in, which isn't a launch.
+  const { markInteractive } = useObserve()
+  const markedInteractive = useRef(false)
+  useEffect(() => {
+    if (resolving || markedInteractive.current) return
+    markedInteractive.current = true
+    markInteractive()
+  }, [resolving, markInteractive])
   const signedIn = !resolving && hasSession && onboarded === true
   // Subscription access. Unknown counts as allowed (see accessAllowed), so
   // this never holds a paying user on a lock screen while the status loads.
@@ -376,7 +388,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 })
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded] = useAppFonts()
 
   useEffect(() => {
@@ -405,3 +417,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   )
 }
+
+export default ObserveRoot.wrap(RootLayout)
