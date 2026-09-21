@@ -8,6 +8,7 @@ import { revokeSession } from '@/src/api/account'
 import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import { getSystemStatus } from '@/src/api/systemStatus'
+import appJson from '@/app.json'
 import MoreScreen from './more'
 
 jest.mock('@/src/hooks/useUser', () => ({
@@ -113,11 +114,11 @@ describe('More tab · app version', () => {
     mockGetSystemStatus.mockResolvedValue({
       aiDisabled: false,
       maintenance: { on: false, message: '' },
-      appUpdate: { android: { latestVersion: '2.4.0', storeUrl: 'https://play.google.com/' } },
+      appUpdate: { android: { latestVersion: appJson.expo.version, storeUrl: 'https://play.google.com/' } },
     })
 
     const { findByText, queryByText } = renderWithProviders(<MoreScreen />)
-    expect(await findByText('v2.4.0 · built in the open')).toBeTruthy()
+    expect(await findByText(`v${appJson.expo.version} · built in the open`)).toBeTruthy()
     await waitFor(() => expect(mockGetSystemStatus).toHaveBeenCalled())
     expect(queryByText(/Update available/)).toBeNull()
   })
