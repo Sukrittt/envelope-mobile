@@ -63,7 +63,7 @@ describe('export quota', () => {
     mockGetExports.mockResolvedValue(exportsResponse({ usedThisMonth: 3, canExport: true, exitExport: true }))
     const { getAllByText, findByText, queryByText } = renderWithProviders(<DataScreen />)
 
-    await findByText(/this is your final export/)
+    await findByText(/This is your final export/)
     expect(queryByText(/You've used all 3 exports this month/)).toBeNull()
     fireEvent.press(exportButton(getAllByText('Export')))
     await waitFor(() => expect(mockStartExport).toHaveBeenCalled())
