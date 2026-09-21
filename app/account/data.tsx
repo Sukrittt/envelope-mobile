@@ -155,8 +155,12 @@ export default function DataScreen() {
   };
 
   const exportsData = exportsQuery.data;
+  // Asked of the server rather than counted here: the monthly cap can be
+  // spent and an export still allowed, so an expired account can take its
+  // data with it. An older server omits the field, which reads as "allowed" —
+  // the POST's 429 is the real gate either way.
   const atLimit = exportsData
-    ? exportsData.usedThisMonth >= exportsData.limit
+    ? exportsData.canExport === false
     : false;
   const pending =
     exportsData?.exports.some((e) => e.status === "pending") ?? false;
@@ -334,6 +338,17 @@ export default function DataScreen() {
             >
               You&apos;ve used all {exportsData?.limit} exports this month.
               Resets next month.
+            </Text>
+          ) : null}
+          {exportsData?.exitExport ? (
+            <Text
+              style={[
+                styles.cardMeta,
+                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+              ]}
+            >
+              Your subscription is inactive. This is your final export, so it
+              doesn&apos;t count against the monthly limit.
             </Text>
           ) : null}
           {pending ? (

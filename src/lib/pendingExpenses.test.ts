@@ -117,3 +117,29 @@ describe('toCsv', () => {
     )
   })
 })
+
+describe('listUnsynced', () => {
+  it('includes both the queued and the given-up-on entries, queued first', async () => {
+    await pending.enqueue(payload('queued'))
+    await pending.enqueue(payload('doomed'))
+    await pending.bumpAttempts('doomed', 1) // hits the cap, moves to the failed list
+
+    const unsynced = await pending.listUnsynced()
+
+    expect(unsynced.map((e) => e.payload.client_id)).toEqual(['queued', 'doomed'])
+  })
+
+  it('is empty once everything has reached the server', async () => {
+    await pending.enqueue(payload('c1'))
+    await pending.remove('c1')
+
+    expect(await pending.listUnsynced()).toEqual([])
+  })
+
+  it('is per account, so a signed-out queue is not offered to the next user', async () => {
+    await pending.enqueue(payload('c1'))
+    ;(accessMode.currentUserId as jest.Mock).mockReturnValue('user_b')
+
+    expect(await pending.listUnsynced()).toEqual([])
+  })
+})
