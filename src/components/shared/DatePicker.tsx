@@ -4,6 +4,7 @@ import { Calendar, ChevronDown } from 'lucide-react-native'
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { Button } from '@/src/components/ui/Button'
 
 const STRIP_CELL_WIDTH = 56
 const STRIP_GAP = 8
@@ -123,10 +124,22 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   const kTo = to ? key(to) : null
   const days = from && to ? dayDiff(to, from) + 1 : 0
 
+  // Range as it was when the picker opened, so Cancel can restore it.
+  const snapshot = useRef(value)
+
   function toggle() {
-    if (!open) setView(monthStart(from ?? today))
+    if (!open) {
+      snapshot.current = value
+      setView(monthStart(from ?? today))
+    }
     setEditingField(null)
     setOpen((o) => !o)
+  }
+
+  function cancel() {
+    onChange(snapshot.current)
+    setEditingField(null)
+    setOpen(false)
   }
 
   function pick(d: Date) {
@@ -309,22 +322,8 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
           </View>
 
           <View style={styles.rangeFooter}>
-            <Pressable
-              onPress={() => {
-                setEditingField(null)
-                onChange({ from: '', to: '' })
-              }}
-              style={[styles.clear, { borderColor: tokens.borderStrong }]}
-            >
-              <Text style={[styles.clearText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Clear</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setOpen(false)}
-              disabled={!from}
-              style={[styles.done, { flex: 1, alignItems: 'center', backgroundColor: from ? tokens.accent : tokens.inputBg }]}
-            >
-              <Text style={[styles.doneText, { color: from ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }]}>Done</Text>
-            </Pressable>
+            <Button label="Cancel" variant="secondary" style={styles.footerButton} onPress={cancel} />
+            <Button label="Apply" style={styles.footerButton} disabled={!from} onPress={() => setOpen(false)} />
           </View>
         </View>
       )}
@@ -538,11 +537,8 @@ const styles = StyleSheet.create({
   cell: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellLarge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 13 },
-  done: { paddingVertical: 13, paddingHorizontal: 18, borderRadius: 100, minHeight: 44, justifyContent: 'center' },
-  doneText: { fontSize: 14 },
   rangeFooter: { flexDirection: 'row', gap: 8 },
-  clear: { paddingVertical: 13, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1, minHeight: 44, justifyContent: 'center' },
-  clearText: { fontSize: 14 },
+  footerButton: { flex: 1 },
   statusText: { fontSize: 12.5 },
   fromToRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fromToPill: { flex: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, gap: 2 },
