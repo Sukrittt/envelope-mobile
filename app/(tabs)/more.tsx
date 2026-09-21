@@ -434,10 +434,10 @@ export default function MoreScreen() {
               setScanPickerOpen(false)
               router.push('/account/bill-scans')
             }}
-            style={styles.sourceRow}
+            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
           >
-            <History size={20} color={tokens.text2} />
-            <Text style={[styles.sourceLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
+            <History size={20} color={tokens.text} />
+            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
           </Pressable>
         </View>
       </BottomSheet>

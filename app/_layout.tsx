@@ -1,3 +1,4 @@
+import { useObserve,wrapRoot } from '@/src/lib/observe'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { CurrencyProvider } from '@/src/context/CurrencyProvider'
 import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
@@ -26,7 +27,6 @@ import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
 import { setAudioModeAsync } from 'expo-audio'
-import { ObserveRoot,useObserve } from 'expo-observe'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect,useRef,useState } from 'react'
@@ -418,4 +418,4 @@ function RootLayout() {
   )
 }
 
-export default ObserveRoot.wrap(RootLayout)
+export default wrapRoot(RootLayout)
