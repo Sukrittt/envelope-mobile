@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react-native'
+import { act, render } from '@testing-library/react-native'
 import { ScrollView, View } from 'react-native'
 import { moveItem } from '@/src/lib/dragReorder'
 import { GestureDetector } from 'react-native-gesture-handler'
@@ -143,18 +143,19 @@ it('restores expanded bodies after every drop, including immediate successive re
   }
 })
 
-it('does not give card position ownership to native layout animations', () => {
+it('never lets native layout animations move a card while a drag holds the lock', () => {
   const screen = mount()
-  // Native layout animations may outlive their React props. If a drag interrupts one,
-  // its stale origin/height can survive drop and overlap newly expanded neighbours.
-  for (const card of screen.cards()) {
-    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
+  // Native layout animations may outlive their React props. If one started during a drag,
+  // its stale origin/height could survive drop and overlap newly expanded neighbours.
+  const values = {
+    currentOriginX: 0, currentOriginY: 10, currentWidth: 100, currentHeight: 50,
+    targetOriginX: 0, targetOriginY: 90, targetWidth: 100, targetHeight: 20,
   }
-  fireEvent.press(screen.getByText('Collapse all'))
-  screen.drop('Lifestyle', 4)
-  for (let f = 0; f < 4; f++) frame()
   for (const card of screen.cards()) {
-    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
+    const layout = card.findAllByType(View).find((node) => node.props.layout)!.props.layout
+    act(() => { card.props.drag.active.value = true })
+    expect(layout(values).animations).toEqual({ originX: 0, originY: 90, width: 100, height: 20 })
+    act(() => { card.props.drag.active.value = false })
   }
 })
 

@@ -16,6 +16,7 @@ import Reanimated, {
   LinearTransition,
   type AnimatedRef,
   type SharedValue,
+  type LayoutAnimationsValues,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -76,11 +77,49 @@ function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string 
 
 const BODY_TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
 
-function GroupBody({ collapsed, style, children }: { collapsed: boolean; style: object; children: React.ReactNode }) {
+// Layout/exit animations run on the UI thread and read the drag lock when they fire, so they
+// animate for a tap on a group but never while a drag is lifting, settling, or restoring bodies.
+function groupLayout(active: SharedValue<boolean>) {
+  return (v: LayoutAnimationsValues) => {
+    'worklet'
+    const go = !active.value
+    return {
+      initialValues: { originX: v.currentOriginX, originY: v.currentOriginY, width: v.currentWidth, height: v.currentHeight },
+      animations: {
+        originX: go ? withSpring(v.targetOriginX, SPRING) : v.targetOriginX,
+        originY: go ? withSpring(v.targetOriginY, SPRING) : v.targetOriginY,
+        width: go ? withSpring(v.targetWidth, SPRING) : v.targetWidth,
+        height: go ? withSpring(v.targetHeight, SPRING) : v.targetHeight,
+      },
+    }
+  }
+}
+
+function groupBodyExit(active: SharedValue<boolean>) {
+  return () => {
+    'worklet'
+    return {
+      initialValues: { opacity: 1 },
+      animations: { opacity: withTiming(0, { duration: active.value ? 0 : 120 }) },
+    }
+  }
+}
+
+function GroupBody({
+  collapsed,
+  active,
+  style,
+  children,
+}: {
+  collapsed: boolean
+  active: SharedValue<boolean>
+  style: object
+  children: React.ReactNode
+}) {
+  const exiting = useMemo(() => groupBodyExit(active), [active])
   if (collapsed) return null
-  // No exit animation: removed bodies must leave native layout immediately on lift.
   return (
-    <Reanimated.View entering={FadeIn.duration(150)} style={style}>
+    <Reanimated.View entering={FadeIn.duration(150)} exiting={exiting} style={style}>
       {children}
     </Reanimated.View>
   )
@@ -273,6 +312,7 @@ function DraggableGroupCard({
   children: React.ReactNode
 }) {
   const cardRef = useAnimatedRef<Reanimated.View>()
+  const layout = useMemo(() => groupLayout(drag.active), [drag.active])
   // Card top within the list, where it should look like it is (animated for non-held cards).
   const shownTop = useSharedValue(0)
   const translate = useSharedValue(0)
@@ -421,6 +461,7 @@ function DraggableGroupCard({
     <Reanimated.View
       ref={cardRef}
       collapsable={false}
+      layout={layout}
       style={lifted ? styles.draggingCard : null}
     >
       {/* Only the inner view translates; this measured wrapper never has a native layout
@@ -851,7 +892,7 @@ export default function EnvelopesScreen() {
                     </Pressable>
                   )}
                 >
-                  <GroupBody collapsed={collapsed} style={styles.groupBody}>
+                  <GroupBody collapsed={collapsed} active={groupDrag.active} style={styles.groupBody}>
                     <DraggableCategoryList
                       items={items}
                       group={name}
