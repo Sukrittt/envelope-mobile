@@ -118,7 +118,7 @@ export function EnvelopeRow({
           }}
         >
           <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-            Move money between envelopes
+            Pull money from other envelopes
           </Text>
         </Pressable>
         <Pressable
