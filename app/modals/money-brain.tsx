@@ -35,6 +35,9 @@ import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 import { track } from '@/src/lib/analytics'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
+import { useQuery } from '@tanstack/react-query'
+import { getSystemStatus } from '@/src/api/systemStatus'
+import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
 
 const CHAT_PHRASES = [
   'Thinking it through…',
@@ -65,6 +68,12 @@ export default function MoneyBrainModal() {
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
   const briefQ = useMoneyBrief()
+  // staleTime 0: the kill switch is checked fresh on open; a failed brief re-checks it below.
+  const statusQ = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, staleTime: 0, retry: false })
+  const refetchStatus = statusQ.refetch
+  useEffect(() => {
+    if (briefQ.isError) void refetchStatus()
+  }, [briefQ.isError, refetchStatus])
 
   const month = currentMonthKey()
   const envelopeState = useMemo(
@@ -200,6 +209,8 @@ export default function MoneyBrainModal() {
   const awaitingFirstDelta = sending && lastMessage?.role === 'model' && lastMessage.text === ''
 
   if (!online) return <OfflineScreen />
+  if (statusQ.data?.aiDisabled) return <AiUnavailableScreen />
+  if (isAiAllowanceError(briefQ.error)) return <AiAllowanceScreen />
 
   if (view === 'history') {
     return (
@@ -305,10 +316,6 @@ export default function MoneyBrainModal() {
             <View style={{ marginTop: 12 }}>
               <LoadingCaption />
             </View>
-          ) : isAiAllowanceError(briefQ.error) ? (
-            <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodyMedium, marginTop: 12 }}>
-              {"You've used this month's AI allowance. Your brief is back on the 1st."}
-            </Text>
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
               <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodyMedium, flex: 1 }}>

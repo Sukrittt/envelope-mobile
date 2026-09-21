@@ -1,3 +1,4 @@
+import { Sparkles, TriangleAlert } from "lucide-react-native";
 import { fontFamily } from "@/src/theme/fonts";
 import {
   Pressable,
@@ -8,20 +9,37 @@ import {
 
 import { styles } from "./styles";
 import type { useScanBillController } from "./useScanBillController";
-type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "router" | "errorMsg">;
-export function ScanError({ tokens, space, radius, type, router, errorMsg }: Props) {
+type Props = Pick<ReturnType<typeof useScanBillController>, "tokens" | "space" | "radius" | "type" | "router" | "errorMsg" | "allowanceHit">;
+export function ScanError({ tokens, space, radius, type, router, errorMsg, allowanceHit }: Props) {
   return (<View
     style={[
       styles.centerFill,
       { paddingHorizontal: space.lg, gap: space.lg },
     ]}
   >
+    <View
+      style={{
+        width: 64,
+        height: 64,
+        borderRadius: radius.full,
+        backgroundColor: tokens.chipActiveBg,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {allowanceHit ? (
+        <Sparkles size={26} color={tokens.text3} />
+      ) : (
+        <TriangleAlert size={26} color={tokens.text3} />
+      )}
+    </View>
     <Text
       style={{
         color: tokens.text2,
         fontFamily: fontFamily.bodyMedium,
         fontSize: type.body,
         textAlign: "center",
+        maxWidth: 260,
       }}
     >
       {errorMsg}

@@ -28,7 +28,8 @@ export function onAiAllowanceExceeded(fn: () => void): () => void {
 /**
  * Throws `AiAllowanceError` when `resp` is the allowance refusal, else does
  * nothing. `notify` opens the dedicated screen (see the root layout), so it is
- * for things the user just asked for — chat and bill scan. The automatic daily
+ * for things the user just asked for — chat. Bill scan passes `false` too: its own
+ * screen shows the allowance state. The automatic daily
  * brief passes `false`: an unprompted full-screen interruption for something
  * they never asked for is worse than a quiet note on the card.
  */

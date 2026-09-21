@@ -70,6 +70,7 @@ export default function MoreScreen() {
     queryFn: getSystemStatus,
     staleTime: 5 * 60_000,
   })
+  const scanOff = !!systemStatusQ.data?.aiDisabled
   const installedVersion = appJson.expo.version
   const androidUpdate = Platform.OS === 'android' ? systemStatusQ.data?.appUpdate?.android : undefined
   const updateAvailable = !!androidUpdate && isVersionNewer(androidUpdate.latestVersion, installedVersion)
@@ -107,6 +108,7 @@ export default function MoreScreen() {
       Alert.alert("You're offline", "Scan a bill once you're back online, or log this expense manually.")
       return
     }
+    void systemStatusQ.refetch()
     setScanPickerOpen(true)
   }
 
@@ -417,17 +419,21 @@ export default function MoreScreen() {
         <View style={{ gap: 8 }}>
           <Pressable
             onPress={() => pickBillFrom('camera')}
-            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
+            disabled={scanOff}
+            style={[styles.sourceRow, { backgroundColor: tokens.inputBg, opacity: scanOff ? 0.6 : 1 }]}
           >
             <Camera size={20} color={tokens.text} />
-            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Take a photo</Text>
+            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>Take a photo</Text>
+            {scanOff && <MaintenanceChip />}
           </Pressable>
           <Pressable
             onPress={() => pickBillFrom('library')}
-            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
+            disabled={scanOff}
+            style={[styles.sourceRow, { backgroundColor: tokens.inputBg, opacity: scanOff ? 0.6 : 1 }]}
           >
             <Images size={20} color={tokens.text} />
-            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Choose a screenshot</Text>
+            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>Choose a screenshot</Text>
+            {scanOff && <MaintenanceChip />}
           </Pressable>
           <Pressable
             onPress={() => {
@@ -442,6 +448,15 @@ export default function MoreScreen() {
         </View>
       </BottomSheet>
     </AnimatedTabContent>
+  )
+}
+
+function MaintenanceChip() {
+  const { tokens } = useTheme()
+  return (
+    <View style={[styles.chip, { backgroundColor: tokens.warnSoft }]}>
+      <Text style={{ color: tokens.warn, fontFamily: fontFamily.bodyBold, fontSize: 11 }}>Under maintenance</Text>
+    </View>
   )
 }
 
@@ -588,4 +603,5 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 17, marginBottom: 12 },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, padding: 14 },
   sourceLabel: { fontSize: 15 },
+  chip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
 })

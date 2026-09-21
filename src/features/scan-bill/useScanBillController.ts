@@ -28,6 +28,7 @@ export function useScanBillController() {
 
   const [phase, setPhase] = useState<Phase>("scanning");
   const [errorMsg, setErrorMsg] = useState("");
+  const [allowanceHit, setAllowanceHit] = useState(false);
 
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState("");
@@ -97,6 +98,7 @@ export function useScanBillController() {
         },
         onError: (err) => {
           // Retrying a clearer photo can't help when the month's AI is spent.
+          setAllowanceHit(isAiAllowanceError(err));
           setErrorMsg(
             isAiAllowanceError(err)
               ? "You've used this month's AI allowance. You can still enter this expense manually."
@@ -172,5 +174,5 @@ export function useScanBillController() {
 
   const categoryLabel = category ? splitEmoji(category).text : "";
 
-  return { tokens, space, radius, type, insets, router, categories, phase, setPhase, errorMsg, merchant, setMerchant, category, setCategory, date, items, peopleCount, productItems, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelecting, toggleSelected, applyBulkDivisor, handleConfirm, categoryLabel, addExpense };
+  return { tokens, space, radius, type, insets, router, categories, phase, setPhase, errorMsg, allowanceHit, merchant, setMerchant, category, setCategory, date, items, peopleCount, productItems, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelecting, toggleSelected, applyBulkDivisor, handleConfirm, categoryLabel, addExpense };
 }
