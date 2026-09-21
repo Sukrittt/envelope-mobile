@@ -63,5 +63,9 @@ export const elevation = {
   },
 } as const
 
-/** Height the floating nav occupies; screens reserve this much bottom padding. */
-export const NAV_HEIGHT = 86
+/**
+ * Height occupied by the floating nav backdrop (including its shadow bleed
+ * and bottom gap). Screens add their normal page spacing after this so the
+ * final row can scroll completely above the nav.
+ */
+export const NAV_HEIGHT = 110
