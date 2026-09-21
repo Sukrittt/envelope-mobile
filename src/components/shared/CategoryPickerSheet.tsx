@@ -10,7 +10,9 @@ import { useRecentCategories } from '@/src/hooks/useRecentCategories'
 import { deriveRecentsFromExpenses } from '@/src/lib/recentCategories'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Chip } from '@/src/components/ui/Chip'
+import { Icon } from '@/src/components/shared/Icon'
 import { EMPTY } from '@/src/lib/constants'
+import { Check } from 'lucide-react-native'
 
 /** Below this many categories, search + recents shortcuts aren't worth the extra chrome. */
 const RECENTS_MIN_CATEGORIES = 8
@@ -104,10 +106,11 @@ export function CategoryPickerSheet({
       />
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Pressable
-          style={[styles.option, { borderBottomColor: tokens.border }, value === '' && { backgroundColor: tokens.chipActiveBg }]}
+          style={[styles.noneOption, value === '' && { backgroundColor: tokens.chipActiveBg }]}
           onPress={() => pick('')}
         >
           <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{noneLabel}</Text>
+          {value === '' && <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={2.5} />}
         </Pressable>
         {showRecents && (
           <View style={styles.recentsSection}>
@@ -170,6 +173,7 @@ const styles = StyleSheet.create({
   search: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, marginBottom: 8 },
   scroll: { height: 420 },
   option: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  noneOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, marginBottom: 4 },
   optionText: { fontSize: 14 },
   groupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
   groupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },

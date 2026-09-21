@@ -166,7 +166,7 @@ export default function ActivityScreen() {
     if (paramDate) setSelectedDate(paramDate);
   }, [paramDate]);
 
-  const [period, setPeriod] = useState<PeriodKey>(paramPeriod || "week");
+  const [period, setPeriod] = useState<PeriodKey>(paramPeriod || "month");
   const [customRange, setCustomRange] = useState<DateRange>({
     from: "",
     to: "",
@@ -800,7 +800,7 @@ export default function ActivityScreen() {
             >
               {selectedCategory
                 ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
-                : "All categories"}
+                : "View All"}
             </Text>
           </Pressable>
         </BottomSheet>
