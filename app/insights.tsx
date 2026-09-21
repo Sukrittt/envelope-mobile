@@ -174,7 +174,7 @@ function MonthStepper({
               style={[
                 styles.monthNavGlyph,
                 {
-                  color: canGoPrev ? tokens.accentInk : tokens.text3,
+                  color: canGoPrev ? tokens.accent : tokens.text3,
                   fontSize: type.bodyLg,
                   lineHeight: type.bodyLg,
                 },
@@ -201,7 +201,7 @@ function MonthStepper({
               style={[
                 styles.monthNavGlyph,
                 {
-                  color: canGoNext ? tokens.accentInk : tokens.text3,
+                  color: canGoNext ? tokens.accent : tokens.text3,
                   fontSize: type.bodyLg,
                   lineHeight: type.bodyLg,
                 },
@@ -735,10 +735,10 @@ export default function InsightsScreen() {
             }}
             accessibilityLabel="Add subscription"
           >
-            <Plus size={14} color={tokens.accentInk} />
+            <Plus size={14} color={tokens.accent} />
             <Text
               style={{
-                color: tokens.accentInk,
+                color: tokens.accent,
                 fontSize: type.caption,
                 fontFamily: fontFamily.bodySemiBold,
               }}

@@ -178,14 +178,14 @@ export default function WelcomeScreen() {
           >
             By continuing you agree to the{" "}
             <Text
-              style={{ color: tokens.accentInk }}
+              style={{ color: tokens.accent }}
               onPress={() => Linking.openURL(`${BASE_URL}/legal/terms`)}
             >
               Terms
             </Text>{" "}
             and{" "}
             <Text
-              style={{ color: tokens.accentInk }}
+              style={{ color: tokens.accent }}
               onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}
             >
               Privacy Policy

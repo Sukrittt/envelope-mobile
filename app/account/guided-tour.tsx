@@ -167,7 +167,7 @@ export default function GuidedTourScreen() {
                 ]}
               >
                 <View style={[styles.tile, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
-                  <Icon icon={ArrowUpRight} size={16} color={tokens.accentInk} />
+                  <Icon icon={ArrowUpRight} size={16} color={tokens.accent} />
                 </View>
                 <View style={styles.headerText}>
                   <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>

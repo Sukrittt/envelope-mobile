@@ -460,7 +460,7 @@ export default function ActivityScreen() {
                   style={[
                     styles.clearFiltersText,
                     {
-                      color: tokens.accentInk,
+                      color: tokens.accent,
                       fontFamily: fontFamily.bodySemiBold,
                     },
                   ]}
@@ -594,26 +594,28 @@ export default function ActivityScreen() {
           </View>
         )}
 
-        <View style={styles.footer}>
-          <Text
-            style={{
-              color: tokens.text2,
-              fontSize: 12,
-              fontFamily: fontFamily.bodyMedium,
-            }}
-          >
-            {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-          </Text>
-          <Text
-            style={{
-              color: tokens.text2,
-              fontSize: 12,
-              fontFamily: fontFamily.bodyMedium,
-            }}
-          >
-            Total: {formatCurrency(totalSpend, hideAmounts)}
-          </Text>
-        </View>
+        {totalCount > 0 ? (
+          <View style={styles.footer}>
+            <Text
+              style={{
+                color: tokens.text2,
+                fontSize: 12,
+                fontFamily: fontFamily.bodyMedium,
+              }}
+            >
+              {totalCount} transaction{totalCount !== 1 ? "s" : ""}
+            </Text>
+            <Text
+              style={{
+                color: tokens.text2,
+                fontSize: 12,
+                fontFamily: fontFamily.bodyMedium,
+              }}
+            >
+              Total: {formatCurrency(totalSpend, hideAmounts)}
+            </Text>
+          </View>
+        ) : null}
 
         {totalPages > 1 ? (
           <View style={styles.pagination}>

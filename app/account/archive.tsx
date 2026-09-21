@@ -690,7 +690,7 @@ export default function ArchiveScreen() {
                         style={[
                           styles.restoreButtonText,
                           {
-                            color: tokens.accentInk,
+                            color: tokens.accent,
                             fontFamily: fontFamily.bodyBold,
                           },
                         ]}

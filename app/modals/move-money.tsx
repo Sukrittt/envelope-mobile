@@ -393,7 +393,7 @@ export default function MoveMoneyModal() {
                 onPress={autoFillNow}
                 style={[styles.autoFillBtn, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft, borderRadius: radius.md, paddingHorizontal: space.md }]}
               >
-                <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodyBold }}>Auto-fill</Text>
+                <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodyBold }}>Auto-fill</Text>
               </Pressable>
             </View>
           </View>

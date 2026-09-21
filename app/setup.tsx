@@ -584,7 +584,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             </Text>
             {rem !== 0 && (
               <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}>
-                <Text style={[styles.fillButtonLabel, { color: tokens.accentInk }]}>Give this the leftover</Text>
+                <Text style={[styles.fillButtonLabel, { color: tokens.accent }]}>Give this the leftover</Text>
               </Pressable>
             )}
             <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} onClear={clearAmt} />

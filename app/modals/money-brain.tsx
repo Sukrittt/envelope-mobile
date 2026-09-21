@@ -315,7 +315,7 @@ export default function MoneyBrainModal() {
                 Couldn&apos;t load your money brief.
               </Text>
               <Pressable onPress={() => briefQ.refetch()}>
-                <Text style={{ color: tokens.accentInk, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Retry</Text>
+                <Text style={{ color: tokens.accent, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>Retry</Text>
               </Pressable>
             </View>
           ) : (

@@ -109,6 +109,20 @@ it('shows the server-reported total and spend, with no pagination row for a sing
   expect(queryByLabelText('Next page')).toBeNull()
 })
 
+it('hides the count and total footer when there are no transactions', () => {
+  mockUseExpensesPage.mockImplementation(() => ({
+    data: pageResult({ rows: [], total: 0, totalAmount: 0 }),
+    isLoading: false,
+    error: null,
+  }))
+
+  const { getByText, queryByText } = renderWithProviders(<ActivityScreen />)
+
+  expect(getByText('No transactions for this filter.')).toBeTruthy()
+  expect(queryByText(/transactions?$/)).toBeNull()
+  expect(queryByText(/^Total:/)).toBeNull()
+})
+
 it('pages through the Activity list via server-side pagination', () => {
   mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => {
     if (params.limit === 1) return { data: pageResult({}), isLoading: false, error: null }

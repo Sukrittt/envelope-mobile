@@ -246,7 +246,7 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
             <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
         )}
@@ -257,7 +257,7 @@ export default function HomeScreen() {
               {formatCurrency(prevMonthLeftover, hideAmounts)} left over from last month.
             </Text>
             <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
         )}
@@ -274,13 +274,13 @@ export default function HomeScreen() {
                   accessibilityLabel={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
                   onPress={toggleCollapseAll}
                   size={28}
-                  color={tokens.accentInk}
+                  color={tokens.accent}
                   background="transparent"
                 />
               </View>
               <View style={styles.headerLinks}>
                 <Pressable onPress={() => router.navigate('/(tabs)/envelopes')} hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
+                  <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
                 </Pressable>
               </View>
             </View>
@@ -305,7 +305,7 @@ export default function HomeScreen() {
                   style={[styles.ccWrap, { borderTopColor: tokens.border, paddingTop: space.sm, marginTop: space.sm }]}
                 >
                   <View style={styles.ccBadgeRow}>
-                    <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.accentInk }}>PAYOFF</Text>
+                    <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.accent }}>PAYOFF</Text>
                   </View>
                   <EnvelopeRow
                     envelope={creditCardEnvelope}

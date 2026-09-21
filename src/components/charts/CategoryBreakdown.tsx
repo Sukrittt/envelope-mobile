@@ -931,7 +931,7 @@ export function CategoryBreakdown({
                       >
                         <Text
                           style={{
-                            color: tokens.accentInk,
+                            color: tokens.accent,
                             fontSize: 11,
                             fontFamily: fontFamily.bodySemiBold,
                             marginTop: 4,
@@ -950,7 +950,7 @@ export function CategoryBreakdown({
             <Pressable onPress={() => setExpanded(true)}>
               <Text
                 style={{
-                  color: tokens.accentInk,
+                  color: tokens.accent,
                   fontSize: type.caption,
                   fontFamily: fontFamily.bodySemiBold,
                 }}

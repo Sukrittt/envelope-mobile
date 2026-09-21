@@ -906,8 +906,8 @@ export default function EnvelopesScreen() {
                         onPress={() => openAddCategory(name)}
                         style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
                       >
-                        <Icon icon={Plus} size={14} color={tokens.accentInk} strokeWidth={2.5} />
-                        <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                        <Icon icon={Plus} size={14} color={tokens.accent} strokeWidth={2.5} />
+                        <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add first category
                         </Text>
                       </Pressable>
@@ -917,9 +917,9 @@ export default function EnvelopesScreen() {
                         style={[styles.addCatRow, { borderTopColor: tokens.border }]}
                       >
                         <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
-                          <Icon icon={Plus} size={12} color={tokens.accentInk} strokeWidth={3} />
+                          <Icon icon={Plus} size={12} color={tokens.accent} strokeWidth={3} />
                         </View>
-                        <Text style={{ color: tokens.accentInk, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
+                        <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add category
                         </Text>
                       </Pressable>

@@ -249,15 +249,15 @@ export default function SecurityScreen() {
                 </Text>
                 <View style={styles.warnActions}>
                   <Pressable onPress={enterCode}>
-                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Enter code</Text>
+                    <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>Enter code</Text>
                   </Pressable>
                   <Pressable onPress={resend} disabled={resending}>
-                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
+                    <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>
                       {resending ? 'Sending…' : resent ? 'Code resent' : 'Resend code'}
                     </Text>
                   </Pressable>
                   <Pressable onPress={startEmailChange}>
-                    <Text style={[styles.warnAction, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Change back</Text>
+                    <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>Change back</Text>
                   </Pressable>
                 </View>
               </View>
@@ -380,7 +380,7 @@ export default function SecurityScreen() {
         )}
 
         <Pressable onPress={confirmSignOutAll} disabled={signingOutAll} style={styles.signOutEverywhere}>
-          <Text style={[styles.signOutText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
+          <Text style={[styles.signOutText, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>
             {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
           </Text>
         </Pressable>

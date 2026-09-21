@@ -177,8 +177,8 @@ export default function InvestmentsScreen() {
           Investments
         </Text>
         <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
-          <Icon icon={Plus} size={16} color={tokens.accentInk} />
-          <Text style={[styles.headerAction, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
+          <Icon icon={Plus} size={16} color={tokens.accent} />
+          <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
             Add
           </Text>
         </Pressable>
