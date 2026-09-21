@@ -39,7 +39,7 @@ export function ScanConfirm({ tokens, space, radius, type, insets, setPhase, dat
           <RevealAmount
             value={myShare}
             size={type.hero}
-            color={tokens.accentInk}
+            color={tokens.accent}
           />
           <Text
             style={{

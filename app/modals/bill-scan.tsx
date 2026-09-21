@@ -97,7 +97,7 @@ export default function BillScanModal() {
             </View>
             <View style={styles.shareHero}>
               <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>YOUR SHARE</Text>
-              <Text style={[styles.myShare, { color: tokens.accentInk, fontFamily: fontFamily.displayBold }]}>
+              <Text style={[styles.myShare, { color: tokens.accent, fontFamily: fontFamily.displayBold }]}>
                 {formatCurrency(scan.my_share, hideAmounts)}
               </Text>
             </View>

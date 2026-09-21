@@ -50,7 +50,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
           <AmountText
             value={myShare}
             size={type.display}
-            color={tokens.accentInk}
+            color={tokens.accent}
             animate
             ignoreHide
           />
@@ -207,10 +207,10 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                     {
                       borderRadius: radius.sm,
                       borderColor: isSelected
-                        ? tokens.accentInk
+                        ? tokens.accent
                         : tokens.border,
                       backgroundColor: isSelected
-                        ? tokens.accentInk
+                        ? tokens.accent
                         : "transparent",
                     },
                   ]}

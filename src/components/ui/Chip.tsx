@@ -43,7 +43,7 @@ export function Chip({
       ? tokens.accent
       : "rgba(255, 255, 255, 0.18)"
     : selected
-      ? tokens.accentInk
+      ? tokens.accent
       : tokens.pillBg;
   const fg = onAccent
     ? selected
@@ -55,7 +55,7 @@ export function Chip({
   const border = onAccent
     ? "transparent"
     : selected
-      ? tokens.accentInk
+      ? tokens.accent
       : tokens.border;
 
   return (
