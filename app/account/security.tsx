@@ -89,7 +89,6 @@ export default function SecurityScreen() {
     return () => clearTimeout(timer)
   }, [nameSuccess])
 
-  const startEmailChange = () => router.push({ pathname: '/(auth)/email', params: { mode: 'change-email' } })
   const enterCode = () => router.push({ pathname: '/(auth)/code', params: { email: user?.email ?? '', mode: 'change-email' } })
   const resend = async () => {
     setResending(true)
@@ -233,12 +232,6 @@ export default function SecurityScreen() {
                   )}
                 </View>
               </View>
-              <Pressable
-                onPress={startEmailChange}
-                style={[styles.editButton, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}
-              >
-                <Text style={[styles.editButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Change</Text>
-              </Pressable>
             </View>
 
             {user && !user.emailVerified && (
@@ -255,9 +248,6 @@ export default function SecurityScreen() {
                     <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>
                       {resending ? 'Sending…' : resent ? 'Code resent' : 'Resend code'}
                     </Text>
-                  </Pressable>
-                  <Pressable onPress={startEmailChange}>
-                    <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>Change back</Text>
                   </Pressable>
                 </View>
               </View>
