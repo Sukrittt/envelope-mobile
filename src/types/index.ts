@@ -11,6 +11,7 @@ export interface BudgetRow {
   category: string
   assigned: string
   rolled_over: string
+  version: number
 }
 
 export interface ExpenseRow {

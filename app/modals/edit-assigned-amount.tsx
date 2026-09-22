@@ -4,13 +4,15 @@ import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { useAddBudget,useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
+import { useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
 import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
+import { BudgetWriteError } from '@/src/lib/budgetConflict'
+import type { BudgetRow } from '@/src/types'
 
 import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -68,7 +70,7 @@ export default function EditAssignedAmountModal() {
     <EditAmountBody
       category={category}
       month={month}
-      budgets={budgets}
+      version={budgets.find((b) => b.month === month && b.category === category)?.version ?? 0}
       currentAssigned={envelope?.assigned ?? 0}
       spent={envelope?.spent ?? 0}
       isCreditCardPayment={!!envelope?.isCreditCardPayment}
@@ -82,7 +84,7 @@ export default function EditAssignedAmountModal() {
 function EditAmountBody({
   category,
   month,
-  budgets,
+  version,
   currentAssigned,
   spent,
   isCreditCardPayment,
@@ -92,7 +94,7 @@ function EditAmountBody({
 }: {
   category: string
   month: string
-  budgets: { month: string; category: string }[]
+  version: number
   currentAssigned: number
   spent: number
   isCreditCardPayment: boolean
@@ -107,7 +109,6 @@ function EditAmountBody({
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const updateBudget = useUpdateBudget()
-  const addBudget = useAddBudget()
 
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const emoji = isCreditCardPayment ? '💳' : categoryEmoji(category, group)
@@ -116,15 +117,19 @@ function EditAmountBody({
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [baseAssigned, setBaseAssigned] = useState(currentAssigned)
+  const [baseReadyToAssign, setBaseReadyToAssign] = useState(readyToAssign)
+  const [expectedVersion, setExpectedVersion] = useState(version)
+  const [conflict, setConflict] = useState<BudgetRow | null>(null)
 
   const value = Number(amountText) || 0
-  const delta = value - currentAssigned
-  const projectedRTA = readyToAssign - delta
+  const delta = value - baseAssigned
+  const projectedRTA = baseReadyToAssign - delta
   const impactText =
     value === 0
-      ? `${formatCurrency(readyToAssign, hideAmounts)} left in Ready to Assign`
+      ? `${formatCurrency(baseReadyToAssign, hideAmounts)} left in Ready to Assign`
       : delta === 0
-        ? `${formatCurrency(currentAssigned, hideAmounts)} already assigned this month`
+        ? `${formatCurrency(baseAssigned, hideAmounts)} already assigned this month`
         : delta > 0
           ? `Pulls ${formatCurrency(delta, hideAmounts)} from Ready to Assign`
           : `Frees ${formatCurrency(-delta, hideAmounts)} back to Ready to Assign`
@@ -133,15 +138,16 @@ function EditAmountBody({
     setSaving(true)
     setError('')
     try {
-      const exists = budgets.some((b) => b.month === month && b.category === category)
-      if (exists) {
-        await updateBudget.mutateAsync({ month, category, updates: { assigned: String(value) } })
-      } else {
-        await addBudget.mutateAsync({ month, category, assigned: String(value) })
-      }
+      // A missing row is conceptual version 0. PUT creates it conditionally,
+      // so simultaneous first assignments cannot overwrite one another.
+      await updateBudget.mutateAsync({ month, category, version: expectedVersion, updates: { assigned: String(value) } })
       setSuccess(true)
-    } catch {
-      setError('Could not save. Check your connection and try again.')
+    } catch (err) {
+      if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
+        setConflict(err.current)
+      } else {
+        setError('Could not save. Check your connection and try again.')
+      }
     } finally {
       setSaving(false)
     }
@@ -189,7 +195,7 @@ function EditAmountBody({
           name={name}
           emoji={emoji}
           spent={spent}
-          currentAssigned={currentAssigned}
+          currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
           tokens={tokens}
           space={space}
@@ -212,7 +218,7 @@ function EditAmountBody({
             key={impactText}
             entering={FadeIn.duration(150)}
             style={{
-              color: (value === 0 ? readyToAssign : projectedRTA) < 0 ? tokens.coral : tokens.text2,
+              color: (value === 0 ? baseReadyToAssign : projectedRTA) < 0 ? tokens.coral : tokens.text2,
               fontSize: type.caption,
               fontFamily: fontFamily.bodyMedium,
             }}
@@ -246,6 +252,43 @@ function EditAmountBody({
           </View>
         )}
 
+        {conflict && (
+          <View style={[styles.conflictCard, { borderColor: tokens.coral, backgroundColor: tokens.card, borderRadius: radius.md, gap: space.sm }]}>
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+              This amount changed elsewhere. Latest: {formatCurrency(Number(conflict.assigned) || 0, hideAmounts)}.
+            </Text>
+            <View style={styles.quickRow}>
+              <QuickChip
+                label="Use latest"
+                active={false}
+                onPress={() => {
+                  const latest = Number(conflict.assigned) || 0
+                  setAmountText(String(latest))
+                  setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
+                  setBaseAssigned(latest)
+                  setExpectedVersion(conflict.version)
+                  setConflict(null)
+                }}
+                tokens={tokens}
+                radius={radius}
+              />
+              <QuickChip
+                label="Keep my amount"
+                active
+                onPress={() => {
+                  const latest = Number(conflict.assigned) || 0
+                  setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
+                  setBaseAssigned(latest)
+                  setExpectedVersion(conflict.version)
+                  setConflict(null)
+                  setError('Latest loaded. Tap Save again to keep your amount.')
+                }}
+                tokens={tokens}
+                radius={radius}
+              />
+            </View>
+          </View>
+        )}
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}
       </ScrollView>
 
@@ -363,5 +406,6 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: 'center', paddingVertical: 8 },
   quickRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   quickChip: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
+  conflictCard: { borderWidth: 1, padding: 12 },
   confirmButton: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })

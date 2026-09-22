@@ -6,6 +6,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditAssignedAmountModal from './edit-assigned-amount'
 import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
+import { BudgetWriteError } from '@/src/lib/budgetConflict'
 
 jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({
@@ -50,8 +51,8 @@ beforeEach(() => {
 it('prefills with this month\'s assigned amount and saves an edit', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
-    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
@@ -68,16 +69,16 @@ it('prefills with this month\'s assigned amount and saves an edit', async () => 
   })
 
   await waitFor(() =>
-    expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '8000' }),
+    expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '8000' }, 7),
   )
 })
 
 it('shows a "Last month" chip only when a different prior amount exists', async () => {
   const { getByText, queryByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
-    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
-    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
-    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0' },
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 1 },
+    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
   ])
 
   await waitFor(() => expect(getByText('Last month · ₹3,000')).toBeTruthy())
@@ -88,8 +89,8 @@ it('closes ~1100ms after a successful save', async () => {
   jest.useFakeTimers()
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
-    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
@@ -105,4 +106,27 @@ it('closes ~1100ms after a successful save', async () => {
   expect(mockBack).toHaveBeenCalled()
 
   jest.useRealTimers()
+})
+
+it('preserves a stale draft and retries only after the user rebases it', async () => {
+  ;(updateBudget as jest.Mock)
+    .mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+      month: MONTH, category: 'Food', assigned: '6000', rolled_over: '0', version: 8,
+    }))
+    .mockResolvedValueOnce({})
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  for (let i = 0; i < 4; i++) fireEvent.press(getByLabelText('Delete'))
+  await enterAmount(getByLabelText, '8000')
+
+  await act(async () => { fireEvent.press(getByText('Save')) })
+  await waitFor(() => expect(getByText(/Latest: ₹6,000/)).toBeTruthy())
+  expect(getByLabelText('₹8,000')).toBeTruthy()
+  fireEvent.press(getByText('Keep my amount'))
+  expect(updateBudget).toHaveBeenCalledTimes(1)
+  await act(async () => { fireEvent.press(getByText('Save')) })
+  await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, 'Food', { assigned: '8000' }, 8))
 })

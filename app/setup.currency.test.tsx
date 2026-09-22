@@ -9,7 +9,10 @@ jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async patch => patch
 jest.mock('@/src/api/billing', () => ({
   completeOnboarding: jest.fn(async () => ({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })),
 }))
-jest.mock('@/src/api/budgets', () => ({ updateBudget: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/budgets', () => ({
+  getBudgets: jest.fn(async () => []),
+  updateBudget: jest.fn(async () => ({})),
+}))
 jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))

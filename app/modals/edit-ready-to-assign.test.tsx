@@ -31,8 +31,8 @@ const PREV_MONTH = prevMonthKey(MONTH)
 function setup() {
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
-    { month: PREV_MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 1 },
+    { month: PREV_MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 1 },
   ])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
@@ -67,7 +67,7 @@ it('saves this month\'s income so Ready to Assign matches the typed amount', asy
     fireEvent.press(getByText('Save'))
   })
 
-  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, '__income__', { assigned: '30000' }))
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, '__income__', { assigned: '30000' }, 0))
 })
 
 it('shows a friendly error when the save fails', async () => {

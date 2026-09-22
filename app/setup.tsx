@@ -17,7 +17,7 @@ import { AmountTicker } from '@/src/components/onboarding/AmountTicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 
 import { currentMonthKey, INCOME_CATEGORY } from '@/src/lib/envelope'
-import { updateBudget } from '@/src/api/budgets'
+import { getBudgets, updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
 import { updateUser } from '@/src/api/account'
@@ -279,6 +279,10 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       const categories = selectedGroups.flatMap((g) =>
         (cats[g.id] ?? []).filter((c) => c.on && c.name.trim()).map((c) => ({ name: label(c), group: label(g) })),
       )
+      const budgetVersions = new Map(
+        (await getBudgets()).map((row) => [`${row.month}\u0000${row.category}`, row.version]),
+      )
+      const versionFor = (category: string) => budgetVersions.get(`${month}\u0000${category}`) ?? 0
 
       // Groups and categories each run in their own sequential chain: the
       // server numbers `order` as max+1, so parallel inserts within one
@@ -291,9 +295,14 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
         (async () => {
           for (const c of categories) await addCategory(c.name, c.group).catch(ignoreConflict)
         })(),
-        updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' }),
+        updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' }, versionFor(INCOME_CATEGORY)),
         ...liveCats().map((item) =>
-          updateBudget(month, `${item.emoji} ${item.name.trim()}`, { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' }),
+          updateBudget(
+            month,
+            `${item.emoji} ${item.name.trim()}`,
+            { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' },
+            versionFor(`${item.emoji} ${item.name.trim()}`),
+          ),
         ),
       ])
       const categoryCount = categories.length

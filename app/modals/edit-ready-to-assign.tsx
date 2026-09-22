@@ -9,6 +9,8 @@ import { useCategories } from "@/src/hooks/useCategories";
 import { useExpenses } from "@/src/hooks/useExpenses";
 import { useGroups } from "@/src/hooks/useGroups";
 import { EMPTY } from "@/src/lib/constants";
+import { BudgetWriteError } from "@/src/lib/budgetConflict";
+import type { BudgetRow } from "@/src/types";
 import {
   computeEnvelopeState,
   currentMonthKey,
@@ -80,6 +82,7 @@ export default function EditReadyToAssignModal() {
       income={state.income}
       totalAssigned={state.totalAssigned}
       readyToAssign={state.readyToAssign}
+      version={(budgetsQ.data ?? EMPTY).find((b) => b.month === month && b.category === INCOME_CATEGORY)?.version ?? 0}
     />
   );
 }
@@ -89,11 +92,13 @@ function EditReadyToAssignBody({
   income,
   totalAssigned,
   readyToAssign,
+  version,
 }: {
   month: string;
   income: number;
   totalAssigned: number;
   readyToAssign: number;
+  version: number;
 }) {
   const { formatCurrency, formatAmountInput } = useCurrency()
 
@@ -114,10 +119,13 @@ function EditReadyToAssignBody({
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [baseIncome, setBaseIncome] = useState(income);
+  const [expectedVersion, setExpectedVersion] = useState(version);
+  const [conflict, setConflict] = useState<BudgetRow | null>(null);
 
   const value = Number(amountText) || 0;
   const newIncome = incomeForReadyToAssign(totalAssigned, value);
-  const delta = Math.round((newIncome - income) * 100) / 100;
+  const delta = Math.round((newIncome - baseIncome) * 100) / 100;
   const impactText =
     delta === 0
       ? "Type what's left to assign"
@@ -131,11 +139,16 @@ function EditReadyToAssignBody({
       await updateBudget.mutateAsync({
         month,
         category: INCOME_CATEGORY,
+        version: expectedVersion,
         updates: { assigned: String(newIncome) },
       });
       setSuccess(true);
-    } catch {
-      setError("Couldn't save. Check your connection and try again.");
+    } catch (err) {
+      if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
+        setConflict(err.current);
+      } else {
+        setError("Couldn't save. Check your connection and try again.");
+      }
     } finally {
       setSaving(false);
     }
@@ -263,7 +276,7 @@ function EditReadyToAssignBody({
                 fontSize: type.caption,
               }}
             >
-              {formatCurrency(income, hideAmounts)} income ·{" "}
+              {formatCurrency(baseIncome, hideAmounts)} income ·{" "}
               {formatCurrency(totalAssigned, hideAmounts)} assigned
             </Text>
           </View>
@@ -305,6 +318,40 @@ function EditReadyToAssignBody({
           </Reanimated.Text>
         </View>
 
+        {conflict && (
+          <View style={[styles.conflictCard, { borderColor: tokens.coral, backgroundColor: tokens.card, borderRadius: radius.md, gap: space.sm }]}>
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+              Income changed elsewhere. Latest: {formatCurrency(Number(conflict.assigned) || 0, hideAmounts)}.
+            </Text>
+            <View style={styles.conflictActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  const latest = Number(conflict.assigned) || 0;
+                  setAmountText(String(Math.max(0, latest - totalAssigned)));
+                  setBaseIncome(latest);
+                  setExpectedVersion(conflict.version);
+                  setConflict(null);
+                }}
+                style={[styles.conflictButton, { borderColor: tokens.borderStrong, borderRadius: radius.full }]}
+              >
+                <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Use latest</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setBaseIncome(Number(conflict.assigned) || 0);
+                  setExpectedVersion(conflict.version);
+                  setConflict(null);
+                  setError("Latest loaded. Tap Save again to keep your amount.");
+                }}
+                style={[styles.conflictButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft, borderRadius: radius.full }]}
+              >
+                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Keep my amount</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
         {error !== "" && (
           <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>
         )}
@@ -382,5 +429,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   amountWrap: { alignItems: "center", paddingVertical: 8 },
+  conflictCard: { borderWidth: 1, padding: 12 },
+  conflictActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  conflictButton: { borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14 },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });
