@@ -26,6 +26,7 @@ export async function writeEncrypted(key: string, value: unknown): Promise<void>
     additionalData: new TextEncoder().encode(key),
   })
   await AsyncStorage.setItem(key, PREFIX + await sealed.combined('base64'))
+  if (__DEV__) console.log('[offline-cache] stored', key, `${((await AsyncStorage.getItem(key)) ?? '').length} bytes read back`)
 }
 
 export async function readEncrypted<T>(key: string): Promise<T | null> {

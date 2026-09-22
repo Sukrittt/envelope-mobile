@@ -16,7 +16,10 @@ export async function readCategoryCache(): Promise<CategoryRow[] | null> {
   if (!k) return null
   try {
     const cached = await readEncrypted<CategoryRow[]>(k)
-    if (__DEV__) console.log('[offline-cache] read', k, cached ? `${cached.length} categories` : 'MISS')
+    if (__DEV__) {
+      console.log('[offline-cache] read', k, cached ? `${cached.length} categories` : 'MISS')
+      if (!cached) console.log('[offline-cache] keys on disk', (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith('mc-')))
+    }
     return cached
   } catch (err) {
     if (__DEV__) console.log('[offline-cache] read failed', k, err)
