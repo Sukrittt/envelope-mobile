@@ -68,6 +68,19 @@ export class HttpError extends Error {
 }
 
 /**
+ * True when a rejection never made it to the server — offline, DNS, or the
+ * timeout above — as opposed to the API answering and being refused. The API
+ * wrappers put the status in their message (`...: 401`), so its absence is the
+ * tell. Callers with a disk cache (categories, groups) serve it on a transport
+ * failure and still surface everything else: a 401 has to reach _layout's
+ * query-cache listener, a 402 the subscription gate.
+ */
+export function isTransportFailure(err: unknown): boolean {
+  if (err instanceof HttpError) return false
+  return !/: \d{3}\b/.test(err instanceof Error ? err.message : '')
+}
+
+/**
  * On a 401, drops the session if the token that drew it is still the live
  * session's. Shared by apiFetch above and streamChat (src/api/ai.ts), which
  * bypasses apiFetch (it needs expo/fetch for streaming) but must not skip

@@ -8,7 +8,8 @@ import {
 } from '@/src/api/categories'
 import type { CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
-import { writeCategoryCache } from '@/src/lib/categoryCache'
+import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
+import { isTransportFailure } from '@/src/api/client'
 
 const key = ['categories'] as const
 
@@ -21,9 +22,22 @@ const key = ['categories'] as const
  * routes every write back through this queryFn.
  */
 async function getCategoriesAndCache(): Promise<CategoryRow[]> {
-  const categories = await getCategories()
-  await writeCategoryCache(categories)
-  return categories
+  try {
+    const categories = await getCategories()
+    await writeCategoryCache(categories)
+    return categories
+  } catch (err) {
+    // Offline: answer with the last list from disk instead of an error, which
+    // is what leaves log-expense with an empty picker and no way to file the
+    // expense. The boot hydration in app/_layout.tsx only covers a cold start
+    // — every refetch after it (a stale query, a mutation's invalidate) lands
+    // here, so this is the durable half of the same guarantee.
+    if (__DEV__) console.log('[offline-cache] categories fetch failed', err)
+    if (!isTransportFailure(err)) throw err
+    const cached = await readCategoryCache()
+    if (!cached) throw err
+    return cached
+  }
 }
 
 // Categories sharing a group are stored contiguously; toIndex is the target position

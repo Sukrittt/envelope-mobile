@@ -3,9 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react-native'
 import { getGroups, moveGroup } from '@/src/api/groups'
 import { moveItem } from '@/src/lib/dragReorder'
+import { readGroupCache } from '@/src/lib/groupCache'
 import { useGroups, useMoveGroup } from './useGroups'
 
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn(), moveGroup: jest.fn() }))
+jest.mock('@/src/lib/groupCache', () => ({ readGroupCache: jest.fn(), writeGroupCache: jest.fn() }))
 
 function deferred() {
   let resolve!: () => void
@@ -73,4 +75,15 @@ it('does not roll back a newer optimistic move when an earlier save fails', asyn
   await waitFor(() => expect(result.current.second.isSuccess).toBe(true))
   expect(qc.getQueryData(['groups'])).toEqual(['Food', 'House', 'Lifestyle', 'Savings', 'Personal'])
   qc.clear()
+})
+
+it('serves the cached group list when the fetch never reaches the server', async () => {
+  ;(getGroups as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
+  ;(readGroupCache as jest.Mock).mockResolvedValue(original)
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false, gcTime: Infinity } } })
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  const { result } = renderHook(() => useGroups(), { wrapper })
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data).toEqual(original)
 })

@@ -109,3 +109,21 @@ it('records a pick and closes the sheet', async () => {
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-recent-categories', JSON.stringify(['Groceries'])),
   )
 })
+
+it('still lists every category when the group list is unavailable', async () => {
+  // A cold offline boot can hydrate categories from disk with no group list
+  // behind them (the group cache is newer than the category cache, or its
+  // fetch failed). Grouping off `groups` alone hid every grouped category,
+  // leaving the picker with nothing but "No category".
+  ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
+  ;(getGroups as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
+  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null)
+  const { getAllByText } = renderWithProviders(
+    <CategoryPickerSheet visible value="" onSelect={jest.fn()} onClose={jest.fn()} />,
+  )
+  await flush()
+
+  expect(getAllByText(/Groceries/)).toHaveLength(1)
+  expect(getAllByText(/Coffee/)).toHaveLength(1)
+})

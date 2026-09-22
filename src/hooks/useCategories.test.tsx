@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
 import { addCategory, getCategories, moveCategory } from '@/src/api/categories'
-import { writeCategoryCache } from '@/src/lib/categoryCache'
+import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import type { CategoryRow } from '@/src/types'
 import { useAddCategory, useCategories, useMoveCategory } from './useCategories'
 
@@ -110,5 +110,31 @@ describe('category cache write-through (offline sync §2)', () => {
 
     expect(result.current.data).toEqual(rows)
     expect(result.current.isSuccess).toBe(true)
+  })
+})
+
+describe('offline fallback to the cached list', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('serves the cached list when the fetch never reaches the server', async () => {
+    ;(getCategories as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
+    ;(readCategoryCache as jest.Mock).mockResolvedValue(rows)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    const { result } = renderHook(() => useCategories(), { wrapper: wrapper(queryClient) })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual(rows)
+  })
+
+  it('still errors when the server itself rejects the request', async () => {
+    ;(getCategories as jest.Mock).mockRejectedValue(new Error('Failed to load categories: 401'))
+    ;(readCategoryCache as jest.Mock).mockResolvedValue(rows)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    const { result } = renderHook(() => useCategories(), { wrapper: wrapper(queryClient) })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    // A 401 must reach app/_layout.tsx's query-cache listener, which ends the
+    // dead session — swallowing it into the cache would strand the user.
+    expect(readCategoryCache).not.toHaveBeenCalled()
   })
 })

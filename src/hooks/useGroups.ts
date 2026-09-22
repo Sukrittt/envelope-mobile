@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addGroup, deleteGroup, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
-import { writeGroupCache } from '@/src/lib/groupCache'
+import { readGroupCache, writeGroupCache } from '@/src/lib/groupCache'
+import { isTransportFailure } from '@/src/api/client'
 
 const key = ['groups'] as const
 const categoriesKey = ['categories'] as const
@@ -8,9 +9,18 @@ const moveKey = ['groups', 'move'] as const
 
 /** Write-through cache point for the group list, mirroring useCategories's getCategoriesAndCache. */
 async function getGroupsAndCache(): Promise<string[]> {
-  const groups = await getGroups()
-  await writeGroupCache(groups)
-  return groups
+  try {
+    const groups = await getGroups()
+    await writeGroupCache(groups)
+    return groups
+  } catch (err) {
+    // Same offline fallback as useCategories's getCategoriesAndCache — the
+    // picker groups its categories by this list, so losing it hides them.
+    if (!isTransportFailure(err)) throw err
+    const cached = await readGroupCache()
+    if (!cached) throw err
+    return cached
+  }
 }
 
 export function useGroups() {

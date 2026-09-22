@@ -64,7 +64,12 @@ export function CategoryPickerSheet({
       arr.push(c)
       byGroup.set(g, arr)
     }
-    const named = groups.map((g) => ({ name: g, items: byGroup.get(g) ?? [] }))
+    // Groups the category list names but the group list doesn't go last rather
+    // than missing: with no group list at all (offline before it has ever been
+    // cached) grouping off `groups` alone dropped every grouped category, and
+    // the picker offered nothing but "No category".
+    const extra = [...byGroup.keys()].filter((g) => g && !groups.includes(g))
+    const named = [...groups, ...extra].map((g) => ({ name: g, items: byGroup.get(g) ?? [] }))
     const other = byGroup.get('') ?? []
     return other.length > 0 ? [...named, { name: '', items: other }] : named
   }, [categories, groups])

@@ -14,12 +14,20 @@ function key(): string | null {
 export async function readCategoryCache(): Promise<CategoryRow[] | null> {
   const k = key()
   if (!k) return null
-  try { return await readEncrypted<CategoryRow[]>(k) } catch { return null }
+  try {
+    const cached = await readEncrypted<CategoryRow[]>(k)
+    if (__DEV__) console.log('[offline-cache] read', k, cached ? `${cached.length} categories` : 'MISS')
+    return cached
+  } catch (err) {
+    if (__DEV__) console.log('[offline-cache] read failed', k, err)
+    return null
+  }
 }
 
 /** Written on every successful fetch and every category mutation, so cache and server never drift. */
 async function writeCategories(categories: CategoryRow[]): Promise<void> {
   const k = key()
+  if (__DEV__) console.log('[offline-cache] write', k ?? 'NO SESSION, not cached', `${categories.length} categories`)
   if (!k) return
   await writeEncrypted(k, categories)
 }
