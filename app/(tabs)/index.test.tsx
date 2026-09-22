@@ -8,15 +8,21 @@ import HomeScreen from './index'
 const MONTH = currentMonthKey()
 
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
+let mockBudgetsError: Error | null = null
+const mockRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
-  useBudgets: () => ({ data: mockBudgets, isLoading: false, error: null }),
+  useBudgets: () => ({ data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }),
 }))
-jest.mock('@/src/hooks/useExpenses', () => ({ useExpenses: () => ({ data: [], isLoading: false, error: null }) }))
+jest.mock('@/src/hooks/useExpenses', () => ({
+  useExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
+}))
 jest.mock('@/src/hooks/useCategories', () => ({
-  useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null }),
+  useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
 }))
-jest.mock('@/src/hooks/useGroups', () => ({ useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null }) }))
+jest.mock('@/src/hooks/useGroups', () => ({
+  useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
+}))
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -30,6 +36,8 @@ function renderHome() {
 describe('HomeScreen · Ready to Assign', () => {
   beforeEach(() => {
     mockPush.mockClear()
+    mockBudgetsError = null
+    mockRefetch.mockClear()
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
@@ -79,5 +87,16 @@ describe('HomeScreen · Ready to Assign', () => {
       pathname: '/modals/edit-assigned-amount',
       params: { category: 'Food' },
     })
+  })
+
+  it('shows a retryable error screen instead of raw error text when a query fails', () => {
+    mockBudgetsError = new Error('network error')
+    const { getByText, queryByText } = renderHome()
+
+    expect(getByText("Couldn't load your budget")).toBeTruthy()
+    expect(queryByText(/network error/i)).toBeNull()
+
+    fireEvent.press(getByText('Try again'))
+    expect(mockRefetch).toHaveBeenCalled()
   })
 })

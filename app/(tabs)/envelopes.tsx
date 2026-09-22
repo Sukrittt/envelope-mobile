@@ -45,6 +45,7 @@ import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib
 import type { CategoryRow } from '@/src/types'
 import { EMPTY } from '@/src/lib/constants'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
 
@@ -778,11 +779,14 @@ export default function EnvelopesScreen() {
 
   if (hasError) {
     return (
-      <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: 32 }]}>
-        <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
-          Couldn&apos;t load your categories. Check your connection and reopen the app.
-        </Text>
-      </View>
+      <ErrorScreen
+        title="Couldn't load your categories"
+        message="Check your connection and try again."
+        onRetry={() => {
+          categoriesQ.refetch()
+          groupsQ.refetch()
+        }}
+      />
     )
   }
 

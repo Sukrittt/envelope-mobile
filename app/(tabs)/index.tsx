@@ -36,6 +36,7 @@ import { Card } from '@/src/components/ui/Card'
 import { IconButton } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
+import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
 
@@ -180,11 +181,16 @@ export default function HomeScreen() {
 
   if (hasError) {
     return (
-      <View style={[styles.center, { backgroundColor: tokens.bg, paddingHorizontal: space.xxl }]}>
-        <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }}>
-          Couldn&apos;t load your budget. Check your connection and reopen the app.
-        </Text>
-      </View>
+      <ErrorScreen
+        title="Couldn't load your budget"
+        message="Check your connection and try again."
+        onRetry={() => {
+          budgetsQ.refetch()
+          expensesQ.refetch()
+          categoriesQ.refetch()
+          groupsQ.refetch()
+        }}
+      />
     )
   }
 

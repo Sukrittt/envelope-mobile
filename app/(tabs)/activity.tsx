@@ -41,6 +41,7 @@ import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
+import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import type { ExpenseRow } from "@/src/types";
 import { toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
@@ -371,23 +372,14 @@ export default function ActivityScreen() {
 
   if (hasError) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: tokens.bg, paddingHorizontal: 32 },
-        ]}
-      >
-        <Text
-          style={{
-            color: tokens.coral,
-            fontFamily: fontFamily.bodyMedium,
-            textAlign: "center",
-          }}
-        >
-          Couldn&apos;t load transactions. Check your connection and reopen the
-          app.
-        </Text>
-      </View>
+      <ErrorScreen
+        title="Couldn't load transactions"
+        message="Check your connection and try again."
+        onRetry={() => {
+          expensesQ.refetch();
+          categoriesQ.refetch();
+        }}
+      />
     );
   }
 
