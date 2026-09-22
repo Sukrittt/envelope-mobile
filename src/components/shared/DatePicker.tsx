@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Calendar, ChevronDown } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -145,6 +146,7 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   }
 
   function pick(d: Date) {
+    Haptics.selectionAsync().catch(() => {})
     const iso = toISO(d)
     let newFrom = value.from
     let newTo = value.to
@@ -168,6 +170,7 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   }
 
   function applyPreset(presetDays: number, useMonthStart: boolean) {
+    Haptics.selectionAsync().catch(() => {})
     const range = presetRange(today, presetDays, useMonthStart)
     onChange(range)
     setView(monthStart(parseISO(range.from)!))
@@ -232,7 +235,10 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
 
           <View style={styles.nav}>
             <Pressable
-              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))
+              }}
               style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
@@ -241,7 +247,10 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
               {MONTHS[view.getMonth()]} {view.getFullYear()}
             </Text>
             <Pressable
-              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))
+              }}
               style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
@@ -281,6 +290,7 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
                           onPress={() => pick(c.date!)}
                           style={[
                             styles.cellLarge,
+                            { borderColor: c.isToday && !(isStart || isEnd) ? tokens.accent : 'transparent' },
                             (isStart || isEnd) && { backgroundColor: tokens.accent },
                             c.disabled && { opacity: 0.6 },
                           ]}
@@ -347,6 +357,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   }
 
   function pick(d: Date) {
+    Haptics.selectionAsync().catch(() => {})
     onChange(toISO(d))
     setView(monthStart(d))
   }
@@ -449,7 +460,10 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
 
           <View style={styles.nav}>
             <Pressable
-              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))
+              }}
               style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
@@ -458,7 +472,10 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
               {MONTHS[view.getMonth()]} {view.getFullYear()}
             </Text>
             <Pressable
-              onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))
+              }}
               style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
@@ -537,7 +554,7 @@ const styles = StyleSheet.create({
   cellWrap: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center' },
   cellWrapLarge: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   cell: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  cellLarge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  cellLarge: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 13 },
   rangeFooter: { flexDirection: 'row', gap: 8 },
   footerButton: { flex: 1 },

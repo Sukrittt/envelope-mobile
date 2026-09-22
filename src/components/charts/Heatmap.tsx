@@ -8,6 +8,7 @@ import Reanimated, {
   withDelay,
   withSpring,
 } from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -179,7 +180,10 @@ export function Heatmap({ cells, todayDate, onSelectDate }: Props) {
                 borderColor={borderColor}
                 bold={c.day === 1}
                 disabled={isFuture || !onSelectDate}
-                onPress={() => onSelectDate?.(c.date)}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {})
+                  onSelectDate?.(c.date)
+                }}
                 playMountStagger={isMountingRef.current}
               />
             )
