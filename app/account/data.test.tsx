@@ -26,7 +26,15 @@ const mockStartExport = startExport as jest.Mock
 const mockListUnsynced = listUnsynced as jest.Mock
 
 function exportsResponse(over: Partial<ExportsResponse> = {}): ExportsResponse {
-  return { exports: [], usedThisMonth: 0, limit: 3, canExport: true, exitExport: false, ...over }
+  return {
+    exports: [],
+    usedThisMonth: 0,
+    limit: 3,
+    canExport: true,
+    exitExport: false,
+    accessExpired: false,
+    ...over,
+  }
 }
 
 function queued(clientId: string, item: string) {
@@ -60,13 +68,27 @@ describe('export quota', () => {
   // The trap this whole change exists to close: quota spent, access gone, and
   // the user still has to be able to leave with their data.
   it('still offers the export to a lapsed account with its quota spent', async () => {
-    mockGetExports.mockResolvedValue(exportsResponse({ usedThisMonth: 3, canExport: true, exitExport: true }))
+    mockGetExports.mockResolvedValue(
+      exportsResponse({ usedThisMonth: 3, canExport: true, exitExport: true, accessExpired: true }),
+    )
     const { getAllByText, findByText, queryByText } = renderWithProviders(<DataScreen />)
 
     await findByText(/This is your final export/)
     expect(queryByText(/You've used all 3 exports this month/)).toBeNull()
     fireEvent.press(exportButton(getAllByText('Export')))
     await waitFor(() => expect(mockStartExport).toHaveBeenCalled())
+  })
+
+  it('keeps the count capped and hides the monthly-limit warning after the final expired-account export', async () => {
+    mockGetExports.mockResolvedValue(
+      exportsResponse({ usedThisMonth: 4, canExport: false, exitExport: false, accessExpired: true }),
+    )
+    const { getAllByText, findByText, queryByText } = renderWithProviders(<DataScreen />)
+
+    await findByText(/3 of 3 exports used/)
+    expect(queryByText(/You've used all 3 exports this month/)).toBeNull()
+    fireEvent.press(exportButton(getAllByText('Export')))
+    expect(mockStartExport).not.toHaveBeenCalled()
   })
 })
 

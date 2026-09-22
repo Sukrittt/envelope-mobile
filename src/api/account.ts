@@ -139,9 +139,11 @@ export interface ExportsResponse {
   exports: ExportRow[]
   usedThisMonth: number
   limit: number
-  /** The server's verdict, not `usedThisMonth < limit` — a lapsed account gets one export past the cap. */
+  /** The server's verdict, not `usedThisMonth < limit` — a lapsed account gets one final export. */
   canExport: boolean
   exitExport: boolean
+  /** True even after the one-time exit export has been consumed. */
+  accessExpired: boolean
 }
 
 /** Kicks off a background export; throws `quota_exceeded` distinctly for a 429. */

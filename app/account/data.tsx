@@ -286,8 +286,8 @@ export default function DataScreen() {
                 { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {exportsData.usedThisMonth} of {exportsData.limit} exports used
-              this month
+              {Math.min(exportsData.usedThisMonth, exportsData.limit)} of{" "}
+              {exportsData.limit} exports used this month
             </Text>
           ) : null}
           <View style={styles.exportRow}>
@@ -329,7 +329,7 @@ export default function DataScreen() {
               )}
             </Pressable>
           </View>
-          {atLimit ? (
+          {atLimit && !exportsData?.accessExpired ? (
             <Text
               style={[
                 styles.cardMeta,
