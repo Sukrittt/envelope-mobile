@@ -6,6 +6,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditReadyToAssignModal from './edit-ready-to-assign'
 import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
+import { BudgetWriteError } from '@/src/lib/budgetConflict'
 
 jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({
@@ -81,4 +82,25 @@ it('shows a friendly error when the save fails', async () => {
 
   await waitFor(() => expect(getByText("Couldn't save. Check your connection and try again.")).toBeTruthy())
   expect(mockBack).not.toHaveBeenCalled()
+})
+
+it('reviews a stale Ready to Assign draft on the shared full-screen conflict screen', async () => {
+  ;(updateBudget as jest.Mock)
+    .mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+      month: MONTH, category: '__income__', assigned: '25000', rolled_over: '0', version: 2,
+    }))
+    .mockResolvedValueOnce({})
+  const { getByLabelText, getByRole, getByTestId, getByText } = setup()
+  await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
+  await typeAmount(getByLabelText, '25000')
+
+  await act(async () => { fireEvent.press(getByText('Save')) })
+  await waitFor(() => expect(getByText('Ready to Assign was updated')).toBeTruthy())
+  expect(getByLabelText('Ready to Assign, latest saved: ₹20,000')).toBeTruthy()
+  expect(getByLabelText('Ready to Assign, with your changes: ₹25,000')).toBeTruthy()
+  expect(getByTestId('budget-conflict-scroll')).toBeTruthy()
+  fireEvent.press(getByRole('button', { name: 'Continue with my changes' }))
+  expect(updateBudget).toHaveBeenCalledTimes(1)
+  await act(async () => { fireEvent.press(getByText('Save')) })
+  await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, '__income__', { assigned: '30000' }, 2))
 })

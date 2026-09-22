@@ -1,5 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
+import { BudgetConflictReview } from "@/src/features/budgets/BudgetConflictReview";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
@@ -154,6 +155,16 @@ function EditReadyToAssignBody({
     }
   }
 
+  function reviewLatest(keepDraft: boolean) {
+    if (!conflict) return;
+    const latestIncome = Number(conflict.assigned) || 0;
+    setBaseIncome(latestIncome);
+    setExpectedVersion(conflict.version);
+    if (!keepDraft) setAmountText(String(latestIncome - totalAssigned));
+    setConflict(null);
+    setError("");
+  }
+
   // Let the inline checkmark finish drawing before navigating back.
   useEffect(() => {
     if (!success) return;
@@ -164,6 +175,20 @@ function EditReadyToAssignBody({
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      {conflict && (
+        <BudgetConflictReview
+          title="Edit Ready to Assign"
+          heading="Ready to Assign was updated"
+          label="Ready to Assign"
+          latestAmount={(Number(conflict.assigned) || 0) - totalAssigned}
+          draftAmount={value}
+          onChoose={reviewLatest}
+          onClose={() => {
+            setConflict(null);
+            setError("");
+          }}
+        />
+      )}
       <View
         style={[
           styles.header,
@@ -318,40 +343,6 @@ function EditReadyToAssignBody({
           </Reanimated.Text>
         </View>
 
-        {conflict && (
-          <View style={[styles.conflictCard, { borderColor: tokens.coral, backgroundColor: tokens.card, borderRadius: radius.md, gap: space.sm }]}>
-            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-              Income changed elsewhere. Latest: {formatCurrency(Number(conflict.assigned) || 0, hideAmounts)}.
-            </Text>
-            <View style={styles.conflictActions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  const latest = Number(conflict.assigned) || 0;
-                  setAmountText(String(Math.max(0, latest - totalAssigned)));
-                  setBaseIncome(latest);
-                  setExpectedVersion(conflict.version);
-                  setConflict(null);
-                }}
-                style={[styles.conflictButton, { borderColor: tokens.borderStrong, borderRadius: radius.full }]}
-              >
-                <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Use latest</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setBaseIncome(Number(conflict.assigned) || 0);
-                  setExpectedVersion(conflict.version);
-                  setConflict(null);
-                  setError("Latest loaded. Tap Save again to keep your amount.");
-                }}
-                style={[styles.conflictButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft, borderRadius: radius.full }]}
-              >
-                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Keep my amount</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
         {error !== "" && (
           <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>
         )}
@@ -429,8 +420,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   amountWrap: { alignItems: "center", paddingVertical: 8 },
-  conflictCard: { borderWidth: 1, padding: 12 },
-  conflictActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  conflictButton: { borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14 },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });

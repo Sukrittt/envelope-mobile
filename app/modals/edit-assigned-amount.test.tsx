@@ -108,13 +108,13 @@ it('closes ~1100ms after a successful save', async () => {
   jest.useRealTimers()
 })
 
-it('preserves a stale draft and retries only after the user rebases it', async () => {
+it('shows the shared full-screen conflict review, preserves the draft, and requires another save', async () => {
   ;(updateBudget as jest.Mock)
     .mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
       month: MONTH, category: 'Food', assigned: '6000', rolled_over: '0', version: 8,
     }))
     .mockResolvedValueOnce({})
-  const { getByLabelText, getByText } = setup([
+  const { getByLabelText, getByRole, getByTestId, getByText } = setup([
     { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
@@ -123,9 +123,12 @@ it('preserves a stale draft and retries only after the user rebases it', async (
   await enterAmount(getByLabelText, '8000')
 
   await act(async () => { fireEvent.press(getByText('Save')) })
-  await waitFor(() => expect(getByText(/Latest: ₹6,000/)).toBeTruthy())
+  await waitFor(() => expect(getByText('This assignment was updated')).toBeTruthy())
+  expect(getByLabelText('Assigned amount, latest saved: ₹6,000')).toBeTruthy()
+  expect(getByLabelText('Assigned amount, with your changes: ₹8,000')).toBeTruthy()
+  expect(getByTestId('budget-conflict-scroll')).toBeTruthy()
+  fireEvent.press(getByRole('button', { name: 'Continue with my changes' }))
   expect(getByLabelText('₹8,000')).toBeTruthy()
-  fireEvent.press(getByText('Keep my amount'))
   expect(updateBudget).toHaveBeenCalledTimes(1)
   await act(async () => { fireEvent.press(getByText('Save')) })
   await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, 'Food', { assigned: '8000' }, 8))

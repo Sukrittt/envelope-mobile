@@ -1,5 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { BudgetConflictReview } from '@/src/features/budgets/BudgetConflictReview'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
@@ -153,6 +154,17 @@ function EditAmountBody({
     }
   }
 
+  function reviewLatest(keepDraft: boolean) {
+    if (!conflict) return
+    const latest = Number(conflict.assigned) || 0
+    setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
+    setBaseAssigned(latest)
+    setExpectedVersion(conflict.version)
+    if (!keepDraft) setAmountText(String(latest))
+    setConflict(null)
+    setError('')
+  }
+
   // Let the inline checkmark finish drawing before navigating back.
   useEffect(() => {
     if (!success) return
@@ -163,6 +175,20 @@ function EditAmountBody({
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      {conflict && (
+        <BudgetConflictReview
+          title="Edit amount"
+          heading="This assignment was updated"
+          label="Assigned amount"
+          latestAmount={Number(conflict.assigned) || 0}
+          draftAmount={value}
+          onChoose={reviewLatest}
+          onClose={() => {
+            setConflict(null)
+            setError('')
+          }}
+        />
+      )}
       <View
         style={[
           styles.header,
@@ -252,43 +278,6 @@ function EditAmountBody({
           </View>
         )}
 
-        {conflict && (
-          <View style={[styles.conflictCard, { borderColor: tokens.coral, backgroundColor: tokens.card, borderRadius: radius.md, gap: space.sm }]}>
-            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
-              This amount changed elsewhere. Latest: {formatCurrency(Number(conflict.assigned) || 0, hideAmounts)}.
-            </Text>
-            <View style={styles.quickRow}>
-              <QuickChip
-                label="Use latest"
-                active={false}
-                onPress={() => {
-                  const latest = Number(conflict.assigned) || 0
-                  setAmountText(String(latest))
-                  setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
-                  setBaseAssigned(latest)
-                  setExpectedVersion(conflict.version)
-                  setConflict(null)
-                }}
-                tokens={tokens}
-                radius={radius}
-              />
-              <QuickChip
-                label="Keep my amount"
-                active
-                onPress={() => {
-                  const latest = Number(conflict.assigned) || 0
-                  setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
-                  setBaseAssigned(latest)
-                  setExpectedVersion(conflict.version)
-                  setConflict(null)
-                  setError('Latest loaded. Tap Save again to keep your amount.')
-                }}
-                tokens={tokens}
-                radius={radius}
-              />
-            </View>
-          </View>
-        )}
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}
       </ScrollView>
 
@@ -406,6 +395,5 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: 'center', paddingVertical: 8 },
   quickRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   quickChip: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
-  conflictCard: { borderWidth: 1, padding: 12 },
   confirmButton: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
