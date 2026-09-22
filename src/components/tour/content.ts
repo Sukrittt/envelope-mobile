@@ -46,7 +46,7 @@ export const CHAPTERS: Chapter[] = [
     nudge: 'Cover the ₹1,400 shortfall. Pick a source.',
     linkLabel: 'Open Home',
     href: '/(tabs)',
-    linkNote: 'Tap a category, then "Pull money from other envelopes"',
+    linkNote: 'Tap a category, then "Pull money from envelopes"',
   },
   {
     title: 'The new month',
