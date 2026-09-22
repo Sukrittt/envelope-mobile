@@ -236,10 +236,14 @@ export default function ExpenseAddedScreen() {
   const spent = (envelope?.spent ?? 0) + (counted ? 0 : amount);
   const left = (envelope?.available ?? 0) - (counted ? 0 : amount);
   const funded = (envelope?.assigned ?? 0) + (envelope?.rolledOver ?? 0);
+  // A logged-for-a-past-month expense doesn't touch *this* month's envelope
+  // (the server already scoped the deduction to its own month) — showing the
+  // current month's bar here would read as if this add just moved it.
+  const isCurrentMonth = date !== "" && date.slice(0, 7) === currentMonthKey();
   // Nothing to show for a category with no money in it this month — and
   // nothing to show at all offline, since the envelope balance is computed
   // from server data this screen doesn't have yet.
-  const showEnvelope = !pending && envelope != null && funded > 0;
+  const showEnvelope = !pending && isCurrentMonth && envelope != null && funded > 0;
   const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 0;
   // Where the bar stood before this expense — the DeltaBar tweens its base
   // fill to here, then eases in the delta on top.

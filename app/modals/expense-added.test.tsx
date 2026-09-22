@@ -8,7 +8,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen from './expense-added'
 import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
-import { currentMonthKey, daysLeftInMonth } from '@/src/lib/envelope'
+import { currentMonthKey, daysLeftInMonth, prevMonthKey } from '@/src/lib/envelope'
 import { fontFamily } from '@/src/theme/fonts'
 import { type } from '@/src/theme/scale'
 
@@ -222,6 +222,17 @@ it('omits the envelope line for a category with no money assigned this month', a
   const { queryByText } = setup({}, [], [])
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
   expect(queryByText(/left of/)).toBeNull()
+})
+
+// Logging an expense against a past month doesn't move this month's
+// envelope, so the progress card (which only ever reads the current month's
+// state) would show a misleading bump if it rendered here at all.
+it('omits the envelope card for an expense logged in a past month', async () => {
+  const PAST = `${prevMonthKey(MONTH)}-15`
+  const { queryByText } = setup({ date: PAST, timestamp: `${PAST}T01:24:00` })
+  await waitFor(() => expect(getGroups).toHaveBeenCalled())
+  expect(queryByText(/left of/)).toBeNull()
+  expect(queryByText(/% used/)).toBeNull()
 })
 
 // The POST is the only source of a timestamp on newer servers; older ones return

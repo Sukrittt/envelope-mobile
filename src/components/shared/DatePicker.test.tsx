@@ -38,4 +38,20 @@ describe('DatePicker (single)', () => {
     fireEvent.press(getByText('Close calendar'))
     expect(queryByText('August 2026')).toBeNull()
   })
+
+  it('allows a later day in the current month but blocks days in a future month', () => {
+    const onChange = jest.fn()
+    const { getByText, getAllByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={onChange} />)
+    fireEvent.press(getByText('Another date...'))
+
+    // 25 Aug is after "today" (22 Aug) but still the current month: pickable.
+    fireEvent.press(getAllByText('25')[0])
+    expect(onChange).toHaveBeenCalledWith('2026-08-25')
+
+    onChange.mockClear()
+    fireEvent.press(getByText('›')) // nav to September 2026
+    expect(getByText('September 2026')).toBeTruthy()
+    fireEvent.press(getAllByText('5')[0])
+    expect(onChange).not.toHaveBeenCalled()
+  })
 })
