@@ -1,5 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -16,6 +16,8 @@ import {
   useUpdateRecurringExpense,
 } from '@/src/hooks/useRecurringExpenses'
 import { useAcceptRecurringSuggestion } from '@/src/hooks/useRecurringSuggestions'
+import { useCategories } from '@/src/hooks/useCategories'
+import { suggestCategoryLLM } from '@/src/api/categoryMap'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -32,6 +34,7 @@ const PAYMENT_METHODS: { value: string; label: string }[] = [
   { value: 'bank', label: 'Bank' },
   { value: 'credit_card', label: 'Credit card' },
 ]
+const MIN_CATEGORY_SUGGESTION_CHARS = 3
 
 function str(v: string | string[] | undefined): string {
   return typeof v === 'string' ? v : ''
@@ -51,6 +54,7 @@ export default function RecurringExpenseModal() {
   const suggestionId = str(params.suggestionId)
   const isReviewingSuggestion = suggestionId !== '' && !isEdit
 
+  const categoriesQ = useCategories()
   const recurringQ = useRecurringExpenses()
   const addRecurring = useAddRecurringExpense()
   const updateRecurring = useUpdateRecurringExpense()
@@ -60,6 +64,10 @@ export default function RecurringExpenseModal() {
   const acceptSuggestion = useAcceptRecurringSuggestion()
   const existing = recurringQ.data?.find((r) => r.id === id)
   const isActive = existing ? existing.status === 'active' : true
+  const categories = useMemo(
+    () => (categoriesQ.data ?? []).map((row) => row.name).filter(Boolean),
+    [categoriesQ.data],
+  )
 
   const [item, setItem] = useState(existing?.item ?? str(params.item))
   const [amount, setAmount] = useState(existing?.amount_inr ?? str(params.amount))
@@ -68,6 +76,7 @@ export default function RecurringExpenseModal() {
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
   const [notes, setNotes] = useState(existing?.notes ?? str(params.notes))
   const [category, setCategory] = useState(existing?.category ?? str(params.category))
+  const [categoryTouched, setCategoryTouched] = useState(Boolean(existing?.category ?? str(params.category)))
   const [paymentMethod, setPaymentMethod] = useState(existing?.payment_method || str(params.paymentMethod) || 'bank')
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -84,8 +93,36 @@ export default function RecurringExpenseModal() {
     setEndDate(existing.end_date ?? '')
     setNotes(existing.notes ?? '')
     setCategory(existing.category ?? '')
+    setCategoryTouched(Boolean(existing.category))
     setPaymentMethod(existing.payment_method || 'bank')
   }, [existing])
+
+  useEffect(() => {
+    if (categoryTouched || item.trim().length < MIN_CATEGORY_SUGGESTION_CHARS || categories.length === 0) return
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      suggestCategoryLLM(item, categories).then((suggested) => {
+        if (cancelled || !suggested || !categories.includes(suggested)) return
+        setCategory(suggested)
+      })
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [categories, categoryTouched, item])
+
+  function handleItemChange(value: string) {
+    setItem(value)
+    if (!categoryTouched) setCategory('')
+  }
+
+  function handleCategorySelect(value: string) {
+    setCategory(value)
+    setCategoryTouched(true)
+  }
 
   const parsedAmount = Number(amount)
   const datesValid = startDate !== '' && (endDate === '' || endDate >= startDate)
@@ -194,7 +231,7 @@ export default function RecurringExpenseModal() {
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>What is it</Text>
           <TextInput
             value={item}
-            onChangeText={setItem}
+            onChangeText={handleItemChange}
             placeholder="e.g. Rent"
             placeholderTextColor={tokens.text3}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
@@ -291,6 +328,8 @@ export default function RecurringExpenseModal() {
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Category</Text>
           <Pressable
             onPress={() => setCategorySheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={category ? `Category: ${splitEmoji(category).text}` : 'Pick a category'}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
           >
             <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
@@ -354,7 +393,7 @@ export default function RecurringExpenseModal() {
         visible={categorySheetOpen}
         onClose={() => setCategorySheetOpen(false)}
         value={category}
-        onSelect={setCategory}
+        onSelect={handleCategorySelect}
       />
 
       <BottomSheet visible={confirmSheet !== null} onClose={() => !mutatingAction && setConfirmSheet(null)}>
