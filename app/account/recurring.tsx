@@ -6,10 +6,13 @@ import {
   ScrollView,
   RefreshControl,
   StyleSheet,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus, Repeat } from "lucide-react-native";
+import { ArrowLeft, ChevronRight, Plus, Repeat, Repeat2 } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -231,6 +234,7 @@ export default function RecurringExpensesScreen() {
               Rent, the gym, your maid. Add it here and we&apos;ll log it for
               you on every due date.
             </Text>
+            <FindRecurringEntry style={{ marginTop: 16, width: "100%" }} />
           </>
         ) : (
           <>
@@ -261,6 +265,8 @@ export default function RecurringExpensesScreen() {
                 <AllocationBar segments={segments} />
               </View>
             )}
+
+            <FindRecurringEntry />
 
             {active.length > 0 ? (
               <Section title="Active">
@@ -429,6 +435,45 @@ export default function RecurringExpensesScreen() {
   }
 }
 
+/** Small discovery affordance into account/recurring-suggestions.tsx, the "Find recurring expenses" scan. */
+function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { tokens } = useTheme();
+  const router = useRouter();
+  const press = usePressSpring(0.98);
+
+  return (
+    <Reanimated.View style={[press.style, style]}>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          router.push("/account/recurring-suggestions");
+        }}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        style={[
+          styles.discoveryRow,
+          { backgroundColor: tokens.card, borderColor: tokens.border },
+        ]}
+      >
+        <View
+          style={[styles.discoveryIcon, { backgroundColor: tokens.accentSoft }]}
+        >
+          <Icon icon={Repeat2} size={16} color={tokens.accent} />
+        </View>
+        <Text
+          style={[
+            styles.discoveryText,
+            { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+          ]}
+        >
+          Find recurring expenses
+        </Text>
+        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+      </Pressable>
+    </Reanimated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
@@ -464,6 +509,23 @@ const styles = StyleSheet.create({
   heroBlock: { gap: 4 },
   heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   allocationCard: { borderWidth: 1, borderRadius: 16, padding: 16 },
+  discoveryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  discoveryIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  discoveryText: { flex: 1, fontSize: 14 },
   section: { gap: 8 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
   rowCard: { borderWidth: 1, borderRadius: 14 },

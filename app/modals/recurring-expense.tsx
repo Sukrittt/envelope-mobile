@@ -15,6 +15,7 @@ import {
   useResumeRecurringExpense,
   useUpdateRecurringExpense,
 } from '@/src/hooks/useRecurringExpenses'
+import { useAcceptRecurringSuggestion } from '@/src/hooks/useRecurringSuggestions'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -46,6 +47,9 @@ export default function RecurringExpenseModal() {
   const params = useLocalSearchParams()
   const id = str(params.id)
   const isEdit = id !== ''
+  // Present only when opened from Find recurring's "Review" action (account/recurring-suggestions.tsx).
+  const suggestionId = str(params.suggestionId)
+  const isReviewingSuggestion = suggestionId !== '' && !isEdit
 
   const recurringQ = useRecurringExpenses()
   const addRecurring = useAddRecurringExpense()
@@ -53,17 +57,18 @@ export default function RecurringExpenseModal() {
   const pauseRecurring = usePauseRecurringExpense()
   const resumeRecurring = useResumeRecurringExpense()
   const deleteRecurring = useDeleteRecurringExpense()
+  const acceptSuggestion = useAcceptRecurringSuggestion()
   const existing = recurringQ.data?.find((r) => r.id === id)
   const isActive = existing ? existing.status === 'active' : true
 
-  const [item, setItem] = useState(existing?.item ?? '')
-  const [amount, setAmount] = useState(existing?.amount_inr ?? '')
-  const [frequency, setFrequency] = useState(existing?.frequency || 'monthly')
-  const [startDate, setStartDate] = useState(existing?.start_date || todayLocal())
+  const [item, setItem] = useState(existing?.item ?? str(params.item))
+  const [amount, setAmount] = useState(existing?.amount_inr ?? str(params.amount))
+  const [frequency, setFrequency] = useState(existing?.frequency || str(params.frequency) || 'monthly')
+  const [startDate, setStartDate] = useState(existing?.start_date || str(params.startDate) || todayLocal())
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [category, setCategory] = useState(existing?.category ?? '')
-  const [paymentMethod, setPaymentMethod] = useState(existing?.payment_method || 'bank')
+  const [notes, setNotes] = useState(existing?.notes ?? str(params.notes))
+  const [category, setCategory] = useState(existing?.category ?? str(params.category))
+  const [paymentMethod, setPaymentMethod] = useState(existing?.payment_method || str(params.paymentMethod) || 'bank')
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [saved, setSaved] = useState(false)
   const [confirmSheet, setConfirmSheet] = useState<'delete' | null>(null)
@@ -121,10 +126,16 @@ export default function RecurringExpenseModal() {
         { onSuccess, onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
       )
     } else {
-      addRecurring.mutate(fields, {
-        onSuccess,
-        onError: () => Alert.alert("Couldn't add this", 'Check your connection and try again.'),
-      })
+      addRecurring.mutate(
+        { ...fields, suggestion_id: isReviewingSuggestion ? suggestionId : undefined },
+        {
+          onSuccess: () => {
+            if (isReviewingSuggestion) acceptSuggestion(suggestionId)
+            onSuccess()
+          },
+          onError: () => Alert.alert("Couldn't add this", 'Check your connection and try again.'),
+        },
+      )
     }
   }
 
@@ -170,6 +181,15 @@ export default function RecurringExpenseModal() {
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]}
         keyboardShouldPersistTaps="handled"
       >
+        {isReviewingSuggestion && (
+          <View style={[styles.reviewBanner, { backgroundColor: tokens.accentSoft }]}>
+            <Text style={[styles.reviewBannerText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+              Review this suggestion. Once added, we&apos;ll automatically log an expense on every due date. Past
+              expenses stay unchanged.
+            </Text>
+          </View>
+        )}
+
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>What is it</Text>
           <TextInput
@@ -380,6 +400,8 @@ const styles = StyleSheet.create({
   headerAction: { fontSize: 14, width: 52 },
   headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 16 },
+  reviewBanner: { borderRadius: 14, padding: 12 },
+  reviewBannerText: { fontSize: 12.5, lineHeight: 17 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },

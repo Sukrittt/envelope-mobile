@@ -330,6 +330,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/archive" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/recurring-suggestions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/bill-scans" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           {!justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />

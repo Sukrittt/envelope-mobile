@@ -3,6 +3,8 @@ import type { CsvResponse, RecurringExpenseRow } from '@/src/types'
 
 /** Fields the server accepts on create; `next_run_date` and `status` are its own to set. */
 export interface RecurringExpenseInput {
+  /** Set when adding from a Find recurring expenses suggestion, so the server can retire it. */
+  suggestion_id?: string
   item: string
   amount_inr: string
   category: string
