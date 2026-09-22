@@ -1,7 +1,7 @@
 // Bug report / feedback form (Mobile/app/account/feedback.tsx), replacing the
 // old Linking.openURL(github.com/.../issues/new) flow in app/account/help.tsx.
-// The server (Web/app/api/feedback) files the GitHub issue — this module just
-// posts the form fields plus device diagnostics.
+// The server (Web/app/api/feedback) records the report in Mongo — this module
+// just posts the form fields plus device diagnostics.
 import { apiFetch } from './client'
 import { deviceLabel } from './workos'
 import { getLastScreen } from '@/src/lib/analytics'

@@ -30,9 +30,9 @@ const COPY: Record<FeedbackType, { header: string; titlePlaceholder: string; des
   },
 }
 
-// Files a GitHub issue via Web/app/api/feedback — replaces the old
-// Linking.openURL(github.com/.../issues/new) flow in app/account/help.tsx so
-// filing a report never leaves the app.
+// Posts to Web/app/api/feedback, which records the report in Mongo —
+// replaces the old Linking.openURL(github.com/.../issues/new) flow in
+// app/account/help.tsx so filing a report never leaves the app.
 export default function FeedbackScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -114,7 +114,7 @@ export default function FeedbackScreen() {
             ]}
           />
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            This becomes a public GitHub issue. Leave out passwords or personal details.
+            This goes straight to our team. Leave out passwords or personal details.
           </Text>
         </View>
 
