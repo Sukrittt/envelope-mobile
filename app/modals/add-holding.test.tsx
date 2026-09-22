@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { addHolding, getHoldings, updateHolding } from '@/src/api/holdings'
+import { HoldingWriteError } from '@/src/lib/holdingConflict'
 import AddHoldingModal from './add-holding'
 
 jest.mock('@/src/api/holdings', () => ({
@@ -92,6 +93,7 @@ describe('edit mode', () => {
     recurring_amount: '',
     recurring_day: '',
     recurring_last_run: '',
+    version: 4,
   }
 
   it('hides the name/type/starting-value fields and backfills the recurring state from the cached holding', async () => {
@@ -141,10 +143,11 @@ describe('edit mode', () => {
     fireEvent.press(getByText('Save changes'))
 
     await waitFor(() =>
-      expect(updateHolding).toHaveBeenCalledWith('Bonds', {
-        is_recurring: true,
-        recurring_amount: '3600',
-      }),
+      expect(updateHolding).toHaveBeenCalledWith(
+        'Bonds',
+        { is_recurring: true, recurring_amount: '3600' },
+        4,
+      ),
     )
   })
 
@@ -168,10 +171,44 @@ describe('edit mode', () => {
     fireEvent.press(getByText('Save changes'))
 
     await waitFor(() =>
-      expect(updateHolding).toHaveBeenCalledWith('Mutual Fund SIP', {
-        is_recurring: false,
-        recurring_amount: undefined,
-      }),
+      expect(updateHolding).toHaveBeenCalledWith('Mutual Fund SIP', { is_recurring: false }, 4),
+    )
+  })
+
+  it('preserves the draft, rebases to the latest version, and requires a second save', async () => {
+    mockParams = { name: 'Bonds' }
+    const original = { ...existingHolding, is_recurring: 'true', recurring_amount: '100' }
+    const latest = { ...original, value: '50000', recurring_amount: '200', version: 5 }
+    ;(getHoldings as jest.Mock).mockResolvedValue([original])
+    ;(updateHolding as jest.Mock)
+      .mockRejectedValueOnce(new HoldingWriteError(409, 'Holding changed', latest))
+      .mockResolvedValueOnce(undefined)
+
+    const screen = renderWithProviders(<AddHoldingModal />)
+    const amount = await screen.findByDisplayValue('100')
+    fireEvent.changeText(amount, '150')
+    fireEvent.press(screen.getByText('Save changes'))
+
+    expect(await screen.findByText('This holding was updated')).toBeTruthy()
+    expect(screen.getByLabelText('Monthly contribution, latest saved: ₹200 monthly')).toBeTruthy()
+    expect(screen.getByLabelText('Monthly contribution, with your changes: ₹150 monthly')).toBeTruthy()
+    expect(updateHolding).toHaveBeenCalledTimes(1)
+    expect(updateHolding).toHaveBeenLastCalledWith(
+      'Bonds',
+      { is_recurring: true, recurring_amount: '150' },
+      4,
+    )
+
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with my changes' }))
+    expect(screen.getByDisplayValue('150')).toBeTruthy()
+    expect(updateHolding).toHaveBeenCalledTimes(1)
+
+    fireEvent.press(screen.getByText('Save changes'))
+    await waitFor(() => expect(updateHolding).toHaveBeenCalledTimes(2))
+    expect(updateHolding).toHaveBeenLastCalledWith(
+      'Bonds',
+      { is_recurring: true, recurring_amount: '150' },
+      5,
     )
   })
 })
