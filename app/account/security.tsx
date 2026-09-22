@@ -1,13 +1,12 @@
 import { clearAccess } from '@/src/api/accessMode'
 import { deleteAccount,resendEmailCode,revokeAllSessions,revokeSession } from '@/src/api/account'
-import { useLinkGoogle } from '@/src/api/useLinkGoogle'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { Alert } from '@/src/components/ui/AlertHost'
-import { useIdentities,usePrivacyProof,useRestoreAccount,useSessions,useUpdateUser,useUser } from '@/src/hooks/useUser'
+import { usePrivacyProof,useRestoreAccount,useSessions,useUpdateUser,useUser } from '@/src/hooks/useUser'
 import { daysUntil } from '@/src/lib/format'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -38,8 +37,6 @@ export default function SecurityScreen() {
   const restoreAccountMutation = useRestoreAccount()
   const user = userQuery.data
   const sessionsQuery = useSessions()
-  const identitiesQuery = useIdentities()
-  const linkGoogle = useLinkGoogle()
   const proofQuery = usePrivacyProof()
   const proof = proofQuery.data
   const [showProof, setShowProof] = useState(false)
@@ -59,13 +56,6 @@ export default function SecurityScreen() {
 
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
-
-  const googleLinked = identitiesQuery.data?.includes('GoogleOAuth') ?? false
-
-  useEffect(() => {
-    if (linkGoogle.done) identitiesQuery.refetch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkGoogle.done])
 
   const openNameEdit = () => {
     setNameDraft(user?.name ?? '')
@@ -251,33 +241,6 @@ export default function SecurityScreen() {
                   </Pressable>
                 </View>
               </View>
-            )}
-          </View>
-          <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-          <View style={styles.row}>
-            <View style={[styles.gBadge, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-              <Text style={[styles.gBadgeText, { color: tokens.accentInk, fontFamily: fontFamily.displaySemiBold }]}>G</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Google</Text>
-              {linkGoogle.error && (
-                <Text style={[styles.rowHint, { color: tokens.coral }]} numberOfLines={2}>
-                  {linkGoogle.error}
-                </Text>
-              )}
-            </View>
-            {googleLinked ? (
-              <Text style={[styles.rowHint, { color: tokens.text2 }]}>Linked</Text>
-            ) : (
-              <Pressable
-                onPress={linkGoogle.link}
-                disabled={linkGoogle.pending}
-                style={[styles.editButton, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}
-              >
-                <Text style={[styles.editButtonText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-                  {linkGoogle.pending ? 'Linking…' : 'Link'}
-                </Text>
-              </Pressable>
             )}
           </View>
         </View>
@@ -503,8 +466,6 @@ const styles = StyleSheet.create({
   verified: { fontSize: 11 },
   divider: { height: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
-  gBadge: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  gBadgeText: { fontSize: 13 },
   rowLabel: { fontSize: 14 },
   rowHint: { fontSize: 11, marginTop: 2 },
   editButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
