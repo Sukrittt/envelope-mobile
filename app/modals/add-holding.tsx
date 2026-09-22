@@ -8,6 +8,15 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddHolding, useHoldings, useUpdateHolding } from '@/src/hooks/useHoldings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { ConflictReview } from '@/src/components/shared/ConflictReview'
+import {
+  HoldingWriteError,
+  holdingChanges,
+  holdingDraft,
+  rebaseHoldingDraft,
+  type HoldingDraft,
+} from '@/src/lib/holdingConflict'
+import type { HoldingRow } from '@/src/types'
 
 const TYPES = ['Equity', 'FD', 'Mutual Fund', 'Gold', 'Crypto', 'Bonds', 'Other']
 
@@ -38,8 +47,11 @@ export default function AddHoldingModal() {
   const [name, setName] = useState('')
   const [type, setType] = useState('')
   const [value, setValue] = useState('')
+  const [base, setBase] = useState<HoldingDraft | null>(null)
+  const [expectedVersion, setExpectedVersion] = useState<number | null>(null)
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurringAmount, setRecurringAmount] = useState('')
+  const [conflict, setConflict] = useState<HoldingRow | null>(null)
   const [saved, setSaved] = useState(false)
 
   // existing loads async on first mount (query cache may be cold) — backfill once it arrives.
@@ -50,15 +62,21 @@ export default function AddHoldingModal() {
   useEffect(() => {
     if (!existing || backfilledRef.current) return
     backfilledRef.current = true
-    setIsRecurring(existing.is_recurring === 'true')
-    setRecurringAmount(existing.recurring_amount || '')
+    const loaded = holdingDraft(existing)
+    setBase(loaded)
+    setExpectedVersion(existing.version)
+    setIsRecurring(loaded.isRecurring)
+    setRecurringAmount(loaded.recurringAmount)
   }, [existing])
 
   const parsedValue = Number(value)
   const parsedRecurring = Number(recurringAmount)
   const recurringOk = !isRecurring || (recurringAmount.trim() !== '' && !Number.isNaN(parsedRecurring) && parsedRecurring >= 0)
+  const draft = { isRecurring, recurringAmount }
+  const recurringUpdates = base ? holdingChanges(base, draft) : {}
+  const hasChanges = Object.keys(recurringUpdates).length > 0
   const canSubmit = isEdit
-    ? recurringOk
+    ? base !== null && expectedVersion !== null && recurringOk && hasChanges
     : name.trim() !== '' && value.trim() !== '' && !Number.isNaN(parsedValue) && parsedValue >= 0 && recurringOk
   const saving = addHolding.isPending || updateHolding.isPending
 
@@ -76,14 +94,21 @@ export default function AddHoldingModal() {
       updateHolding.mutate(
         {
           name: origName,
-          updates: {
-            is_recurring: isRecurring,
-            recurring_amount: isRecurring ? recurringAmount.trim() : undefined,
-          },
+          version: expectedVersion!,
+          updates: recurringUpdates,
         },
         {
           onSuccess: () => setSaved(true),
-          onError: () => Alert.alert('Could not save changes', 'Check your connection and try again.'),
+          onError: (error) => {
+            if (error instanceof HoldingWriteError && error.status === 409 && error.current) {
+              setConflict(error.current)
+              return
+            }
+            Alert.alert(
+              'Could not save changes',
+              error instanceof Error ? error.message : 'Check your connection and try again.',
+            )
+          },
         },
       )
     } else {
@@ -103,12 +128,52 @@ export default function AddHoldingModal() {
     }
   }
 
+  function reviewLatest(keepDraft: boolean) {
+    if (!conflict || !base) return
+    const latest = holdingDraft(conflict)
+    const next = keepDraft ? rebaseHoldingDraft(base, draft, conflict) : latest
+    setBase(latest)
+    setExpectedVersion(conflict.version)
+    setIsRecurring(next.isRecurring)
+    setRecurringAmount(next.recurringAmount)
+    setConflict(null)
+  }
+
+  function describeRecurring(value: HoldingDraft) {
+    return value.isRecurring
+      ? `${currencySymbol}${Number(value.recurringAmount || 0).toLocaleString()} monthly`
+      : 'Off'
+  }
+
+  const merged = conflict && base ? rebaseHoldingDraft(base, draft, conflict) : null
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: tokens.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
+      {conflict && merged && (
+        <ConflictReview
+          title="Review holding"
+          heading="This holding was updated"
+          description="A newer version was saved elsewhere. Your monthly contribution is still here."
+          rows={[
+            {
+              label: 'Monthly contribution',
+              saved: describeRecurring(holdingDraft(conflict)),
+              next: describeRecurring(merged),
+            },
+          ]}
+          guidance="Continue with your edit and keep the latest holding updates. You can review it before saving."
+          announcement="This holding was updated elsewhere. Review the latest saved monthly contribution and your changes."
+          testID="holding-conflict-scroll"
+          onChoose={reviewLatest}
+          onClose={() => setConflict(null)}
+        />
+      )}
+      <View
+        style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}
+      >
         <Pressable onPress={() => router.back()} hitSlop={12} disabled={saved}>
           <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
             Cancel
