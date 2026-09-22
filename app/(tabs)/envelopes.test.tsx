@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native'
+import { act, fireEvent, render } from '@testing-library/react-native'
 import { ScrollView, View } from 'react-native'
 import { moveItem } from '@/src/lib/dragReorder'
 import { GestureDetector } from 'react-native-gesture-handler'
@@ -12,6 +12,7 @@ const mockCategories = mockGroups.flatMap((group, i) =>
 const mockMove = jest.fn()
 const mockAnimations: ((finished: boolean) => void)[] = []
 const mockFrameCallbacks = new Set<() => void>()
+const mockSprings: unknown[] = []
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: mockGroups }),
   useMoveGroup: () => ({ mutate: mockMove }),
@@ -59,6 +60,10 @@ jest.mock('react-native-reanimated', () => ({
       }
     }, [])
   },
+  withSpring: (value: unknown) => {
+    mockSprings.push(value)
+    return value
+  },
   withTiming: (value: number, _config: unknown, callback?: (finished: boolean) => void) => {
     if (!callback) return value
     let done = false
@@ -90,6 +95,7 @@ beforeEach(() => {
   mockMove.mockReset()
   mockMove.mockImplementation(({ name, toIndex }) => { mockGroups = moveItem(mockGroups, name, toIndex) })
   mockAnimations.length = 0
+  mockSprings.length = 0
   mockFrameCallbacks.clear()
   frames = new Map()
   nextFrame = 0
@@ -125,38 +131,80 @@ function mount() {
     })
     act(() => card.props.onDrop(name, cards().indexOf(card), to))
   }
-  return { ...screen, cards, drop }
+  // A body is open when its group is not collapsed; bodies stay mounted and animate their
+  // height, so their text is in the tree either way.
+  const bodyOpen = (name: string) => {
+    const card = cards().find((node) => node.props.name === name)!
+    return !card.findAll((node) => typeof node.type === 'function' && node.type.name === 'GroupBody')[0]
+      .props.collapsed
+  }
+  return { ...screen, cards, drop, bodyOpen }
 }
 
 it('restores expanded bodies after every drop, including immediate successive reorders', () => {
   const screen = mount()
   for (let i = 0; i < 10; i++) {
     screen.drop('House', i % 2 === 0 ? 4 : 0)
-    expect(screen.queryByText('House category 0')).toBeNull()
+    expect(screen.bodyOpen('House')).toBe(false)
     for (let f = 0; f < 4; f++) frame()
-    expect(screen.getByText('House category 0')).toBeTruthy()
-    expect(screen.getByText('Lifestyle category 0')).toBeTruthy()
-    expect(screen.queryByText('Savings category 0')).toBeNull()
+    expect(screen.bodyOpen('House')).toBe(true)
+    expect(screen.bodyOpen('Lifestyle')).toBe(true)
+    expect(screen.bodyOpen('Savings')).toBe(false)
     expect(screen.UNSAFE_getByType(ScrollView).props.scrollEnabled).toBe(true)
     expect(screen.cards().every((card) => !card.props.drag.active.value)).toBe(true)
     expect(screen.cards().map((card) => card.props.name)).toEqual(mockGroups)
   }
 })
 
-it('never lets native layout animations move a card while a drag holds the lock', () => {
+it('does not give card position ownership to native layout animations', () => {
   const screen = mount()
-  // Native layout animations may outlive their React props. If one started during a drag,
-  // its stale origin/height could survive drop and overlap newly expanded neighbours.
-  const values = {
-    currentOriginX: 0, currentOriginY: 10, currentWidth: 100, currentHeight: 50,
-    targetOriginX: 0, targetOriginY: 90, targetWidth: 100, targetHeight: 20,
-  }
+  // Native layout animations own a view's origin and size until they finish, and they outlive
+  // their React props. A card whose position one of them wrote lands wherever that animation
+  // last aimed, overlapping newly expanded neighbours. Open/close animates body height instead.
   for (const card of screen.cards()) {
-    const layout = card.findAllByType(View).find((node) => node.props.layout)!.props.layout
-    act(() => { card.props.drag.active.value = true })
-    expect(layout(values).animations).toEqual({ originX: 0, originY: 90, width: 100, height: 20 })
-    act(() => { card.props.drag.active.value = false })
+    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
   }
+  fireEvent.press(screen.getByText('Collapse all'))
+  screen.drop('Lifestyle', 4)
+  for (let f = 0; f < 4; f++) frame()
+  for (const card of screen.cards()) {
+    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
+  }
+})
+
+// GroupChevron springs a rotation string on every render; only the card offsets are numbers.
+function slides() {
+  return mockSprings.filter((value) => typeof value === 'number')
+}
+
+it('slides a card from where layout moved it, but never while a drag holds the lock', () => {
+  const screen = mount()
+  const moveTo = (index: number, y: number) =>
+    act(() => {
+      fireEvent(screen.cards()[index].findAllByType(View)[0], 'layout', { nativeEvent: { layout: { y } } })
+    })
+  // The first layout of a card only records where it landed: there is nowhere to slide from.
+  moveTo(1, 70)
+  expect(slides()).toEqual([])
+  // A group above it opened, so it slides the distance it travelled back to zero.
+  mockSprings.length = 0
+  moveTo(1, 260)
+  expect(slides()).toEqual([0])
+  // Drag commits must land instantly. Every phase of a drop re-lays out the whole list.
+  mockSprings.length = 0
+  screen.drop('House', 4)
+  moveTo(1, 70)
+  for (let f = 0; f < 4; f++) frame()
+  expect(slides()).toEqual([])
+})
+
+it('fades a body in on tap and leaves it out of native layout while collapsed', () => {
+  const screen = mount()
+  expect(screen.bodyOpen('Savings')).toBe(false)
+  expect(screen.queryByText('Savings category 0')).toBeNull()
+  fireEvent.press(screen.getByText('Savings'))
+  expect(screen.bodyOpen('Savings')).toBe(true)
+  expect(screen.getByText('Savings category 0')).toBeTruthy()
 })
 
 function gestureFor(card: ReturnType<ReturnType<typeof mount>['cards']>[number], longPress = false) {

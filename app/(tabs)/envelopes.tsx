@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
+import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight, MoreVertical, Plus, Equal } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
-  FadeIn,
   measure,
   useAnimatedRef,
   useAnimatedStyle,
@@ -13,10 +13,8 @@ import Reanimated, {
   useSharedValue,
   withSpring,
   withTiming,
-  LinearTransition,
   type AnimatedRef,
   type SharedValue,
-  type LayoutAnimationsValues,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -76,54 +74,50 @@ function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string 
   )
 }
 
-const BODY_TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
-
-// Layout/exit animations run on the UI thread and read the drag lock when they fire, so they
-// animate for a tap on a group but never while a drag is lifting, settling, or restoring bodies.
-function groupLayout(active: SharedValue<boolean>) {
-  return (v: LayoutAnimationsValues) => {
-    'worklet'
-    const go = !active.value
-    return {
-      initialValues: { originX: v.currentOriginX, originY: v.currentOriginY, width: v.currentWidth, height: v.currentHeight },
-      animations: {
-        originX: go ? withSpring(v.targetOriginX, SPRING) : v.targetOriginX,
-        originY: go ? withSpring(v.targetOriginY, SPRING) : v.targetOriginY,
-        width: go ? withSpring(v.targetWidth, SPRING) : v.targetWidth,
-        height: go ? withSpring(v.targetHeight, SPRING) : v.targetHeight,
-      },
-    }
-  }
-}
-
-function groupBodyExit(active: SharedValue<boolean>) {
-  return () => {
-    'worklet'
-    return {
-      initialValues: { opacity: 1 },
-      animations: { opacity: withTiming(0, { duration: active.value ? 0 : 120 }) },
-    }
-  }
-}
-
-function GroupBody({
-  collapsed,
-  active,
-  style,
-  children,
-}: {
-  collapsed: boolean
-  active: SharedValue<boolean>
-  style: object
-  children: React.ReactNode
-}) {
-  const exiting = useMemo(() => groupBodyExit(active), [active])
-  if (collapsed) return null
-  return (
-    <Reanimated.View entering={FadeIn.duration(150)} exiting={exiting} style={style}>
-      {children}
-    </Reanimated.View>
+// Open/close cannot use any layout animation. Reanimated's keeps owning a card's origin and
+// size, which the drag's per-frame measure() reads, so a stale one survives a reorder and
+// leaves the cards overlapping; RN's own LayoutAnimation is a no-op on Fabric. So layout
+// changes land instantly and the motion is faked with transforms only: the body fades in,
+// and every card that moved slides from where it was (see the FLIP in DraggableGroupCard).
+// FLIP: layout has already moved the view by the time onLayout runs, so put it back by the
+// distance it travelled and spring that offset away. Transform only, and always driven back
+// to 0, so nothing ever owns where a card actually sits. Locked while a drag runs: the drag
+// owns the offset then, and its commits must land instantly.
+function useFlip(locked: boolean) {
+  const offset = useSharedValue(0)
+  const laidOutTop = useRef<number | null>(null)
+  const lockedRef = useRef(locked)
+  lockedRef.current = locked
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const top = e.nativeEvent.layout.y
+      const previous = laidOutTop.current
+      laidOutTop.current = top
+      if (previous === null || previous === top || lockedRef.current) return
+      offset.value = previous - top
+      offset.value = withSpring(0, SPRING)
+    },
+    [offset],
   )
+  return { offset, onLayout }
+}
+
+function GroupBody({ collapsed, style, children }: { collapsed: boolean; style: object; children: React.ReactNode }) {
+  if (collapsed) return null
+  return <FadingIn style={style}>{children}</FadingIn>
+}
+
+// The fade is a plain opacity animation, not an `entering` one. Reanimated's entering
+// animations register the view with its layout-animation manager, which then also drives the
+// view when it unmounts: collapsing a group slid its rows off to the right. A removed body
+// must leave native layout immediately, on a lift as much as on a tap.
+function FadingIn({ style, children }: { style: object; children: React.ReactNode }) {
+  const opacity = useSharedValue(0)
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 180 })
+  }, [opacity])
+  const fade = useAnimatedStyle(() => ({ opacity: opacity.value }))
+  return <Reanimated.View style={[style, fade]}>{children}</Reanimated.View>
 }
 
 function DraggableCategoryList({
@@ -313,10 +307,12 @@ function DraggableGroupCard({
   children: React.ReactNode
 }) {
   const cardRef = useAnimatedRef<Reanimated.View>()
-  const layout = useMemo(() => groupLayout(drag.active), [drag.active])
   // Card top within the list, where it should look like it is (animated for non-held cards).
   const shownTop = useSharedValue(0)
   const translate = useSharedValue(0)
+  // How far this card still has to slide from where layout last put it, so a collapse or
+  // expand elsewhere in the list reads as motion instead of a jump.
+  const { offset: flip, onLayout: onCardLayout } = useFlip(dragging)
   const shownIndex = useSharedValue(-1)
   const seenSession = useSharedValue(-1)
   const fingerY = useSharedValue(0)
@@ -390,6 +386,7 @@ function DraggableGroupCard({
       drag.target.value = from
       drag.dropping.value = false
       drag.active.value = true
+      flip.value = 0
       scheduleOnRN(lift)
     }
     function finish(success: boolean) {
@@ -439,13 +436,13 @@ function DraggableGroupCard({
       return id === LONG_PRESS ? gesture.activateAfterLongPress(LONG_PRESS_MS) : gesture.minDistance(0)
     }
     return { grip: pan(GRIP), longPress: pan(LONG_PRESS) }
-  }, [name, draggable, drag, cardRef, listRef, owner, fingerY, grabDelta, shownTop, seenSession, shownIndex, translate, follow, lift, drop])
+  }, [name, draggable, drag, cardRef, listRef, owner, fingerY, grabDelta, shownTop, seenSession, shownIndex, translate, flip, follow, lift, drop])
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       {
         translateY:
-          !settling && drag.active.value && seenSession.value === drag.session.value ? translate.value : 0,
+          !settling && drag.active.value && seenSession.value === drag.session.value ? translate.value : flip.value,
       },
     ],
   }))
@@ -462,7 +459,7 @@ function DraggableGroupCard({
     <Reanimated.View
       ref={cardRef}
       collapsable={false}
-      layout={layout}
+      onLayout={onCardLayout}
       style={lifted ? styles.draggingCard : null}
     >
       {/* Only the inner view translates; this measured wrapper never has a native layout
@@ -542,6 +539,9 @@ export default function EnvelopesScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defer query updates until the current gesture and queued writes settle
     setGroupOrder(groups)
   }, [groups, dragPhase, moveGroup.isPending])
+  // The footer sits under the list, so it slides with the cards instead of jumping.
+  const footerFlip = useFlip(dragPhase !== 'idle')
+  const footerStyle = useAnimatedStyle(() => ({ transform: [{ translateY: footerFlip.offset.value }] }))
   const [liftedGroup, setLiftedGroup] = useState<string | null>(null)
   const [dropCount, setDropCount] = useState(0)
   const listRef = useAnimatedRef<Reanimated.View>()
@@ -896,7 +896,7 @@ export default function EnvelopesScreen() {
                     </Pressable>
                   )}
                 >
-                  <GroupBody collapsed={collapsed} active={groupDrag.active} style={styles.groupBody}>
+                  <GroupBody collapsed={collapsed} style={styles.groupBody}>
                     <DraggableCategoryList
                       items={items}
                       group={name}
@@ -934,7 +934,7 @@ export default function EnvelopesScreen() {
             })}
           </Reanimated.View>
 
-          <Reanimated.View layout={BODY_TRANSITION}>
+          <Reanimated.View onLayout={footerFlip.onLayout} style={footerStyle}>
             <Pressable
               onPress={openAddGroup}
               style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
