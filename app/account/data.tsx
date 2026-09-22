@@ -333,6 +333,7 @@ export default function DataScreen() {
             <Text
               style={[
                 styles.cardMeta,
+                styles.exportLimitMessage,
                 { color: tokens.coral, fontFamily: fontFamily.bodyMedium },
               ]}
             >
@@ -683,6 +684,7 @@ const styles = StyleSheet.create({
   card: { padding: 16, borderWidth: 1, borderRadius: 20 },
   cardTitle: { fontSize: 14 },
   cardMeta: { fontSize: 12, marginTop: 4 },
+  exportLimitMessage: { marginTop: 8 },
   exportRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   exportButton: {
     flex: 1,
