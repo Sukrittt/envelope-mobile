@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addGroup, deleteGroup, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
+import { writeGroupCache } from '@/src/lib/groupCache'
 
 const key = ['groups'] as const
 const categoriesKey = ['categories'] as const
 const moveKey = ['groups', 'move'] as const
 
+/** Write-through cache point for the group list, mirroring useCategories's getCategoriesAndCache. */
+async function getGroupsAndCache(): Promise<string[]> {
+  const groups = await getGroups()
+  await writeGroupCache(groups)
+  return groups
+}
+
 export function useGroups() {
-  return useQuery({ queryKey: key, queryFn: getGroups, staleTime: 30_000 })
+  return useQuery({ queryKey: key, queryFn: getGroupsAndCache, staleTime: 30_000 })
 }
 
 export function useAddGroup() {

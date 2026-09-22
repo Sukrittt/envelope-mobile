@@ -54,7 +54,8 @@ export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams
   })
 }
 
-export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; clientId: string; pending: boolean }
+/** `category` is the server's, which can differ from the one posted if it was renamed. Absent offline. */
+export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean }
 
 export function useAddExpense() {
   const qc = useQueryClient()
@@ -63,7 +64,7 @@ export function useAddExpense() {
       const payload = mintExpensePayload(row)
       try {
         const result = await postExpensePayload(payload)
-        return { id: result.id, timestamp: result.timestamp, version: result.version, clientId: payload.client_id, pending: false }
+        return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
       } catch (err) {
         // A real rejection (bad request, auth) must still fail loudly — only a
         // transport failure (offline) gets queued for later.
@@ -78,7 +79,7 @@ export function useAddExpense() {
       // after the fact. No amount and no item name, only the two fields worth
       // segmenting on.
       track('expense_logged', {
-        category: row.category,
+        category: _data.category ?? row.category,
         payment_method: row.payment_method ?? 'unknown',
       })
       qc.invalidateQueries({ queryKey: key })

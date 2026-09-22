@@ -12,6 +12,7 @@ import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavig
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 import { identifyUser,initAnalytics,track,trackScreen } from '@/src/lib/analytics'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
+import { clearGroupCache,readGroupCache } from '@/src/lib/groupCache'
 import { initPurchases } from '@/src/lib/purchases'
 import {
 addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
@@ -95,7 +96,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // this boot — hydrating any earlier would just get wiped by that clear.
       // React Query revalidates in the background once online (staleTime
       // already 30s), so this is a fast first paint, not a stale-forever cache.
-      if (restored) readCategoryCache().then((cached) => cached && queryClient.setQueryData(['categories'], cached))
+      if (restored) {
+        readCategoryCache().then((cached) => cached && queryClient.setQueryData(['categories'], cached))
+        readGroupCache().then((cached) => cached && queryClient.setQueryData(['groups'], cached))
+      }
     })
     // The auth screens persist a session (real or guest) then let the guards
     // take over — without this, hasSession stayed stale until the next app
@@ -118,7 +122,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
-      await Promise.allSettled([clearSnapshot(), clearPendingExpenses(), clearCategoryCache(), unregisterDevicePushToken(token)])
+      await Promise.allSettled([clearSnapshot(), clearPendingExpenses(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token)])
     })
     return () => {
       unsubscribe()

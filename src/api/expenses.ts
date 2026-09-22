@@ -69,16 +69,21 @@ export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
   return { ...row, date, timestamp: `${date}T${now.timestamp.slice(11)}`, client_id: Crypto.randomUUID() }
 }
 
-/** Resolves with the created (or, on a client_id replay, already-existing) row's identity. */
-export async function postExpensePayload(payload: ExpensePayload): Promise<{ id?: string; timestamp?: string; version?: number }> {
+/**
+ * Resolves with the created (or, on a client_id replay, already-existing) row's
+ * identity. `category` is the one the server actually stored: a name picked
+ * from a list loaded before a rename is mapped forward server-side, so it can
+ * differ from what was posted.
+ */
+export async function postExpensePayload(payload: ExpensePayload): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (!resp.ok) throw new HttpError(resp.status, `Failed to add expense: ${resp.status}`)
-  const data: { id?: string; timestamp?: string; version?: number } = await resp.json().catch(() => ({}))
-  return { id: data.id, timestamp: data.timestamp, version: data.version }
+  const data: { id?: string; timestamp?: string; version?: number; category?: string } = await resp.json().catch(() => ({}))
+  return { id: data.id, timestamp: data.timestamp, version: data.version, category: data.category }
 }
 
 /**
@@ -87,7 +92,7 @@ export async function postExpensePayload(payload: ExpensePayload): Promise<{ id?
  * its own payload via `mintExpensePayload` up front so it has something to
  * enqueue if the POST itself never happens.
  */
-export async function addExpense(row: NewExpenseRow): Promise<{ id?: string; timestamp?: string; version?: number }> {
+export async function addExpense(row: NewExpenseRow): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
   return postExpensePayload(mintExpensePayload(row))
 }
 

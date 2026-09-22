@@ -289,7 +289,11 @@ export default function LogExpenseScreen() {
                 loggedAt: new Date().toISOString(),
                 item: item.trim(),
                 amount: String(parsedAmount),
-                category,
+                // The server's category, not the picked one: a name chosen from
+                // a list loaded before a rename is mapped forward server-side,
+                // and the success screen finds its envelope by name. Falls back
+                // when queued offline, where there's no response to read.
+                category: res.category ?? category,
                 date,
                 notes: notes.trim(),
                 paymentMethod,

@@ -107,6 +107,32 @@ it('plays the nav circle save animation before replacing the screen with the suc
   )
 })
 
+it('sends the success screen the category the server stored, not the stale one it asked for', async () => {
+  // The picker list predates a rename, so the server maps 'Groceries' forward
+  // and answers with the live name. Passing the stale one on would make the
+  // success screen look up an envelope that no longer exists, and it would
+  // silently drop the budget progress bar.
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00', category: 'Essentials' })
+  const utils = setup()
+  await fillValidForm(utils)
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  await act(async () => {
+    jest.advanceTimersByTime(950)
+  })
+
+  expect(mockReplace).toHaveBeenCalledWith(
+    expect.objectContaining({
+      pathname: '/modals/expense-added',
+      params: expect.objectContaining({ category: 'Essentials' }),
+    }),
+  )
+})
+
 it('navigates to the success screen only after the save animation, not immediately on success', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
   const utils = setup()
