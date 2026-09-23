@@ -1,7 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CircleCheck, Repeat2 } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics'
@@ -53,6 +53,9 @@ export default function RecurringSuggestionsScreen() {
   const online = useOnline()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const params = useLocalSearchParams<{ kind?: string }>()
+  const targetKind: RecurringSuggestion['kind'] = params.kind === 'subscription' ? 'subscription' : 'other_recurring'
+  const subscriptionMode = targetKind === 'subscription'
   const { refreshing, onRefresh } = useRefresh()
 
   const [months, setMonths] = useState<ScanMonths>(6)
@@ -61,7 +64,7 @@ export default function RecurringSuggestionsScreen() {
   const dismiss = useDismissRecurringSuggestion()
 
   const data = query.data
-  const suggestions = data?.suggestions ?? []
+  const suggestions = data?.suggestions.filter((suggestion) => suggestion.kind === targetKind) ?? []
   const busy = scan.isPending || dismiss.isPending
   const failure = scan.error ?? dismiss.error ?? query.error
 
@@ -76,6 +79,21 @@ export default function RecurringSuggestionsScreen() {
   }
 
   function openSuggestion(s: RecurringSuggestion) {
+    if (s.kind === 'subscription') {
+      router.push({
+        pathname: '/modals/subscription',
+        params: {
+          suggestionId: s.id,
+          service: s.input.item,
+          amount: s.input.amount_inr,
+          category: s.input.category,
+          billingCycle: s.input.frequency,
+          nextDueDate: s.input.start_date,
+          notes: s.input.notes ?? '',
+        },
+      })
+      return
+    }
     router.push({
       pathname: '/modals/recurring-expense',
       params: {
@@ -106,12 +124,12 @@ export default function RecurringSuggestionsScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            Find recurring
+            {subscriptionMode ? 'Find subscriptions' : 'Find recurring'}
           </Text>
           <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
             {data?.scannedAt
               ? `Last scanned ${formatDateShort(data.scannedAt.slice(0, 10))}`
-              : 'Spot repeated payments'}
+              : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
           </Text>
         </View>
       </View>
@@ -128,7 +146,9 @@ export default function RecurringSuggestionsScreen() {
               <Icon icon={Repeat2} size={20} color={tokens.accent} />
             </View>
             <Text style={[styles.introBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              We&apos;ll scan your expenses for repeated payments. Choose which ones to automate.
+              {subscriptionMode
+                ? 'We’ll scan your expenses for services with a regular billing pattern. Choose which ones to track.'
+                : 'We’ll scan your expenses for repeated payments. Choose which ones to automate.'}
             </Text>
           </View>
 
@@ -144,7 +164,7 @@ export default function RecurringSuggestionsScreen() {
                 ? 'Scanning…'
                 : data?.scannedAt && data.remaining > 0
                   ? 'Scan remaining patterns'
-                  : 'Find recurring expenses'
+                  : subscriptionMode ? 'Find subscriptions' : 'Find recurring expenses'
             }
             onPress={() => scan.mutate(months)}
             disabled={busy || query.isLoading}
@@ -208,7 +228,7 @@ export default function RecurringSuggestionsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-                    No new recurring payments
+                    {subscriptionMode ? 'No new subscriptions' : 'No new recurring payments'}
                   </Text>
                   <Text style={[styles.emptyBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                     Nothing new for this period. Tracked and dismissed payments stay hidden.

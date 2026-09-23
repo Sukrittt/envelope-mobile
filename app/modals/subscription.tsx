@@ -15,6 +15,7 @@ import {
   useSubscriptions,
   useUpdateSubscription,
 } from '@/src/hooks/useSubscriptions'
+import { useAcceptRecurringSuggestion } from '@/src/hooks/useRecurringSuggestions'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -39,7 +40,9 @@ export default function SubscriptionModal() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
-  const origService = str(params.service)
+  const suggestionId = str(params.suggestionId)
+  const isReviewingSuggestion = suggestionId !== ''
+  const origService = isReviewingSuggestion ? '' : str(params.service)
   const isEdit = origService !== ''
 
   const subsQ = useSubscriptions()
@@ -48,15 +51,16 @@ export default function SubscriptionModal() {
   const cancelSub = useCancelSubscription()
   const reactivateSub = useReactivateSubscription()
   const deleteSub = useDeleteSubscription()
+  const acceptSuggestion = useAcceptRecurringSuggestion()
   const existing = subsQ.data?.find((s) => s.service === origService)
   const isActive = existing ? /^active/i.test(existing.status) : true
 
-  const [service, setService] = useState(existing?.service ?? '')
-  const [amount, setAmount] = useState(existing?.amount_inr ?? '')
-  const [cycle, setCycle] = useState(existing?.billing_cycle || 'monthly')
-  const [nextDueDate, setNextDueDate] = useState(existing?.next_due_date ?? '')
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [category, setCategory] = useState(existing?.category ?? '')
+  const [service, setService] = useState(existing?.service ?? str(params.service))
+  const [amount, setAmount] = useState(existing?.amount_inr ?? str(params.amount))
+  const [cycle, setCycle] = useState(existing?.billing_cycle || str(params.billingCycle) || 'monthly')
+  const [nextDueDate, setNextDueDate] = useState(existing?.next_due_date ?? str(params.nextDueDate))
+  const [notes, setNotes] = useState(existing?.notes ?? str(params.notes))
+  const [category, setCategory] = useState(existing?.category ?? str(params.category))
   const [categorySheetOpen, setCategorySheetOpen] = useState(false)
   const [saved, setSaved] = useState(false)
   const [confirmSheet, setConfirmSheet] = useState<'cancel' | 'delete' | null>(null)
@@ -108,6 +112,7 @@ export default function SubscriptionModal() {
     } else {
       addSub.mutate(
         {
+          suggestion_id: isReviewingSuggestion ? suggestionId : undefined,
           service: service.trim(),
           amount_inr: String(parsedAmount),
           billing_cycle: cycle,
@@ -116,7 +121,10 @@ export default function SubscriptionModal() {
           category,
         },
         {
-          onSuccess: () => setSaved(true),
+          onSuccess: () => {
+            if (isReviewingSuggestion) acceptSuggestion(suggestionId)
+            setSaved(true)
+          },
           onError: () => Alert.alert('Could not add subscription', 'Check your connection and try again.'),
         },
       )
@@ -174,6 +182,9 @@ export default function SubscriptionModal() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        {isReviewingSuggestion ? (
+          <Text style={[styles.reviewHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Review this suggestion. Future charges will be tracked from the due date below; past expenses stay unchanged.</Text>
+        ) : null}
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Service</Text>
           <TextInput
@@ -350,6 +361,7 @@ const styles = StyleSheet.create({
   headerAction: { fontSize: 14, width: 52 },
   headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 16 },
+  reviewHint: { fontSize: 12.5, lineHeight: 18 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },

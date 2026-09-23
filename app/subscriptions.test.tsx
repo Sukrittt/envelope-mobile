@@ -56,6 +56,13 @@ it('opens the add-subscription modal with no service, so it starts blank', () =>
   expect(mockPush).toHaveBeenCalledWith('/modals/subscription')
 })
 
+it('opens the subscription analyzer from the subscriptions screen', () => {
+  mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
+  const { getByText } = renderWithProviders(<SubscriptionsScreen />)
+  fireEvent.press(getByText('Find subscriptions'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/account/recurring-suggestions', params: { kind: 'subscription' } })
+})
+
 it('renders the live subscriptions list from the shared panel', () => {
   mockUseSubscriptions.mockReturnValue({ data: [sub({})], isLoading: false })
   const { getByText } = renderWithProviders(<SubscriptionsScreen />)

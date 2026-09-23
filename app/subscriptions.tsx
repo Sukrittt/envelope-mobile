@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, Plus } from 'lucide-react-native'
+import { ArrowLeft, Plus, Search } from 'lucide-react-native'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -45,6 +45,16 @@ export default function SubscriptionsScreen() {
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />}
       >
+        <Pressable
+          onPress={() => router.push({ pathname: '/account/recurring-suggestions', params: { kind: 'subscription' } })}
+          style={[styles.findButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+        >
+          <Icon icon={Search} size={17} color={tokens.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.findTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Find subscriptions</Text>
+            <Text style={[styles.findBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Scan past expenses for services you already pay for</Text>
+          </View>
+        </Pressable>
         <SubscriptionsPanel subscriptions={subscriptions} loading={isLoading} />
       </ScrollView>
     </View>
@@ -66,5 +76,8 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 19 },
   addButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
   addText: { fontSize: 12.5 },
-  body: { padding: 16 },
+  body: { padding: 16, gap: 14 },
+  findButton: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14 },
+  findTitle: { fontSize: 14 },
+  findBody: { fontSize: 12, lineHeight: 16, marginTop: 2 },
 })
