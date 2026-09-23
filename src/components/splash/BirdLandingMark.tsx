@@ -4,7 +4,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg'
 
 const BIRD_ORIGIN: [string, string, number] = ['50%', `${(386 / 512) * 100}%`, 0]
 const BAR_ORIGIN: [string, string, number] = ['50%', `${(392 / 512) * 100}%`, 0]
-const BIRD_PATH =
+export const BIRD_PATH =
   'M 352 212 L 404 248 L 352 284 A 110 110 0 0 1 146 288 L 86 164 L 162 178 A 110 110 0 0 1 352 212 Z ' +
   'M 287 216 A 19 19 0 1 1 325 216 A 19 19 0 1 1 287 216 Z'
 const MOTES = [

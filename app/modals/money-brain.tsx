@@ -30,6 +30,9 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
+import { ChatMarkdown } from '@/src/components/brain/ChatMarkdown'
+import { BrainThinking } from '@/src/components/brain/BrainThinking'
+import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
 import { track } from '@/src/lib/analytics'
@@ -38,15 +41,6 @@ import { useOnline } from '@/src/lib/netStatus'
 import { useQuery } from '@tanstack/react-query'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
-
-const CHAT_PHRASES = [
-  'Thinking it through…',
-  'Reading your recent transactions…',
-  'Checking your envelopes…',
-  'Doing the math…',
-  'Putting your answer together…',
-  'Looking at your spending…',
-]
 
 // Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
 // for the same shared-value-driven pattern and why `entering` isn't used here.
@@ -265,6 +259,9 @@ export default function MoneyBrainModal() {
     >
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerLeft}>
+          <View style={[styles.badge, { backgroundColor: tokens.accentSoft }]}>
+            <BirdLandingMark size={26} color={tokens.accent} autoplay={false} />
+          </View>
           <View>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Money brain
@@ -389,7 +386,7 @@ export default function MoneyBrainModal() {
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>
             {messages.map((m, i) => {
-              if (!m.text) return null // empty placeholder while streaming hasn't started — LoadingCaption covers it below
+              if (!m.text) return null // empty placeholder while streaming hasn't started — BrainThinking covers it below
               return (
               <View
                 key={i}
@@ -400,13 +397,17 @@ export default function MoneyBrainModal() {
                     : { alignSelf: 'flex-start', backgroundColor: tokens.card, borderColor: tokens.border, borderWidth: 1 },
                 ]}
               >
-                <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodyMedium }}>
-                  {m.text}
-                </Text>
+                {m.role === 'model' ? (
+                  <ChatMarkdown text={m.text} />
+                ) : (
+                  <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodyMedium }}>
+                    {m.text}
+                  </Text>
+                )}
               </View>
               )
             })}
-            {awaitingFirstDelta && <LoadingCaption phrases={CHAT_PHRASES} />}
+            {awaitingFirstDelta && <BrainThinking color={tokens.accent} />}
           </View>
         )}
       </ScrollView>
