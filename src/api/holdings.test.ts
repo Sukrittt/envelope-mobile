@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import { updateHolding } from './holdings'
+import { predictHoldingType, updateHolding } from './holdings'
 
 jest.mock('./client', () => ({ apiFetch: jest.fn() }))
 
@@ -34,5 +34,25 @@ describe('holding write versions', () => {
       status: 409,
       current: { name: 'Stocks', version: 8, recurring_amount: '200' },
     })
+  })
+})
+
+describe('predictHoldingType', () => {
+  it('returns the predicted type', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ type: 'Equity' }) })
+
+    expect(await predictHoldingType('Nifty Index Fund', ['Equity', 'FD'])).toBe('Equity')
+    expect(JSON.parse(mockedApiFetch.mock.calls[0][1].body)).toEqual({
+      name: 'Nifty Index Fund',
+      types: ['Equity', 'FD'],
+    })
+  })
+
+  it('never throws, returning empty on a failed request', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false })
+    expect(await predictHoldingType('xyz', ['Equity'])).toBe('')
+
+    mockedApiFetch.mockRejectedValue(new Error('offline'))
+    expect(await predictHoldingType('xyz', ['Equity'])).toBe('')
   })
 })

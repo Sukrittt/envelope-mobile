@@ -66,6 +66,23 @@ export async function deleteHolding(name: string): Promise<void> {
   }
 }
 
+/** LLM fallback for guessing a holding's type from its name. Never throws. */
+export async function predictHoldingType(name: string, types: string[]): Promise<string> {
+  if (!name.trim()) return ''
+  try {
+    const resp = await apiFetch('/api/holdings/predict-type', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, types }),
+    })
+    if (!resp.ok) return ''
+    const data: { type?: string } = await resp.json()
+    return data.type ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export async function performHoldingAction(params: {
   name: string
   action: 'market_update' | 'contribution' | 'withdrawal'

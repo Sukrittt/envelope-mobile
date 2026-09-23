@@ -7,6 +7,7 @@ import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddHolding, useHoldings, useUpdateHolding } from '@/src/hooks/useHoldings'
+import { predictHoldingType } from '@/src/api/holdings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { ConflictReview } from '@/src/components/shared/ConflictReview'
 import {
@@ -46,6 +47,7 @@ export default function AddHoldingModal() {
 
   const [name, setName] = useState('')
   const [type, setType] = useState('')
+  const [typeTouched, setTypeTouched] = useState(false)
   const [value, setValue] = useState('')
   const [base, setBase] = useState<HoldingDraft | null>(null)
   const [expectedVersion, setExpectedVersion] = useState<number | null>(null)
@@ -68,6 +70,24 @@ export default function AddHoldingModal() {
     setIsRecurring(loaded.isRecurring)
     setRecurringAmount(loaded.recurringAmount)
   }, [existing])
+
+  // Debounced auto-suggest while typing the name, only until the user
+  // manually picks a type (so we never fight a deliberate choice). Add-only:
+  // edit mode never shows the type field.
+  useEffect(() => {
+    if (isEdit || typeTouched || name.trim().length < 3) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      predictHoldingType(name, TYPES).then((suggested) => {
+        if (cancelled || !suggested) return
+        setType(suggested)
+      })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [name, isEdit, typeTouched])
 
   const parsedValue = Number(value)
   const parsedRecurring = Number(recurringAmount)
@@ -215,7 +235,10 @@ export default function AddHoldingModal() {
                   return (
                     <Pressable
                       key={t}
-                      onPress={() => setType(t)}
+                      onPress={() => {
+                        setType(t)
+                        setTypeTouched(true)
+                      }}
                       style={[
                         styles.typePill,
                         {
