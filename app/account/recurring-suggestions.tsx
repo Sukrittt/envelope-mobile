@@ -41,7 +41,6 @@ const PERIODS: { months: ScanMonths; label: string }[] = [
   { months: 1, label: '1 month' },
   { months: 3, label: '3 months' },
   { months: 6, label: '6 months' },
-  { months: 12, label: '12 months' },
 ]
 
 function kindLabel(kind: RecurringSuggestion['kind']): string {
@@ -59,7 +58,7 @@ export default function RecurringSuggestionsScreen() {
   const subscriptionMode = targetKind === 'subscription'
   const { refreshing, onRefresh } = useRefresh()
 
-  const [months, setMonths] = useState<ScanMonths>(subscriptionMode ? 12 : 6)
+  const [months, setMonths] = useState<ScanMonths>(6)
   const query = useRecurringSuggestions(months)
   const scan = useScanRecurringSuggestions()
   const dismiss = useDismissRecurringSuggestion()
