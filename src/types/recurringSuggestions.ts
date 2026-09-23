@@ -1,7 +1,7 @@
 // Twin of Web's src/types/recurringSuggestions.ts — same backend, same shape.
 import type { RecurringExpenseInput } from '../api/recurringExpenses'
 
-export type ScanMonths = 1 | 3 | 6
+export type ScanMonths = 1 | 3 | 6 | 12
 
 export type RecurringSuggestion = {
   id: string
