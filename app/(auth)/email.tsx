@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { ArrowLeft, ShieldCheck } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -28,12 +29,19 @@ export default function EmailScreen() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
 
+  const fail = (message: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+    setError(message)
+  }
+
   const handleSend = async () => {
     const trimmed = email.trim()
     if (!EMAIL_RE.test(trimmed)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
       setInvalid(true)
       return
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
     setInvalid(false)
     setError('')
     setPending(true)
@@ -46,14 +54,14 @@ export default function EmailScreen() {
       } catch (err) {
         setPending(false)
         const msg = err instanceof Error ? err.message : ''
-        setError(msg.includes('already in use') ? msg : 'Could not change email. Check your connection and try again.')
+        fail(msg.includes('already in use') ? msg : 'Could not change email. Check your connection and try again.')
       }
       return
     }
 
     const ok = await sendMagicAuthCode(trimmed)
     setPending(false)
-    if (!ok) return setError('Could not send code. Check the address and try again.')
+    if (!ok) return fail('Could not send code. Check the address and try again.')
     router.push({ pathname: '/(auth)/code', params: { email: trimmed } })
   }
 
