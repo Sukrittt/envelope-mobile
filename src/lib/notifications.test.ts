@@ -114,3 +114,15 @@ it('reports a failed push token fetch to analytics instead of only swallowing it
   await registerForPushNotificationsAsync()
   expect(track).toHaveBeenCalledWith('push_registration_failed', { stage: 'token', error: 'Error: FIS_AUTH_ERROR' })
 })
+it('opens Move money for the hot category from a pace nudge', () => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/move-money', category:'Food & Drink'}}}}})
+ expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: 'Food & Drink' } })
+})
+it('drops a Move money route with no category', () => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/move-money'}}}}})
+ expect(mockPush).not.toHaveBeenCalled()
+})

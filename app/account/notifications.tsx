@@ -153,7 +153,7 @@ export default function NotificationsScreen() {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Smart nudge</Text>
-                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A weekly tip when you&apos;re on track to overspend</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A tip when you&apos;re on track to overspend or a category runs hot</Text>
               </View>
               <Switch
                 value={coach}

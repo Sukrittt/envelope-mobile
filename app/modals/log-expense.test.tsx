@@ -7,6 +7,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
+import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 
 jest.mock('@/src/api/expenses', () => ({
@@ -45,9 +46,9 @@ function Harness() {
   return null
 }
 
-function setup(params: Record<string, string> = {}) {
+function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = []) {
   mockParams = params
-  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
@@ -237,4 +238,22 @@ it('returns from review with the draft and original version intact until a choic
   await act(async () => { jest.advanceTimersByTime(1) })
   expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 0)
   expect(utils.getByText('This transaction was updated')).toBeTruthy()
+})
+
+it('asks before saving an amount far above the category usual, then saves on the second tap', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  const today = todayLocal()
+  // Eight Groceries runs of 40..75: a 450 entry is ~8x the median and beats them all.
+  const utils = setup({}, [40, 45, 50, 55, 60, 65, 70, 75].map((a) => ({
+    date: today, amount_inr: String(a), category: 'Groceries',
+    timestamp: '', item: '', notes: '', source: '', amount: '', description: '', payment_method: '',
+  })))
+  await fillValidForm(utils)
+
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve() })
+  expect(await utils.findByText(/450 is 8× your usual Groceries \(.*58\)\. Tap save again to keep it\./)).toBeTruthy()
+  expect(postExpensePayload).not.toHaveBeenCalled()
+
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(postExpensePayload).toHaveBeenCalledTimes(1)
 })

@@ -25,8 +25,10 @@ import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
 useAddExpense,
+useExpenses,
 useUpdateExpense,
 } from "@/src/hooks/useExpenses";
+import { unusualAmount } from "@/src/lib/unusualAmount";
 import { todayLocal } from "@/src/lib/date";
 import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
 
@@ -35,7 +37,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, PencilLine, Tag, WalletMinimal } from "lucide-react-native";
+import { ChevronDown, PencilLine, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -92,7 +94,7 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 export default function LogExpenseScreen() {
-  const { formatAmountInput } = useCurrency()
+  const { formatAmountInput, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
@@ -108,6 +110,7 @@ export default function LogExpenseScreen() {
 
   const categoriesQ = useCategories();
   const categoryMapQ = useCategoryMap();
+  const expensesQ = useExpenses();
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
   const addCategory = useAddCategory();
@@ -142,6 +145,10 @@ export default function LogExpenseScreen() {
   // 0 = never, so nothing is highlighted before the first blocked submit.
   const [nudge, setNudge] = useState(0);
   const onInvalid = useCallback(() => setNudge((n) => n + 1), []);
+  // Typo guard: an amount far above the category's usual blocks the first
+  // save with a toast; saving again with the same amount and category goes through.
+  const [unusualWarnedFor, setUnusualWarnedFor] = useState("");
+  const [unusualNudge, setUnusualNudge] = useState(0);
   // Set only by a successful add (never an edit) right before setLogSuccess —
   // the effect below reads it to tell the two cases apart.
   const pendingAddNavRef = useRef<null | {
@@ -185,6 +192,10 @@ export default function LogExpenseScreen() {
   const canSubmit = missing.length === 0 && !conflict && !deleted;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending;
+  const unusual = useMemo(
+    () => (isEdit && amount === base.amount ? null : unusualAmount(parsedAmount, category, expensesQ.data ?? [], date)),
+    [isEdit, amount, base.amount, parsedAmount, category, expensesQ.data, date],
+  );
 
   // Edit: let the inline checkmark finish drawing before navigating back
   // (1100ms, same beat CheckIcon uses elsewhere). Add: let the nav circle's
@@ -229,6 +240,12 @@ export default function LogExpenseScreen() {
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     setError("");
+    const warnKey = `${amount}|${category}`;
+    if (unusual && unusualWarnedFor !== warnKey) {
+      setUnusualWarnedFor(warnKey);
+      setUnusualNudge((n) => n + 1);
+      return;
+    }
     if (isEdit) {
       const updates = expenseChanges(base, { item, amount, date, category });
       if (!Object.keys(updates).length) { setLogSuccess(true); return; }
@@ -321,7 +338,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -382,6 +399,13 @@ export default function LogExpenseScreen() {
         message={missingFieldsMessage(missing)}
         icon={missing[0] === "amount" ? WalletMinimal : missing[0] === "item" ? PencilLine : Tag}
         // Clear of the header title with room to breathe.
+        style={{ top: insets.top + space.xxxl + space.xl }}
+      />
+
+      <Toast
+        trigger={unusualNudge}
+        message={unusual ? `${formatMoney(parsedAmount)} is ${unusual.ratio}× your usual ${splitEmoji(category).text} (${formatMoney(Math.round(unusual.typical))}). Tap save again to keep it.` : ""}
+        icon={TriangleAlert}
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
 
