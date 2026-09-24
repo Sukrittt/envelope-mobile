@@ -251,7 +251,7 @@ it('asks before saving an amount far above the category usual, then saves on the
   await fillValidForm(utils)
 
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve() })
-  expect(await utils.findByText(/450 is 8× your usual Groceries \(.*58\)\. Tap save again to keep it\./)).toBeTruthy()
+  expect(await utils.findByText(/^Way above your usual .*58\. Tap again to save\.$/)).toBeTruthy()
   expect(postExpensePayload).not.toHaveBeenCalled()
 
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })

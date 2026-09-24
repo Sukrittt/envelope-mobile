@@ -404,7 +404,8 @@ export default function LogExpenseScreen() {
 
       <Toast
         trigger={unusualNudge}
-        message={unusual ? `${formatMoney(parsedAmount)} is ${unusual.ratio}× your usual ${splitEmoji(category).text} (${formatMoney(Math.round(unusual.typical))}). Tap save again to keep it.` : ""}
+        // Short enough for the one-line pill: the amount and category are already on screen.
+        message={unusual ? `Way above your usual ${formatMoney(Math.round(unusual.typical))}. Tap again to save.` : ""}
         icon={TriangleAlert}
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
