@@ -181,7 +181,10 @@ export default function SubscriptionModal() {
         <View style={{ width: 52 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {isReviewingSuggestion ? (
           <Text style={[styles.reviewHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Review this suggestion. Future charges will be tracked from the due date below; past expenses stay unchanged.</Text>
         ) : null}
@@ -286,7 +289,8 @@ export default function SubscriptionModal() {
             <Pressable
               onPress={isActive ? () => setConfirmSheet('cancel') : handleReactivate}
               disabled={saving || mutatingAction}
-              style={{ opacity: saving || mutatingAction ? 0.5 : 1 }}
+              hitSlop={8}
+              style={[styles.dangerAction, { opacity: saving || mutatingAction ? 0.5 : 1 }]}
             >
               <Text style={{ color: isActive ? tokens.coral : tokens.mint, fontSize: 14, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
                 {mutatingAction && reactivateSub.isPending
@@ -299,7 +303,8 @@ export default function SubscriptionModal() {
             <Pressable
               onPress={() => setConfirmSheet('delete')}
               disabled={saving || mutatingAction}
-              style={{ marginTop: 16, opacity: saving || mutatingAction ? 0.5 : 1 }}
+              hitSlop={8}
+              style={[styles.dangerAction, { opacity: saving || mutatingAction ? 0.5 : 1 }]}
             >
               <Text style={{ color: tokens.text3, fontSize: 13, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>
                 Delete subscription
@@ -375,6 +380,7 @@ const styles = StyleSheet.create({
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
   dangerZone: { marginTop: 24, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth },
+  dangerAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
   sheetBody: { fontSize: 13, lineHeight: 18 },
   sheetButtonRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
