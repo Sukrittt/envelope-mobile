@@ -7,12 +7,14 @@ import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
 const mockDelete = jest.fn()
+const mockPush = jest.fn()
+let mockDuplicates: unknown[] = []
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: mockDelete }),
   prefetchExpensesPage: jest.fn(),
-  useDuplicates: () => ({ data: [] }),
+  useDuplicates: () => ({ data: mockDuplicates }),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
@@ -30,7 +32,7 @@ jest.mock('@/src/hooks/useGroups', () => ({
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => true }))
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
   useLocalSearchParams: () => ({}),
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories can't reference out-of-scope imports (hoisting)
   useFocusEffect: (cb: () => void) => require('react').useEffect(cb, []),
@@ -87,6 +89,18 @@ function pageResult(overrides: Partial<ExpensesPage>): ExpensesPage {
 
 beforeEach(() => {
   mockUseExpensesPage.mockReset()
+  mockPush.mockReset()
+  mockDuplicates = []
+})
+
+it('shows duplicate review as a compact header action', () => {
+  mockDuplicates = [{ duplicate: { id: 'two' }, original: { id: 'one' } }]
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+
+  const screen = renderWithProviders(<ActivityScreen />)
+
+  fireEvent.press(screen.getByText('Review 1 duplicate'))
+  expect(mockPush).toHaveBeenCalledWith('/modals/duplicates')
 })
 
 it('shows the server-reported total and spend, with no pagination row for a single page', () => {

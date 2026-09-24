@@ -391,6 +391,15 @@ export default function ActivityScreen() {
       <Screen
         ref={scrollRef}
         title="Activity"
+        actions={
+          duplicateCount > 0 ? (
+            <Chip
+              selected
+              label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
+              onPress={() => router.push("/modals/duplicates" as Href)}
+            />
+          ) : undefined
+        }
         contentContainerStyle={[
           styles.scrollContent,
           totalCount === 0 && styles.scrollContentGrow,
@@ -428,15 +437,6 @@ export default function ActivityScreen() {
             onPress={() => setCategorySheetOpen(true)}
           />
         </View>
-
-        {duplicateCount > 0 && (
-          <Chip
-            selected
-            label={`Review ${duplicateCount} possible duplicate${duplicateCount === 1 ? "" : "s"}`}
-            onPress={() => router.push("/modals/duplicates" as Href)}
-            style={styles.duplicatesChip}
-          />
-        )}
 
         {hasActiveFilters ? (
           <Reanimated.View
@@ -901,7 +901,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 2,
   },
-  duplicatesChip: { alignSelf: "flex-start" },
   appliedFiltersHeader: {
     flexDirection: "row",
     alignItems: "center",

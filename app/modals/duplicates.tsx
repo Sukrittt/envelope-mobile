@@ -139,36 +139,47 @@ export default function DuplicatesModal() {
           <ActivityIndicator color={tokens.accentInk} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.lg }}>
-          <View style={{ gap: space.xs }}>
-            <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Logged twice?</Text>
-            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-              These look like the same purchase.{pairs.length > 1 ? ` ${pairs.length} to review.` : ''}
-            </Text>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}>
-            <View style={[styles.row, { paddingBottom: space.sm }]}>
-              <Text style={[label, styles.labelCol]} />
-              <Text style={[label, { flex: 1 }]}>EARLIER</Text>
-              <Text style={[label, { flex: 1 }]}>NEWER</Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              padding: space.lg,
+              gap: space.xl,
+              paddingBottom: insets.bottom + space.lg,
+            },
+          ]}
+        >
+          <View style={{ gap: space.lg }}>
+            <View style={{ gap: space.xs }}>
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Logged twice?</Text>
+              <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
+                These look like the same purchase.{pairs.length > 1 ? ` ${pairs.length} to review.` : ''}
+              </Text>
             </View>
-            {rows.map(([name, read]) => (
-              <View key={name} style={[styles.row, { paddingVertical: space.sm, borderTopColor: tokens.border }, styles.divided]}>
-                <Text style={[label, styles.labelCol]}>{name.toUpperCase()}</Text>
-                <Text style={value}>{read(pair.original)}</Text>
-                <Text style={value}>{read(pair.duplicate)}</Text>
+
+            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}>
+              <View style={[styles.row, { paddingBottom: space.sm }]}>
+                <Text style={[label, styles.labelCol]} />
+                <Text style={[label, { flex: 1 }]}>EARLIER</Text>
+                <Text style={[label, { flex: 1 }]}>NEWER</Text>
               </View>
-            ))}
+              {rows.map(([name, read]) => (
+                <View key={name} style={[styles.row, { paddingVertical: space.sm, borderTopColor: tokens.border }, styles.divided]}>
+                  <Text style={[label, styles.labelCol]}>{name.toUpperCase()}</Text>
+                  <Text style={value}>{read(pair.original)}</Text>
+                  <Text style={value}>{read(pair.duplicate)}</Text>
+                </View>
+              ))}
+            </View>
+
+            {failed && (
+              <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
+                That didn&apos;t go through. Check your connection and try again.
+              </Text>
+            )}
           </View>
 
-          {failed && (
-            <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-              That didn&apos;t go through. Check your connection and try again.
-            </Text>
-          )}
-
-          <View style={{ gap: space.sm }}>
+          <View style={[styles.actions, { gap: space.sm }]}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Delete the newer one"
@@ -202,6 +213,7 @@ export default function DuplicatesModal() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
+  content: { flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   headerBtn: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'right' },
@@ -209,5 +221,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
   divided: { borderTopWidth: StyleSheet.hairlineWidth },
   labelCol: { width: 72, letterSpacing: 0.6 },
+  actions: { marginTop: 'auto' },
   primary: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
