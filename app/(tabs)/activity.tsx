@@ -12,7 +12,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react-native";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
@@ -30,6 +30,7 @@ import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import {
   useExpensesPage,
   useDeleteExpense,
+  useDuplicates,
   prefetchExpensesPage,
 } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
@@ -136,6 +137,7 @@ export default function ActivityScreen() {
 
   const categoriesQ = useCategories();
   const deleteExpense = useDeleteExpense();
+  const duplicateCount = useDuplicates().data?.length ?? 0;
   const [deleteNotice, setDeleteNotice] = useState<{ status?: number } | null>(null);
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
@@ -426,6 +428,15 @@ export default function ActivityScreen() {
             onPress={() => setCategorySheetOpen(true)}
           />
         </View>
+
+        {duplicateCount > 0 && (
+          <Chip
+            selected
+            label={`Review ${duplicateCount} possible duplicate${duplicateCount === 1 ? "" : "s"}`}
+            onPress={() => router.push("/modals/duplicates" as Href)}
+            style={styles.duplicatesChip}
+          />
+        )}
 
         {hasActiveFilters ? (
           <Reanimated.View
@@ -890,6 +901,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 2,
   },
+  duplicatesChip: { alignSelf: "flex-start" },
   appliedFiltersHeader: {
     flexDirection: "row",
     alignItems: "center",
