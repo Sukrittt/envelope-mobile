@@ -57,7 +57,14 @@ jest.mock('expo-crypto', () => {
   return {
     randomUUID: jest.fn(() => `test-uuid-${++counter}`),
     AESEncryptionKey: Key,
-    AESSealedData: { fromCombined: value => Buffer.from(value, 'base64') },
+    // Mirrors Android's native signature (`combined: ByteArray`): a base64
+    // string throws there, even though iOS and the TS types accept one.
+    AESSealedData: {
+      fromCombined: value => {
+        if (!(value instanceof Uint8Array)) throw new TypeError('fromCombined: expected Uint8Array')
+        return Buffer.from(value)
+      },
+    },
     aesEncryptAsync: async (plaintext, key, options) => {
       const iv = crypto.randomBytes(12)
       const cipher = crypto.createCipheriv('aes-256-gcm', key.bytes, iv)

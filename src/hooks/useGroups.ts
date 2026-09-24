@@ -11,7 +11,12 @@ const moveKey = ['groups', 'move'] as const
 async function getGroupsAndCache(): Promise<string[]> {
   try {
     const groups = await getGroups()
-    await writeGroupCache(groups)
+    // Best effort, as in useCategories's getCategoriesAndCache.
+    try {
+      await writeGroupCache(groups)
+    } catch (err) {
+      if (__DEV__) console.log('[offline-cache] group WRITE FAILED', err)
+    }
     return groups
   } catch (err) {
     // Same offline fallback as useCategories's getCategoriesAndCache — the

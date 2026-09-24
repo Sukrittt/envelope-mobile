@@ -26,7 +26,6 @@ export async function writeEncrypted(key: string, value: unknown): Promise<void>
     additionalData: new TextEncoder().encode(key),
   })
   await AsyncStorage.setItem(key, PREFIX + await sealed.combined('base64'))
-  if (__DEV__) console.log('[offline-cache] stored', key, `${((await AsyncStorage.getItem(key)) ?? '').length} bytes read back`)
 }
 
 export async function readEncrypted<T>(key: string): Promise<T | null> {
@@ -39,7 +38,11 @@ export async function readEncrypted<T>(key: string): Promise<T | null> {
     return value
   }
   try {
-    const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(raw.slice(PREFIX.length)), await encryptionKey(), {
+    // Bytes, not the base64 string: Android's native fromCombined only takes a
+    // ByteArray and throws on a string, which landed in the catch below and
+    // deleted every cache and queue on the first read after a relaunch.
+    const combined = Uint8Array.from(atob(raw.slice(PREFIX.length)), c => c.charCodeAt(0))
+    const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(combined), await encryptionKey(), {
       additionalData: new TextEncoder().encode(key),
     })
     return JSON.parse(new TextDecoder().decode(plaintext)) as T

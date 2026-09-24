@@ -24,7 +24,14 @@ const key = ['categories'] as const
 async function getCategoriesAndCache(): Promise<CategoryRow[]> {
   try {
     const categories = await getCategories()
-    await writeCategoryCache(categories)
+    // Best effort: the list is already in hand and belongs on screen. A cache
+    // write that throws (no keystore, no AES) must not turn a successful fetch
+    // into an error state — it only costs the next boot its offline picker.
+    try {
+      await writeCategoryCache(categories)
+    } catch (err) {
+      if (__DEV__) console.log('[offline-cache] WRITE FAILED', err)
+    }
     return categories
   } catch (err) {
     // Offline: answer with the last list from disk instead of an error, which
@@ -32,7 +39,6 @@ async function getCategoriesAndCache(): Promise<CategoryRow[]> {
     // expense. The boot hydration in app/_layout.tsx only covers a cold start
     // — every refetch after it (a stale query, a mutation's invalidate) lands
     // here, so this is the durable half of the same guarantee.
-    if (__DEV__) console.log('[offline-cache] categories fetch failed', err)
     if (!isTransportFailure(err)) throw err
     const cached = await readCategoryCache()
     if (!cached) throw err

@@ -9,3 +9,8 @@ it('drops an undecryptable blob instead of throwing (stale key / corrupt data)',
   await expect(readEncrypted('some-key')).resolves.toBeNull()
   await expect(AsyncStorage.getItem('some-key')).resolves.toBeNull()
 })
+
+it('reads back what it wrote (Android fromCombined takes bytes, not base64)', async () => {
+  await writeEncrypted('round-trip', [{ name: 'Food' }])
+  await expect(readEncrypted('round-trip')).resolves.toEqual([{ name: 'Food' }])
+})
