@@ -21,6 +21,7 @@ interface Props {
   onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
   expanded: boolean
+  isFirst?: boolean
   onToggle: (group: string) => void
   onSheetOpenChange?: (open: boolean) => void
 }
@@ -34,6 +35,7 @@ export function EnvelopeGroup({
   onEditAmount,
   onViewTransactions,
   expanded,
+  isFirst,
   onToggle,
   onSheetOpenChange,
 }: Props) {
@@ -46,7 +48,7 @@ export function EnvelopeGroup({
   }))
 
   return (
-    <Reanimated.View layout={TRANSITION} style={[styles.wrap, { borderTopColor: tokens.border }]}>
+    <Reanimated.View layout={TRANSITION} style={[styles.wrap, isFirst && styles.wrapFirst, { borderTopColor: tokens.border }]}>
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Reanimated.View style={chevronStyle}>
@@ -87,12 +89,13 @@ export function EnvelopeGroup({
 }
 
 const styles = StyleSheet.create({
-  wrap: { borderTopWidth: 1, paddingTop: 8, paddingBottom: 8 },
+  wrap: { paddingTop: 8, paddingBottom: 8 },
+  wrapFirst: { borderTopWidth: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13 },
   available: { fontSize: 12 },
-  rows: { paddingLeft: 12, paddingBottom: 10, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
+  rows: { paddingLeft: 12, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
   // Pulled back to x=0 (rows' own left border) then repadded, so the horizontal
   // line meets the vertical group line instead of starting after paddingLeft.
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, marginLeft: -12, paddingLeft: 12 },

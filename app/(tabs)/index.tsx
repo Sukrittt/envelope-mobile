@@ -291,9 +291,10 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={{ marginTop: space.xs }}>
-              {groupedEnvelopes.map(({ group, envelopes }) => (
+              {groupedEnvelopes.map(({ group, envelopes }, i) => (
                 <EnvelopeGroup
                   key={group}
+                  isFirst={i === 0}
                   group={group}
                   envelopes={envelopes}
                   hideAmounts={hideAmounts}
