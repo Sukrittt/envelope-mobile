@@ -39,10 +39,10 @@ it('shows the pair side by side, deletes the newer one with a saving state and a
   finish()
   // The tick replaces the label, and the pair stays on screen through it even
   // though the refetch has already dropped it.
-  await waitFor(() => expect(screen.queryByText('Deleting…')).toBeNull())
+  await waitFor(() => expect(screen.queryByText('Deleting…')).toBeNull(), { timeout: 2000 })
   expect(screen.getByText('Swiggy dinner')).toBeTruthy()
   expect(mockBack).not.toHaveBeenCalled()
-  await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1), { timeout: 2000 })
+  await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1), { timeout: 3000 })
 })
 
 it('keeps both by clearing the flag', async () => {

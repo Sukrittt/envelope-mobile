@@ -6,6 +6,7 @@
  * uid the key is namespaced by, the blob in AsyncStorage — has to survive a
  * restart for the cache to be worth anything.
  */
+/* eslint-disable @typescript-eslint/no-require-imports -- This restart test reloads modules after jest.resetModules(). */
 // Both stores survive jest.resetModules(), the way device storage survives an
 // app restart — only the JS context is new.
 jest.mock('@react-native-async-storage/async-storage', () => {

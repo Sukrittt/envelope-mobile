@@ -96,15 +96,16 @@ beforeEach(() => {
 describe('More tab · app version', () => {
   it('offers the Play Store update when the configured version is newer', async () => {
     const storeUrl = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
+    const nextVersion = `${Number(appJson.expo.version.split('.')[0]) + 1}.0.0`
     mockGetSystemStatus.mockResolvedValue({
       aiDisabled: false,
       maintenance: { on: false, message: '' },
-      appUpdate: { android: { latestVersion: '2.5.0', storeUrl } },
+      appUpdate: { android: { latestVersion: nextVersion, storeUrl } },
     })
     const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
 
     const { findByText } = renderWithProviders(<MoreScreen />)
-    fireEvent.press(await findByText('Update available · v2.5.0 →'))
+    fireEvent.press(await findByText(`Update available · v${nextVersion} →`))
 
     expect(openUrl).toHaveBeenCalledWith(storeUrl)
     openUrl.mockRestore()
