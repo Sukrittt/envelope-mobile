@@ -1,8 +1,10 @@
-import { Animated } from 'react-native'
+import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent } from '@testing-library/react-native'
 import { Path } from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey } from '@/src/lib/envelope'
+import { getSystemStatus } from '@/src/api/systemStatus'
+import appJson from '@/app.json'
 import HomeScreen from './index'
 
 const MONTH = currentMonthKey()
@@ -24,6 +26,7 @@ jest.mock('@/src/hooks/useCategories', () => ({
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
 }))
+jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new Promise(() => {})) }))
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -99,5 +102,42 @@ describe('HomeScreen · Ready to Assign', () => {
 
     fireEvent.press(getByText('Try again'))
     expect(mockRefetch).toHaveBeenCalled()
+  })
+})
+
+describe('HomeScreen · minimum version banner', () => {
+  const storeUrl = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
+  const status = (minVersion: string) => ({
+    aiDisabled: false,
+    maintenance: { on: false, message: '' },
+    appUpdate: { android: { latestVersion: minVersion, minVersion, storeUrl } },
+  })
+
+  beforeEach(() => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' })
+    mockBudgetsError = null
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+  })
+
+  it('links to the store when the installed app is below the minimum', async () => {
+    const nextVersion = `${Number(appJson.expo.version.split('.')[0]) + 1}.0.0`
+    ;(getSystemStatus as jest.Mock).mockResolvedValueOnce(status(nextVersion))
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+
+    const { findByText } = renderHome()
+    fireEvent.press(await findByText('Update'))
+
+    expect(openUrl).toHaveBeenCalledWith(storeUrl)
+    openUrl.mockRestore()
+  })
+
+  it('stays hidden when the installed app meets the minimum', async () => {
+    ;(getSystemStatus as jest.Mock).mockResolvedValueOnce(status(appJson.expo.version))
+
+    const { queryByText } = renderHome()
+    await act(async () => {})
+
+    expect(getSystemStatus).toHaveBeenCalled()
+    expect(queryByText(/new version of Aviary/)).toBeNull()
   })
 })

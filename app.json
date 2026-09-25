@@ -3,6 +3,12 @@
     "name": "Aviary",
     "slug": "Mobile",
     "version": "2.5.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/98bc9d7f-3b5c-43ee-8387-24e81a60d91c"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

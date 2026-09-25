@@ -37,3 +37,7 @@ a user reads: second person, sentence case, short.
   a separator (not `—` or `|`), the single `…` glyph for ellipsis (not three periods),
   and a standalone `—` only as the established placeholder glyph for a missing value
   (`EnvelopeRow.tsx`, `DatePicker.tsx`) rather than in a sentence.
+
+# releases
+
+OTA updates (`expo-updates`, `runtimeVersion.policy: "appVersion"`) vs store builds: follow `docs/releasing.md`. Never publish an OTA update containing a native change.

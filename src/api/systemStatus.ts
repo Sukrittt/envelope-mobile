@@ -4,7 +4,7 @@ export interface SystemStatus {
   aiDisabled: boolean
   maintenance: { on: boolean; message: string }
   appUpdate?: {
-    android?: { latestVersion: string; storeUrl: string }
+    android?: { latestVersion: string; minVersion?: string; storeUrl: string }
   }
 }
 

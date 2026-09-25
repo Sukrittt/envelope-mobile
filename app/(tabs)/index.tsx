@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useRef, useState } from 'react'
-import { View, Text, Pressable, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
@@ -39,6 +40,9 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
+import { getSystemStatus } from '@/src/api/systemStatus'
+import { isVersionNewer } from '@/src/lib/version'
+import appJson from '@/app.json'
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and
@@ -71,6 +75,12 @@ export default function HomeScreen() {
   const trialBucket = trialReminderBucket(billing)
   const [trialDismissed, setTrialDismissed] = useDismissedRolloverBanner(`trial-${trialBucket}`)
   const showTrialBanner = trialBucket !== null && trialDismissed === false
+  // OTA updates cover JS changes, so this only fires when the admin raises the
+  // minimum after a native build older installs can't get over the air. Not
+  // dismissable: below the minimum they stop receiving fixes.
+  const systemStatus = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, staleTime: 5 * 60_000 }).data
+  const androidUpdate = Platform.OS === 'android' ? systemStatus?.appUpdate?.android : undefined
+  const showUpdateBanner = !!androidUpdate?.minVersion && isVersionNewer(androidUpdate.minVersion, appJson.expo.version)
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('home')
   // How many envelope action sheets are currently open — a plain boolean would
   // do since only one can be open at a time in practice, but a count is safe
@@ -245,6 +255,17 @@ export default function HomeScreen() {
         {/* The lasting record lives in Insights' "Where it went" card (any
             month, not just last), so this banner can stay a dismissable
             one-time heads-up rather than growing into one. */}
+        {showUpdateBanner && androidUpdate && (
+          <Card style={styles.rolloverCard} elevated={false}>
+            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+              {"There's a new version of Aviary. Update to keep getting fixes."}
+            </Text>
+            <Pressable accessibilityRole="link" onPress={() => Linking.openURL(androidUpdate.storeUrl)} hitSlop={8}>
+              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Update</Text>
+            </Pressable>
+          </Card>
+        )}
+
         {showTrialBanner && billing && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
