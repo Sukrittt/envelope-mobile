@@ -43,6 +43,7 @@ import {
   withDelta,
   leftoverFor,
   monthTotals,
+  savingsTrend,
   monthComparison,
 } from "@/src/lib/monthly";
 
@@ -222,6 +223,20 @@ function MonthStepper({
  * calendar heatmap and subscriptions. Home is the month's state; this is the
  * month's story, and separating them is what lets either be large.
  */
+/** "Jun, Jul and Aug have spending but no income, so they aren't counted. Tap one to add it." */
+function missingIncomeNote(months: string[]) {
+  const names = months.map(monthAbbrev);
+  const list =
+    names.length > 3
+      ? `${names.length} months`
+      : names.length === 1
+        ? names[0]
+        : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  return months.length === 1
+    ? `${list} has spending but no income, so it isn't counted. Tap it to add income.`
+    : `${list} have spending but no income, so they aren't counted. Tap one to add income.`;
+}
+
 export default function InsightsScreen() {
   const { formatCurrency } = useCurrency()
 
@@ -249,6 +264,8 @@ export default function InsightsScreen() {
     string | null
   >(null);
   const [heatmapView, setHeatmapView] = useState<"month" | "weeks">("month");
+  const [trendView, setTrendView] = useState<"spending" | "saved">("spending");
+  const showSaved = trendView === "saved";
 
   // Reset the breakdown selection whenever what it points into changes shape,
   // rather than pointing at a row that no longer exists. Same render-time
@@ -295,6 +312,26 @@ export default function InsightsScreen() {
       .map((m) => ({ date: m, value: totals.get(m) ?? 0 }))
       .filter((d) => d.value > 0);
   }, [expenses, trendMonths]);
+
+  // Full history (Insights loads every expense), so the running total is exact.
+  const savings = useMemo(
+    () => savingsTrend(budgets, expenses, categories, groups, month),
+    [budgets, expenses, categories, groups, month],
+  );
+  // Months with spending but no income stay on the chart as placeholders the
+  // user can tap to backfill, instead of silently dropping out.
+  const missingInView = useMemo(
+    () => savings.missingIncome.filter((m) => m >= trendMonths[0]),
+    [savings, trendMonths],
+  );
+  const savedData: TrendPoint[] = useMemo(
+    () =>
+      [
+        ...savings.points.filter((d) => d.date >= trendMonths[0]),
+        ...missingInView.map((date) => ({ date, value: 0, missing: true })),
+      ].sort((a, b) => a.date.localeCompare(b.date)),
+    [savings, missingInView, trendMonths],
+  );
 
   // Same fix as the donut below: a mount-time grow-in plays behind the
   // screen's slide_from_right push and is over before it's visible. Bars
@@ -502,7 +539,7 @@ export default function InsightsScreen() {
                 },
               ]}
             >
-              Spending trend
+              {showSaved ? "Saved per month" : "Spending trend"}
             </Text>
             <Text
               style={{
@@ -512,10 +549,14 @@ export default function InsightsScreen() {
                 marginTop: 2,
               }}
             >
-              Last 12 months
+              {showSaved && savings.since && savings.since < month
+                ? `${formatCurrency(savings.total, hideAmounts)} saved since ${monthLabel(savings.since)}`
+                : "Last 12 months"}
             </Text>
           </View>
-          {trendSummary?.kind === "compare" &&
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          {!showSaved &&
+            trendSummary?.kind === "compare" &&
             trendSummary.deltaPct != null && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                 <View
@@ -542,9 +583,67 @@ export default function InsightsScreen() {
                 </Text>
               </View>
             )}
+          <View
+            style={[
+              styles.toggleGroup,
+              { backgroundColor: tokens.inputBg, borderRadius: radius.full },
+            ]}
+          >
+            {(["spending", "saved"] as const).map((view) => (
+              <Pressable
+                key={view}
+                accessibilityLabel={view === "spending" ? "Spending" : "Saved"}
+                onPress={() => setTrendView(view)}
+                style={[
+                  styles.toggleBtn,
+                  { borderRadius: radius.full },
+                  trendView === view && { backgroundColor: tokens.chipActiveBg },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: tokens.text,
+                    fontSize: type.caption,
+                    fontFamily: fontFamily.bodyMedium,
+                  }}
+                >
+                  {view === "spending" ? "Spending" : "Saved"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          </View>
         </View>
         <View style={{ marginTop: space.md }}>
-          {trendSummary ? (
+          {showSaved ? (
+            <>
+              <TrendChart
+                data={savedData}
+                selectedKey={insightMonth}
+                hideAmounts={hideAmounts}
+                onSelect={(key) =>
+                  missingInView.includes(key)
+                    ? router.push({ pathname: "/modals/edit-month-income", params: { month: key } })
+                    : setInsightMonth(key)
+                }
+                partialKey={month}
+                partialNote={`${monthAbbrev(month)}, ${Number(todayIso.slice(8, 10))} days in`}
+                emptyNote="Set your income to see what you save each month"
+              />
+              {missingInView.length > 0 && (
+                <Text
+                  style={{
+                    color: tokens.text3,
+                    fontSize: 11,
+                    fontFamily: fontFamily.bodyMedium,
+                    marginTop: space.sm,
+                  }}
+                >
+                  {missingIncomeNote(missingInView)}
+                </Text>
+              )}
+            </>
+          ) : trendSummary ? (
             trendSummary.kind === "first" ? (
               <Text
                 style={{

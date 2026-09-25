@@ -21,6 +21,8 @@ export interface TrendPoint {
   /** Month key, "YYYY-MM". */
   date: string
   value: number
+  /** No income on record for this month: drawn as an outlined placeholder, not a value. */
+  missing?: boolean
 }
 
 interface Props {
@@ -40,6 +42,8 @@ interface Props {
    *  caption spelling out what the asterisk means. */
   partialKey?: string | null
   partialNote?: string | null
+  /** Shown instead of the chart when `data` is empty. */
+  emptyNote?: string
 }
 
 const VIEW_W = 800
@@ -61,11 +65,13 @@ interface BarProps {
   fill: string
   fillOpacity: number
   reducedMotion: boolean
+  /** Negative bars hang from the zero line, so they grow downward. */
+  downward: boolean
 }
 
 /** Single bar, grown from the baseline with a per-index stagger delay. Regrows
  *  whenever `signature` changes (month navigation swaps the data). */
-function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion }: BarProps) {
+function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion, downward }: BarProps) {
   const grow = useSharedValue(reducedMotion ? 1 : 0)
 
   useEffect(() => {
@@ -78,7 +84,7 @@ function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion }:
 
   const animatedProps = useAnimatedProps(() => ({
     height: h * grow.value,
-    y: y + h * (1 - grow.value),
+    y: downward ? y : y + h * (1 - grow.value),
   }))
 
   return <AnimatedRect animatedProps={animatedProps} x={x} width={w} rx={4} fill={fill} fillOpacity={fillOpacity} />
@@ -96,6 +102,7 @@ export function TrendChart({
   onSelect,
   partialKey,
   partialNote,
+  emptyNote = 'No spending data yet',
 }: Props) {
   const { formatCompact, formatCurrency } = useCurrency()
 
@@ -107,32 +114,38 @@ export function TrendChart({
     return (
       <View style={[styles.empty, { height }]}>
         <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>
-          No spending data yet
+          {emptyNote}
         </Text>
       </View>
     )
   }
 
   const max = Math.max(...data.map((d) => d.value), baseline ?? 0, 1)
+  // Savings can go negative (a month that spent more than it earned): those
+  // bars hang below a zero line instead of the chart's floor.
+  const min = Math.min(0, ...data.map((d) => d.value))
+  const range = max - min
   const n = data.length
   const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM
+  const zeroY = VIEW_H - PAD_BOTTOM - (-min / range) * plotH
   const barGap = 8
   const slot = (VIEW_W - PAD_X * 2) / n
   const barW = Math.min(MAX_BAR_W, Math.max(6, slot - barGap))
 
   const bars = data.map((d, i) => {
-    const h = Math.max(2, (d.value / max) * plotH)
+    const h = d.missing ? (zeroY - PAD_TOP) * 0.45 : Math.max(2, (Math.abs(d.value) / range) * plotH)
     return {
       key: d.date,
       value: d.value,
+      missing: d.missing ?? false,
       x: PAD_X + i * slot + (slot - barW) / 2,
-      y: VIEW_H - PAD_BOTTOM - h,
+      y: d.value < 0 ? zeroY : zeroY - h,
       w: barW,
       h,
     }
   })
 
-  const baselineY = baseline != null ? VIEW_H - PAD_BOTTOM - (baseline / max) * plotH : null
+  const baselineY = baseline != null ? zeroY - (baseline / range) * plotH : null
   const selected = selectedKey != null ? bars.find((b) => b.key === selectedKey) : undefined
 
   return (
@@ -145,6 +158,9 @@ export function TrendChart({
       </View>
       <View style={{ height }}>
         <Svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height={height}>
+          {min < 0 && (
+            <Line x1={PAD_X} x2={VIEW_W - PAD_X} y1={zeroY} y2={zeroY} stroke={tokens.text3} strokeWidth={1} strokeOpacity={0.5} />
+          )}
           {baselineY != null && (
             <Line
               x1={PAD_X}
@@ -159,6 +175,23 @@ export function TrendChart({
           {bars.map((b, i) => {
             const isSelected = selected ? b.key === selected.key : false
             const dimmed = selected != null && !isSelected && b.key !== partialKey
+            if (b.missing) {
+              return (
+                <Rect
+                  key={b.key}
+                  x={b.x}
+                  y={b.y}
+                  width={b.w}
+                  height={b.h}
+                  rx={4}
+                  fill="none"
+                  stroke={tokens.text3}
+                  strokeWidth={1.5}
+                  strokeDasharray="5,5"
+                  strokeOpacity={dimmed ? 0.55 : 1}
+                />
+              )
+            }
             return (
               <Bar
                 key={b.key}
@@ -168,9 +201,10 @@ export function TrendChart({
                 h={b.h}
                 index={i}
                 signature={signature}
-                fill={tokens.accent}
+                fill={b.value < 0 ? tokens.coral : tokens.accent}
                 fillOpacity={dimmed ? 0.55 : 1}
                 reducedMotion={reducedMotion}
+                downward={b.value < 0}
               />
             )
           })}
@@ -178,7 +212,7 @@ export function TrendChart({
         {selected && (
           <View pointerEvents="none" style={[styles.valueTag, { left: `${((selected.x + selected.w / 2) / VIEW_W) * 100}%` }]}>
             <Text style={[styles.valueTagText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              {formatCurrency(selected.value, hideAmounts)}
+              {selected.missing ? 'Add income' : formatCurrency(selected.value, hideAmounts)}
             </Text>
           </View>
         )}
