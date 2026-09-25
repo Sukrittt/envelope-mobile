@@ -1,32 +1,18 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
-import { BudgetConflictReview } from "@/src/features/budgets/BudgetConflictReview";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
-import { usePrivacy } from "@/src/context/PrivacyContext";
 import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
-import { useCategories } from "@/src/hooks/useCategories";
-import { useRecentExpenses } from "@/src/hooks/useExpenses";
-import { useGroups } from "@/src/hooks/useGroups";
 import { EMPTY } from "@/src/lib/constants";
-import { BudgetWriteError } from "@/src/lib/budgetConflict";
-import type { BudgetRow } from "@/src/types";
-import {
-  computeEnvelopeState,
-  currentMonthKey,
-  extraForReadyToAssign,
-  INCOME_CATEGORY,
-  monthLabel,
-} from "@/src/lib/envelope";
+import { currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope";
 
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Pressable,
   ScrollView,
@@ -37,139 +23,55 @@ import {
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Opened from the Ready to Assign options sheet on Home. The user types the RTA
- * they actually have, and the difference lands in this month's income extra:
- * the monthly income stays as is, so next month doesn't inherit a one-off
- * correction. Same layout as edit-assigned-amount.tsx. */
-export default function EditReadyToAssignModal() {
-  const { tokens } = useTheme();
-  const budgetsQ = useBudgets();
-  const expensesQ = useRecentExpenses();
-  const categoriesQ = useCategories();
-  const groupsQ = useGroups();
-
-  if (
-    budgetsQ.isLoading ||
-    expensesQ.isLoading ||
-    categoriesQ.isLoading ||
-    groupsQ.isLoading
-  ) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          { backgroundColor: tokens.bg },
-        ]}
-      >
-        <ActivityIndicator color={tokens.accentInk} />
-      </View>
-    );
-  }
-
-  const month = currentMonthKey();
-  const state = computeEnvelopeState(
-    budgetsQ.data ?? EMPTY,
-    expensesQ.data ?? EMPTY,
-    month,
-    categoriesQ.data ?? EMPTY,
-    groupsQ.data ?? EMPTY,
-  );
-
-  // Mounted only once data has settled, so the numpad seeds from the real RTA.
-  return (
-    <EditReadyToAssignBody
-      month={month}
-      income={state.income}
-      incomeBase={state.incomeBase}
-      totalAssigned={state.totalAssigned}
-      readyToAssign={state.readyToAssign}
-      version={(budgetsQ.data ?? EMPTY).find((b) => b.month === month && b.category === INCOME_CATEGORY)?.version ?? 0}
-    />
-  );
-}
-
-function EditReadyToAssignBody({
-  month,
-  income,
-  incomeBase: initialIncomeBase,
-  totalAssigned,
-  readyToAssign,
-  version,
-}: {
-  month: string;
-  income: number;
-  incomeBase: number;
-  totalAssigned: number;
-  readyToAssign: number;
-  version: number;
-}) {
-  const { formatCurrency, formatAmountInput } = useCurrency()
+/** Opened from Insights' Saved view on a month with spending but no income, so
+ * that month can be counted, and from Home's Ready to Assign sheet ("Change
+ * income") for the current month's monthly income. Later months carry it
+ * forward until one has its own income. Same layout as
+ * edit-ready-to-assign.tsx. */
+export default function EditMonthIncomeModal() {
+  const { month, initial } = useLocalSearchParams<{ month: string; initial?: string }>();
+  const isCurrent = month === currentMonthKey();
+  const { formatAmountInput } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme();
-  const { hideAmounts } = usePrivacy();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const budgets = useBudgets().data ?? EMPTY;
   const updateBudget = useUpdateBudget();
 
-  // The numpad has no minus key, so an over-assigned month starts from 0.
   const {
     amount: amountText,
     setAmount: setAmountText,
     pushDigit,
     handleBackspace,
     shake,
-  } = useAmountEntry(String(Math.max(0, readyToAssign)));
+  } = useAmountEntry(initial && Number(initial) > 0 ? initial : "");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [baseIncome, setBaseIncome] = useState(income);
-  const [incomeBase, setIncomeBase] = useState(initialIncomeBase);
-  const [expectedVersion, setExpectedVersion] = useState(version);
-  const [conflict, setConflict] = useState<BudgetRow | null>(null);
 
   const value = Number(amountText) || 0;
-  const extra = extraForReadyToAssign(incomeBase, totalAssigned, value);
-  const newIncome = Math.round((incomeBase + extra) * 100) / 100;
-  const delta = Math.round((newIncome - baseIncome) * 100) / 100;
-  const impactText =
-    delta === 0
-      ? "Type what's left to assign"
-      : `Income ${formatCurrency(newIncome, hideAmounts)}`;
 
   async function submit() {
+    if (value <= 0) return;
     setSaving(true);
     setError("");
     try {
-      // PUT upserts, so this creates the month's income row (keeping the carried monthly income) when there isn't one yet.
+      // A zero-income row can already exist; PUT needs its version, or 0 to create one.
+      const version =
+        budgets.find((b) => b.month === month && b.category === INCOME_CATEGORY)?.version ?? 0;
       await updateBudget.mutateAsync({
         month,
         category: INCOME_CATEGORY,
-        version: expectedVersion,
-        updates: { extra: String(extra) },
+        version,
+        updates: { assigned: String(value) },
       });
       setSuccess(true);
-    } catch (err) {
-      if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
-        setConflict(err.current);
-      } else {
-        setError("Couldn't save. Check your connection and try again.");
-      }
+    } catch {
+      setError("Couldn't save. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
-  }
-
-  function reviewLatest(keepDraft: boolean) {
-    if (!conflict) return;
-    const latestBase = Number(conflict.assigned) || 0;
-    const latestIncome = Math.round((latestBase + (Number(conflict.extra) || 0)) * 100) / 100;
-    setIncomeBase(latestBase);
-    setBaseIncome(latestIncome);
-    setExpectedVersion(conflict.version);
-    if (!keepDraft) setAmountText(String(latestIncome - totalAssigned));
-    setConflict(null);
-    setError("");
   }
 
   // Let the inline checkmark finish drawing before navigating back.
@@ -182,20 +84,6 @@ function EditReadyToAssignBody({
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      {conflict && (
-        <BudgetConflictReview
-          title="Edit Ready to Assign"
-          heading="Ready to Assign was updated"
-          label="Ready to Assign"
-          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) - totalAssigned}
-          draftAmount={value}
-          onChoose={reviewLatest}
-          onClose={() => {
-            setConflict(null);
-            setError("");
-          }}
-        />
-      )}
       <View
         style={[
           styles.header,
@@ -233,7 +121,7 @@ function EditReadyToAssignBody({
             },
           ]}
         >
-          Edit Ready to Assign
+          {isCurrent ? "Monthly income" : "Add income"}
         </Text>
       </View>
 
@@ -290,7 +178,7 @@ function EditReadyToAssignBody({
                 },
               ]}
             >
-              EDITING
+              {isCurrent ? "EDITING" : "ADDING"}
             </Text>
             <Text
               style={{
@@ -299,7 +187,7 @@ function EditReadyToAssignBody({
                 fontSize: type.body,
               }}
             >
-              Ready to Assign
+              {isCurrent ? "Monthly income" : "Income"}
             </Text>
             <Text
               style={{
@@ -308,8 +196,7 @@ function EditReadyToAssignBody({
                 fontSize: type.caption,
               }}
             >
-              {formatCurrency(baseIncome, hideAmounts)} income ·{" "}
-              {formatCurrency(totalAssigned, hideAmounts)} assigned
+              {isCurrent ? "What comes in every month, like your salary" : `What came in during ${monthLabel(month)}`}
             </Text>
           </View>
         </View>
@@ -337,7 +224,6 @@ function EditReadyToAssignBody({
             />
           </Animated.View>
           <Reanimated.Text
-            key={impactText}
             entering={FadeIn.duration(150)}
             style={{
               color: tokens.text2,
@@ -346,7 +232,7 @@ function EditReadyToAssignBody({
               textAlign: "center",
             }}
           >
-            {impactText}
+            {isCurrent ? "Carries into next month until you change it" : "Counts toward what you saved that month"}
           </Reanimated.Text>
         </View>
 
@@ -376,11 +262,11 @@ function EditReadyToAssignBody({
             {
               backgroundColor: success ? tokens.mint : tokens.accent,
               borderRadius: radius.full,
-              opacity: saving ? 0.5 : 1,
+              opacity: saving || value <= 0 ? 0.5 : 1,
             },
           ]}
           onPress={submit}
-          disabled={saving || success}
+          disabled={saving || success || value <= 0}
         >
           {success ? (
             <CheckIcon color={tokens.onAccent} size={16} />
@@ -403,7 +289,6 @@ function EditReadyToAssignBody({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
   header: {
     flexDirection: "row",
     alignItems: "center",

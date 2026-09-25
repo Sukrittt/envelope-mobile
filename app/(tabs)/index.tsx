@@ -7,6 +7,7 @@ import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -86,6 +87,7 @@ export default function HomeScreen() {
   // do since only one can be open at a time in practice, but a count is safe
   // against overlap and avoids relying on that assumption.
   const [openSheetCount, setOpenSheetCount] = useState(0)
+  const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 
   const budgets = budgetsQ.data ?? EMPTY
@@ -234,8 +236,9 @@ export default function HomeScreen() {
           <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Edit Ready to Assign"
-            onPress={() => router.push('/modals/edit-ready-to-assign')}
+            accessibilityLabel="Ready to Assign options"
+            accessibilityHint="Change or add income, or set Ready to Assign"
+            onPress={() => setIncomeSheetOpen(true)}
             hitSlop={8}
           >
             <AmountText
@@ -361,6 +364,30 @@ export default function HomeScreen() {
           </Pressable>
         </Reanimated.View>
       </Screen>
+      {/* No room for a pencil on the hero, so tapping it opens this. With RTA
+          often at 0, the title is the only place Home shows income. */}
+      <BottomSheet visible={incomeSheetOpen} onClose={() => setIncomeSheetOpen(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+          Income {formatCurrency(envelopeState.income, hideAmounts)}
+        </Text>
+        {([
+          ['Change income', { pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } }],
+          ['Add income', '/modals/add-income'],
+          ['Set Ready to Assign', '/modals/edit-ready-to-assign'],
+        ] as const).map(([label, href]) => (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            style={styles.sheetBtn}
+            onPress={() => {
+              setIncomeSheetOpen(false)
+              router.push(href)
+            }}
+          >
+            <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </BottomSheet>
     </AnimatedTabContent>
   )
 }
@@ -369,6 +396,9 @@ const styles = StyleSheet.create({
   appIconButton: { width: 56, height: 56 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
+  sheetTitle: { fontSize: 16, marginBottom: 8 },
+  sheetBtn: { paddingVertical: 12 },
+  sheetBtnText: { fontSize: 14 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

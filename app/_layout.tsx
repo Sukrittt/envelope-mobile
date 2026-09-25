@@ -346,6 +346,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-assigned-amount" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-ready-to-assign" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/edit-month-income" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/add-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />

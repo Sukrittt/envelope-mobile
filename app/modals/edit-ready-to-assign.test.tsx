@@ -56,7 +56,7 @@ it('prefills the current Ready to Assign with a hint and the income card', async
   expect(getByText('₹20,000 income · ₹5,000 assigned')).toBeTruthy()
 })
 
-it('saves this month\'s income so Ready to Assign matches the typed amount', async () => {
+it('saves the difference as this month\'s income extra, leaving the monthly income alone', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup()
   await waitFor(() => expect(getByLabelText('₹15,000')).toBeTruthy())
@@ -68,7 +68,7 @@ it('saves this month\'s income so Ready to Assign matches the typed amount', asy
     fireEvent.press(getByText('Save'))
   })
 
-  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, '__income__', { assigned: '30000' }, 0))
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, '__income__', { extra: '10000' }, 0))
 })
 
 it('shows a friendly error when the save fails', async () => {
@@ -102,5 +102,5 @@ it('reviews a stale Ready to Assign draft on the shared full-screen conflict scr
   fireEvent.press(getByRole('button', { name: 'Continue with my changes' }))
   expect(updateBudget).toHaveBeenCalledTimes(1)
   await act(async () => { fireEvent.press(getByText('Save')) })
-  await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, '__income__', { assigned: '30000' }, 2))
+  await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, '__income__', { extra: '5000' }, 2))
 })

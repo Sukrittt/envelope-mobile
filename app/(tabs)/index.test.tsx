@@ -54,6 +54,22 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(getByLabelText('₹15,000')).toBeTruthy()
   })
 
+  it('opens income options from the Ready to Assign hero', () => {
+    const { getByLabelText, getByText } = renderHome()
+
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    expect(getByText('Income ₹20,000')).toBeTruthy()
+
+    fireEvent.press(getByText('Change income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '20000' } })
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Add income'))
+    expect(mockPush).toHaveBeenLastCalledWith('/modals/add-income')
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Set Ready to Assign'))
+    expect(mockPush).toHaveBeenLastCalledWith('/modals/edit-ready-to-assign')
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 
