@@ -176,7 +176,7 @@ export default function WelcomeScreen() {
               },
             ]}
           >
-            By continuing you confirm you're 18 or older and agree to the{" "}
+            By continuing you confirm you&apos;re 18 or older and agree to the{" "}
             <Text
               style={{ color: tokens.accent }}
               onPress={() => Linking.openURL(`${BASE_URL}/legal/terms`)}
