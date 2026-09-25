@@ -2,7 +2,7 @@ import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { getRecentExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
@@ -11,7 +11,7 @@ import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 
 jest.mock('@/src/api/expenses', () => ({
-  getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(),
   postExpensePayload: jest.fn(),
   mintExpensePayload: jest.requireActual('@/src/api/expenses').mintExpensePayload,
   updateExpense: jest.fn(),
@@ -48,7 +48,7 @@ function Harness() {
 
 function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = []) {
   mockParams = params
-  ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })

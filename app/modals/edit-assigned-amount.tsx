@@ -7,7 +7,7 @@ import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
 import { useCategories } from '@/src/hooks/useCategories'
-import { useExpenses } from '@/src/hooks/useExpenses'
+import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
 import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
@@ -39,7 +39,7 @@ export default function EditAssignedAmountModal() {
   const category = str(params.category)
 
   const budgetsQ = useBudgets()
-  const expensesQ = useExpenses()
+  const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
 

@@ -10,7 +10,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets } from '@/src/hooks/useBudgets'
-import { useExpenses } from '@/src/hooks/useExpenses'
+import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
 import {
@@ -55,7 +55,8 @@ export default function HomeScreen() {
   const online = useOnline()
 
   const budgetsQ = useBudgets()
-  const expensesQ = useExpenses()
+  const expensesQ = useRecentExpenses()
+  const lastSpent = useLastSpent().data
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
 
@@ -83,8 +84,8 @@ export default function HomeScreen() {
   const groups = groupsQ.data ?? EMPTY
 
   const envelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, month, categories, groups),
-    [budgets, expenses, month, categories, groups],
+    () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
+    [budgets, expenses, month, categories, groups, lastSpent],
   )
 
   const prevEnvelopeState = useMemo(

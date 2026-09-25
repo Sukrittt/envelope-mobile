@@ -1,14 +1,14 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getExpenses } from '@/src/api/expenses'
+import { getRecentExpenses } from '@/src/api/expenses'
 import { getBudgets, transferBudget } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import MoveMoneyModal from './move-money'
 import { currentMonthKey } from '@/src/lib/envelope'
 
-jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
+jest.mock('@/src/api/expenses', () => ({ getRecentExpenses: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(),
   addBudget: jest.fn(),
@@ -33,7 +33,7 @@ const MONTH = currentMonthKey()
 // left) > Cook (50% left) > Shopping (10% left).
 function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] = []) {
   mockParams = { ...BASE_PARAMS, ...overrides }
-  ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getBudgets as jest.Mock).mockResolvedValue([
     { month: MONTH, category: 'Electricity', assigned: '0', rolled_over: '0' },
     { month: MONTH, category: 'Travel', assigned: '1000', rolled_over: '0' },
@@ -58,7 +58,7 @@ beforeEach(() => {
 
 // Spending eats into each envelope so `available/assigned` differs: Travel
 // 900/1000, Cook 500/1000, Shopping 100/1000. Passed into setup() rather than
-// mocked separately — setup() always sets getExpenses itself, so a standalone
+// mocked separately — setup() always sets getRecentExpenses itself, so a standalone
 // mockResolvedValue call before it gets silently clobbered.
 const SPENDING = [
   { date: `${MONTH}-05`, amount_inr: '100', category: 'Travel' },

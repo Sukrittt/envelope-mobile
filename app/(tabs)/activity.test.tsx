@@ -19,6 +19,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
   useExpenses: () => ({ data: [], isLoading: false, error: null }),
+  useRecentExpenses: () => ({ data: [], isLoading: false, error: null }),
 }))
 
 jest.mock('@/src/hooks/useCategories', () => ({

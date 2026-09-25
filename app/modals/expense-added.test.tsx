@@ -2,7 +2,7 @@ import { fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getExpenses, deleteExpense } from '@/src/api/expenses'
+import { getRecentExpenses, deleteExpense } from '@/src/api/expenses'
 import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
@@ -13,7 +13,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { type } from '@/src/theme/scale'
 
 jest.mock('@/src/api/expenses', () => ({
-  getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(),
   addExpense: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
@@ -86,7 +86,7 @@ function setup(
   budgets: object[] = [{ month: MONTH, category: '🛒 Groceries', assigned: '8000', rolled_over: '0' }],
 ) {
   mockParams = { ...BASE_PARAMS, ...overrides }
-  ;(getExpenses as jest.Mock).mockResolvedValue(expenses)
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛒 Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])

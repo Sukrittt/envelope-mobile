@@ -15,7 +15,8 @@ jest.mock('@/src/hooks/useBudgets', () => ({
   useBudgets: () => ({ data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }),
 }))
 jest.mock('@/src/hooks/useExpenses', () => ({
-  useExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
+  useRecentExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
+  useLastSpent: () => ({ data: {} }),
 }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),

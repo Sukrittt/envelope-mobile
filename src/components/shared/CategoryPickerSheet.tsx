@@ -5,7 +5,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { categoryEmoji, groupEmoji, splitEmoji } from '@/src/lib/emoji'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroups } from '@/src/hooks/useGroups'
-import { useExpenses } from '@/src/hooks/useExpenses'
+import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useRecentCategories } from '@/src/hooks/useRecentCategories'
 import { deriveRecentsFromExpenses } from '@/src/lib/recentCategories'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -49,7 +49,7 @@ export function CategoryPickerSheet({
   const { tokens } = useTheme()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
-  const expensesQ = useExpenses()
+  const expensesQ = useRecentExpenses()
   const { recents, record } = useRecentCategories()
   const [search, setSearch] = useState('')
 

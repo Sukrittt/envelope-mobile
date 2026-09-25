@@ -25,7 +25,7 @@ import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
 useAddExpense,
-useExpenses,
+useRecentExpenses,
 useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { unusualAmount } from "@/src/lib/unusualAmount";
@@ -110,7 +110,7 @@ export default function LogExpenseScreen() {
 
   const categoriesQ = useCategories();
   const categoryMapQ = useCategoryMap();
-  const expensesQ = useExpenses();
+  const expensesQ = useRecentExpenses();
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
   const addCategory = useAddCategory();

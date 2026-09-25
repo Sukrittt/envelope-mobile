@@ -3,12 +3,12 @@ import * as SecureStore from 'expo-secure-store'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
-import { getExpenses } from '@/src/api/expenses'
+import { getRecentExpenses } from '@/src/api/expenses'
 import { CategoryPickerSheet } from './CategoryPickerSheet'
 
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
-jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
+jest.mock('@/src/api/expenses', () => ({ getRecentExpenses: jest.fn() }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
@@ -32,10 +32,10 @@ const GROUPS = ['Essentials', 'Fun']
 function setup(overrides?: { recentsStored?: string[] }) {
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getGroups as jest.Mock).mockResolvedValue(GROUPS)
-  ;(getExpenses as jest.Mock).mockResolvedValue([
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [
     { category: 'Movies', date: '2026-09-01', timestamp: '' },
     { category: 'Fuel', date: '2026-09-05', timestamp: '' },
-  ])
+  ], lastSpent: {} })
   ;(SecureStore.getItemAsync as jest.Mock).mockImplementation((key: string) =>
     key === 'mc-recent-categories' && overrides?.recentsStored
       ? Promise.resolve(JSON.stringify(overrides.recentsStored))
@@ -117,7 +117,7 @@ it('still lists every category when the group list is unavailable', async () => 
   // leaving the picker with nothing but "No category".
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getGroups as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
-  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [], lastSpent: {} })
   ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null)
   const { getAllByText } = renderWithProviders(
     <CategoryPickerSheet visible value="" onSelect={jest.fn()} onClose={jest.fn()} />,

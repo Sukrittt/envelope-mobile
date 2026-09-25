@@ -11,7 +11,7 @@ import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import type { WidgetInfo } from "react-native-android-widget";
 import { useBudgets } from "@/src/hooks/useBudgets";
-import { useExpenses } from "@/src/hooks/useExpenses";
+import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -34,7 +34,7 @@ export function WidgetSync() {
   const { currencyCode } = useCurrency()
   const { preference } = useTheme();
   const budgetsQ = useBudgets();
-  const expensesQ = useExpenses();
+  const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
 

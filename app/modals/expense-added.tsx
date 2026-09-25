@@ -11,7 +11,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
-import { useDeleteExpense, useExpenses } from "@/src/hooks/useExpenses";
+import { useDeleteExpense, useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useGroups } from "@/src/hooks/useGroups";
 import {
   computeEnvelopeState,
@@ -198,7 +198,7 @@ export default function ExpenseAddedScreen() {
   const stamp = timestamp || str(params.loggedAt);
 
   const budgetsQ = useBudgets();
-  const expensesQ = useExpenses();
+  const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
   const deleteExpense = useDeleteExpense();

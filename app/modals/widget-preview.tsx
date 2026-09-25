@@ -14,7 +14,7 @@ import { WidgetPreview } from "react-native-android-widget";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
-import { useExpenses } from "@/src/hooks/useExpenses";
+import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
 import {
@@ -36,7 +36,7 @@ export default function WidgetPreviewScreen() {
   const router = useRouter();
 
   const budgetsQ = useBudgets();
-  const expensesQ = useExpenses();
+  const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
 
