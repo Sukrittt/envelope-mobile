@@ -18,7 +18,6 @@ import {
 addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
 registerForPushNotificationsAsync,unregisterDevicePushToken
 } from '@/src/lib/notifications'
-import { clearAll as clearPendingExpenses } from '@/src/lib/pendingExpenses'
 import { startAutoFlush } from '@/src/sync/flush'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
@@ -122,7 +121,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
-      await Promise.allSettled([clearSnapshot(), clearPendingExpenses(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token)])
+      // Offline expense queues stay: they're keyed by user id, so only that
+      // account can sync them when it signs back in.
+      await Promise.allSettled([clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token)])
     })
     return () => {
       unsubscribe()

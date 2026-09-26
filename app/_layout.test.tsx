@@ -2,9 +2,10 @@ import { render, waitFor, act } from '@testing-library/react-native'
 import type { ReactNode } from 'react'
 import RootLayout from './_layout'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
-import { initAccessMode } from '@/src/api/accessMode'
+import { accessMode, initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
 import * as SplashScreen from 'expo-splash-screen'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 // The bug this file guards against: the root layout used to render `null`
 // (fonts loading) and then a splash component (auth resolving) *instead of* the
@@ -58,12 +59,16 @@ jest.mock('@/src/lib/notifications', () => ({
   addPushTokenListener: jest.fn(),
   addNotificationResponseListener: jest.fn(),
   checkColdStartNotification: jest.fn(() => Promise.resolve()),
+  unregisterDevicePushToken: jest.fn(() => Promise.resolve()),
 }))
 // Pulls in reanimated + the user/expenses queries; irrelevant to route gating.
 jest.mock('@/src/components/nav/TabBar', () => ({ TabBar: () => null }))
 
 jest.mock('@/src/api/accessMode', () => ({
-  accessMode: { subscribe: () => () => {}, subscribeLogout: () => () => {} },
+  accessMode: {
+    subscribe: () => () => {},
+    subscribeLogout: jest.fn(() => () => {}),
+  },
   initAccessMode: jest.fn(),
   clearAccess: jest.fn(),
   // Read by src/lib/analytics.ts, which this layout calls from inside the
@@ -83,6 +88,21 @@ beforeEach(() => {
 })
 
 describe('RootLayout', () => {
+  it('keeps queued offline expenses on sign-out so the same account can sync them later', async () => {
+    mockInitAccessMode.mockReturnValue(new Promise(() => {}))
+    mockGetUser.mockReturnValue(new Promise(() => {}))
+    await AsyncStorage.setItem('mc-pending-expenses:user_test', 'queued')
+    await AsyncStorage.setItem('mc-failed-expenses:user_test', 'failed')
+    render(<RootLayout />)
+
+    const subs = (accessMode.subscribeLogout as jest.Mock).mock.calls.map(([fn]) => fn as (token: string) => Promise<void>)
+    expect(subs.length).toBeGreaterThan(0)
+    await act(async () => { await Promise.all(subs.map(fn => fn('token'))) })
+
+    expect(await AsyncStorage.getItem('mc-pending-expenses:user_test')).toBe('queued')
+    expect(await AsyncStorage.getItem('mc-failed-expenses:user_test')).toBe('failed')
+  })
+
   it('renders the navigator on the first render, before fonts or auth resolve', () => {
     // Never settles: the first render is all this assertion is about.
     mockInitAccessMode.mockReturnValue(new Promise(() => {}))

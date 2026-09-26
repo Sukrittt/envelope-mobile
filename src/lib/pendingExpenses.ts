@@ -1,5 +1,4 @@
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { ExpensePayload } from '@/src/api/expenses'
 
@@ -68,6 +67,13 @@ export function remove(clientId: string, owner = currentUserId()): Promise<void>
       k,
       entries.filter((e) => e.payload.client_id !== clientId),
     )
+    // A move to the failed list can stop after saving the copy but before
+    // removing the pending entry. Drop that copy too once the server has it.
+    const fk = failedKey(owner)!
+    const failed = await read(fk)
+    if (failed.some((e) => e.payload.client_id === clientId)) {
+      await write(fk, failed.filter((e) => e.payload.client_id !== clientId))
+    }
   })
 }
 
@@ -98,14 +104,6 @@ export function listFailed(owner = currentUserId()): Promise<PendingExpense[]> {
   return serialize(async () => {
     const fk = failedKey(owner)
     return fk ? read(fk) : []
-  })
-}
-
-/** Serialized after queued writes so sign-out cannot leave a late write behind. */
-export function clearAll(): Promise<void> {
-  return serialize(async () => {
-    const keys = (await AsyncStorage.getAllKeys()).filter(k => k.startsWith(`${PREFIX}:`) || k.startsWith(`${FAILED_PREFIX}:`))
-    await AsyncStorage.multiRemove(keys)
   })
 }
 
