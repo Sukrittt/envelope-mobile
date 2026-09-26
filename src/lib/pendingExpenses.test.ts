@@ -94,13 +94,6 @@ it('never persists expense fields in plaintext', async () => {
  expect(raw).not.toContain('Coffee')
  expect(raw).not.toContain('secret-client')
 })
-it('clears pending and failed queues for every cached account', async () => {
- await pending.enqueue(payload('c1'))
- await pending.bumpAttempts('c1',1)
- await pending.clearAll()
- expect(await pending.listFailed()).toEqual([])
- expect(await pending.list()).toEqual([])
-})
 
 describe('toCsv', () => {
   it('writes a header and quotes every cell, escaping embedded quotes', () => {
@@ -142,4 +135,40 @@ describe('listUnsynced', () => {
 
     expect(await pending.listUnsynced()).toEqual([])
   })
+})
+
+it('preserves a pending entry when saving the failed list fails', async () => {
+  await pending.enqueue(payload('c1'))
+  const original = (AsyncStorage.setItem as jest.Mock).getMockImplementation()!
+  const spy = jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+    if (key.startsWith('mc-failed-expenses:')) throw new Error('disk full')
+    return original(key, value)
+  })
+  await expect(pending.bumpAttempts('c1', 1)).rejects.toThrow('disk full')
+  spy.mockImplementation(original)
+  expect((await pending.list()).map(e => e.payload.client_id)).toEqual(['c1'])
+})
+
+it('binds serialized queue operations to the account at invocation', async () => {
+  const a = pending.enqueue(payload('for-a'))
+  ;(accessMode.currentUserId as jest.Mock).mockReturnValue('user_b')
+  const b = pending.enqueue(payload('for-b'))
+  await Promise.all([a, b])
+  expect((await pending.list('user_a')).map(e => e.payload.client_id)).toEqual(['for-a'])
+  expect((await pending.list('user_b')).map(e => e.payload.client_id)).toEqual(['for-b'])
+})
+
+it('a later successful sync clears the failed copy left by a half-finished move', async () => {
+  await pending.enqueue(payload('c1'))
+  const original = (AsyncStorage.setItem as jest.Mock).getMockImplementation()!
+  const spy = jest.spyOn(AsyncStorage, 'setItem').mockImplementation(async (key, value) => {
+    if (key.startsWith('mc-pending-expenses:')) throw new Error('disk full')
+    return original(key, value)
+  })
+  await expect(pending.bumpAttempts('c1', 1)).rejects.toThrow('disk full')
+  spy.mockImplementation(original)
+  expect(await pending.listFailed()).toHaveLength(1)
+
+  await pending.remove('c1')
+  expect(await pending.listUnsynced()).toEqual([])
 })

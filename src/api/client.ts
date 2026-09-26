@@ -1,6 +1,6 @@
 // Ported from Web/src/services/api.ts's apiFetch, aimed at the deployed API
 // instead of Next.js's own relative-path routes.
-import { clearAccess, currentAccessToken, getValidToken } from './accessMode'
+import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 
@@ -21,8 +21,10 @@ const REQUEST_TIMEOUT_MS = 15_000
  * awaited — the old synchronous password lookup had nothing to refresh.
  * Signed-out callers send no header and the API answers as the demo user.
  */
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, init?: RequestInit, expectedGeneration = sessionGeneration()): Promise<Response> {
+  if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
   const token = await getValidToken()
+  if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
   let resp: Response
   try {
     resp = await fetch(`${BASE_URL}${path}`, {
@@ -44,6 +46,8 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     setOnline(false)
     throw err
   }
+
+  if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
 
   // A response of any status means the request reached the server and came
   // back — the network is up, whatever the status says.
