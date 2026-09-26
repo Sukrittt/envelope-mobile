@@ -39,6 +39,11 @@ export type AppEvent =
   | 'money_moved'
   | 'envelope_created'
   | 'money_brain_query'
+  // Logging spends by typing them into the money brain: a review card was
+  // shown, logged, or dismissed. Row counts and edit counts only.
+  | 'capture_proposed'
+  | 'capture_logged'
+  | 'capture_dismissed'
   | 'onboarding_completed'
   | 'feedback_sent'
   | 'push_registration_failed'
