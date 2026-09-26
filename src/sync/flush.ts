@@ -1,5 +1,5 @@
 import { AppState } from 'react-native'
-import { getValidToken } from '@/src/api/accessMode'
+import { getValidToken, currentUserId, sessionGeneration } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
@@ -19,7 +19,7 @@ let inFlight: Promise<void> | null = null
  */
 export function flush(): Promise<void> {
   if (!inFlight) {
-    inFlight = drain().finally(() => {
+    inFlight = drain().catch(() => { /* Retain queues on storage/auth failures; retry later. */ }).finally(() => {
       inFlight = null
     })
   }
@@ -30,15 +30,21 @@ async function drain(): Promise<void> {
   // No valid token → don't flush. A request with no Authorization header is
   // answered as the read-only demo user, which would silently "succeed"
   // against the wrong account. Leave the queue intact; the next trigger retries.
+  const owner = currentUserId()
+  const generation = sessionGeneration()
+  if (!owner) return
   const token = await getValidToken()
-  if (!token) return
+  if (!token || generation !== sessionGeneration()) return
 
-  const entries = await pending.list()
+  const entries = await pending.list(owner)
   for (const entry of entries) {
+    if (generation !== sessionGeneration()) return
     try {
-      await postExpensePayload(entry.payload)
-      await pending.remove(entry.payload.client_id)
+      await postExpensePayload(entry.payload, generation)
+      if (generation !== sessionGeneration()) return
+      await pending.remove(entry.payload.client_id, owner)
     } catch (err) {
+      if (generation !== sessionGeneration()) return
       if (err instanceof HttpError) {
         // The subscription gate, not a bad entry. Stop the whole drain and
         // leave the queue untouched: every remaining entry would hit the same
@@ -46,10 +52,10 @@ async function drain(): Promise<void> {
         // user logged offline about ninety seconds after their trial quietly
         // expired. They renew, and the expenses are gone. The queue waits
         // instead, and drains when access comes back.
-        if (err.status === SUBSCRIPTION_REQUIRED_STATUS) return
+        if ([401, 403, 408, 429, SUBSCRIPTION_REQUIRED_STATUS].includes(err.status) || err.status >= 500) return
         // This entry will never succeed as-is — bump it and move on to the
         // rest of the queue rather than blocking everything behind it.
-        await pending.bumpAttempts(entry.payload.client_id, MAX_ATTEMPTS)
+        await pending.bumpAttempts(entry.payload.client_id, MAX_ATTEMPTS, owner)
         continue
       }
       // Transport failure — stop here and leave the remaining entries queued
@@ -73,7 +79,7 @@ export function startAutoFlush(): () => void {
   const interval = setInterval(() => {
     pending.count().then((n) => {
       if (n > 0) void flush()
-    })
+    }).catch(() => {})
   }, 30_000)
 
   return () => {

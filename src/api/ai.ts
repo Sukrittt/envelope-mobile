@@ -1,6 +1,6 @@
 import { fetch as expoFetch } from 'expo/fetch'
 import { apiFetch, BASE_URL, handleUnauthorized } from './client'
-import { getValidToken } from './accessMode'
+import { getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
 import { rejectIfAllowanceExceeded } from '@/src/lib/aiAllowance'
 
 export interface BriefCard {
@@ -102,7 +102,9 @@ export async function streamChat(
   onDelta: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<string | null> {
+  const generation = sessionGeneration()
   const token = await getValidToken()
+  if (generation !== sessionGeneration()) throw new SessionChangedError()
   const resp = await expoFetch(`${BASE_URL}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -112,6 +114,7 @@ export async function streamChat(
 
   // Bypasses apiFetch (needs expo/fetch for streaming), so this path must
   // separately route a revoked session into the same sign-in bounce.
+  if (generation !== sessionGeneration()) throw new SessionChangedError()
   await handleUnauthorized(resp, token)
   await rejectIfAllowanceExceeded(resp, true)
 
@@ -126,6 +129,7 @@ export async function streamChat(
   let resolvedSessionId = sessionId
 
   for await (const chunk of resp.body) {
+    if (generation !== sessionGeneration()) throw new SessionChangedError()
     buffer += decoder.decode(chunk, { stream: true })
     const frames = buffer.split('\n\n')
     buffer = frames.pop() ?? ''

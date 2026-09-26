@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
 
-it('drops an undecryptable blob instead of throwing (stale key / corrupt data)', async () => {
+it('preserves an undecryptable blob for recovery', async () => {
   await writeEncrypted('some-key', { foo: 'bar' })
   const raw = await AsyncStorage.getItem('some-key')
   await AsyncStorage.setItem('some-key', raw!.slice(0, -4) + 'abcd')
 
-  await expect(readEncrypted('some-key')).resolves.toBeNull()
-  await expect(AsyncStorage.getItem('some-key')).resolves.toBeNull()
+  await expect(readEncrypted('some-key')).rejects.toThrow()
+  await expect(AsyncStorage.getItem('some-key')).resolves.toBe(raw!.slice(0, -4) + 'abcd')
 })
 
 it('reads back what it wrote (Android fromCombined takes bytes, not base64)', async () => {

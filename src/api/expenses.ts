@@ -87,12 +87,12 @@ export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
  * from a list loaded before a rename is mapped forward server-side, so it can
  * differ from what was posted.
  */
-export async function postExpensePayload(payload: ExpensePayload): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
+export async function postExpensePayload(payload: ExpensePayload, expectedGeneration?: number): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  })
+  }, expectedGeneration)
   if (!resp.ok) throw new HttpError(resp.status, `Failed to add expense: ${resp.status}`)
   const data: { id?: string; timestamp?: string; version?: number; category?: string } = await resp.json().catch(() => ({}))
   return { id: data.id, timestamp: data.timestamp, version: data.version, category: data.category }

@@ -18,6 +18,15 @@ const REFRESH_MARGIN_MS = 60 * 1000
 
 let mode: AccessMode = 'guest'
 let session: WorkOSTokens | null = null
+let generation = 0
+let storageWrite: Promise<void> = Promise.resolve()
+export const sessionGeneration = () => generation
+export class SessionChangedError extends Error {
+  constructor() { super('Session changed; retry in the current account.') }
+}
+export class AuthRefreshError extends Error {
+  constructor() { super('Unable to refresh session. Check your connection and retry.') }
+}
 const subs = new Set<(m: AccessMode) => void>()
 const logoutSubs = new Set<(token: string | null) => void | Promise<void>>()
 
@@ -43,17 +52,19 @@ async function store(next: WorkOSTokens | null): Promise<void> {
   const prevUserId = currentUserId()
   session = next
   mode = next ? 'real' : 'guest'
-  try {
+  if (!prevUserId || currentUserId() !== prevUserId) notify()
+  // Serialize disk writes so a slow refresh cannot overwrite a later logout.
+  storageWrite = storageWrite.then(async () => {
     if (next) await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next), { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY })
     else await SecureStore.deleteItemAsync(STORAGE_KEY)
-  } catch {
-    // Storage unavailable — the session just won't survive a relaunch.
-  }
-  if (!prevUserId || currentUserId() !== prevUserId) notify()
+  }).catch(() => {})
+  await storageWrite
 }
 
 /** Save a freshly issued token pair and switch to real mode. */
 export function persistSession(tokens: WorkOSTokens): Promise<void> {
+  generation++
+  refreshing = null
   return store(tokens)
 }
 
@@ -68,15 +79,18 @@ export function persistSession(tokens: WorkOSTokens): Promise<void> {
  * stored session at all, or it's malformed.
  */
 export async function initAccessMode(): Promise<AccessMode | null> {
+  const started = generation
   try {
     const raw = await SecureStore.getItemAsync(STORAGE_KEY)
+    if (started !== generation) return session ? 'real' : null
     if (!raw) return null
     const parsed = JSON.parse(raw) as WorkOSTokens
     if (!parsed?.accessToken || !parsed?.refreshToken) return null
+    generation++
     session = parsed
     mode = 'real'
     notify()
-    void getValidToken()
+    void getValidToken().catch(() => {})
     return 'real'
   } catch {
     return null
@@ -89,9 +103,9 @@ let refreshing: Promise<string | null> | null = null
 
 /**
  * A usable access token, refreshing first if it is expired or about to be.
- * Returns null when there is no session, or the refresh failed. Only a real
+ * Returns null only when there is no session; refresh failures throw. Only a real
  * 4xx from WorkOS (the token itself rejected) clears the session — a
- * transport failure (offline) leaves it intact and just returns null, so an
+ * transport failure (offline) leaves it intact and throws, so an
  * offline device stays signed in instead of losing its credential.
  */
 export async function getValidToken(): Promise<string | null> {
@@ -99,21 +113,26 @@ export async function getValidToken(): Promise<string | null> {
   if (Date.now() < session.expiresAt - REFRESH_MARGIN_MS) return session.accessToken
 
   if (!refreshing) {
-    refreshing = (async () => {
+    const started = generation
+    const refreshToken = session.refreshToken
+    const run = (async () => {
       try {
-        const next = await refreshTokens(session!.refreshToken)
-        // WorkOS rotates refresh tokens; storing the new pair is mandatory.
+        const next = await refreshTokens(refreshToken)
+        if (started !== generation) throw new SessionChangedError()
         await store({ ...next, expiresAt: next.expiresAt || tokenExpiry(next.accessToken) })
+        if (started !== generation) throw new SessionChangedError()
         return next.accessToken
       } catch (err) {
-        if (err instanceof WorkOSHttpError && err.status >= 400 && err.status < 500) {
+        if (started !== generation) throw new SessionChangedError()
+        if (err instanceof WorkOSHttpError && (err.status === 400 || err.status === 401)) {
           await clearAccess()
+          throw new SessionChangedError()
         }
-        return null
-      } finally {
-        refreshing = null
+        throw new AuthRefreshError()
       }
     })()
+    refreshing = run
+    void run.finally(() => { if (refreshing === run) refreshing = null }).catch(() => {})
   }
   return refreshing
 }
@@ -156,6 +175,10 @@ export function sessionId(): string | null {
  */
 export async function clearAccess(): Promise<void> {
   const token = currentAccessToken()
-  await store(null)
-  await Promise.allSettled([...logoutSubs].map(fn => fn(token)))
+  generation++
+  refreshing = null
+  const stored = store(null)
+  // Begin cleanup before yielding to a subsequent sign-in.
+  const cleanup = [...logoutSubs].map(fn => fn(token))
+  await Promise.allSettled([stored, ...cleanup])
 }

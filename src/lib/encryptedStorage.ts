@@ -37,20 +37,12 @@ export async function readEncrypted<T>(key: string): Promise<T | null> {
     await writeEncrypted(key, value)
     return value
   }
-  try {
-    // Bytes, not the base64 string: Android's native fromCombined only takes a
-    // ByteArray and throws on a string, which landed in the catch below and
-    // deleted every cache and queue on the first read after a relaunch.
-    const combined = Uint8Array.from(atob(raw.slice(PREFIX.length)), c => c.charCodeAt(0))
-    const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(combined), await encryptionKey(), {
-      additionalData: new TextEncoder().encode(key),
-    })
-    return JSON.parse(new TextDecoder().decode(plaintext)) as T
-  } catch {
-    // Undecryptable (key rotated under it, corrupt blob) — this is a
-    // best-effort cache/queue, not a source of truth. Drop it instead of
-    // wedging every future read behind the same throw.
-    await AsyncStorage.removeItem(key)
-    return null
-  }
+  // Preserve the only copy of queued data when key access or decoding fails.
+  // Propagate the error so callers cannot mistake an unreadable queue for []
+  // and overwrite it on their next enqueue.
+  const combined = Uint8Array.from(atob(raw.slice(PREFIX.length)), c => c.charCodeAt(0))
+  const plaintext = await aesDecryptAsync(AESSealedData.fromCombined(combined), await encryptionKey(), {
+    additionalData: new TextEncoder().encode(key),
+  })
+  return JSON.parse(new TextDecoder().decode(plaintext)) as T
 }

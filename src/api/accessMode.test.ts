@@ -91,13 +91,11 @@ describe('subscribe notifications', () => {
 })
 
 describe('offline session survival (§1)', () => {
-  it('a refresh failing with a network error keeps the session in SecureStore and returns null', async () => {
+  it('a refresh failing with a network error keeps the session in SecureStore and throws', async () => {
     ;(refreshTokens as jest.Mock).mockRejectedValue(new TypeError('Network request failed'))
     await persistSession({ accessToken: expiredToken(), refreshToken: 'r1', expiresAt: 1 })
 
-    const token = await getValidToken()
-
-    expect(token).toBeNull()
+    await expect(getValidToken()).rejects.toThrow()
     expect(currentAccessToken()).not.toBeNull()
     expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled()
   })
@@ -106,9 +104,7 @@ describe('offline session survival (§1)', () => {
     ;(refreshTokens as jest.Mock).mockRejectedValue(new WorkOSHttpError(400, 'invalid_grant'))
     await persistSession({ accessToken: expiredToken(), refreshToken: 'r1', expiresAt: 1 })
 
-    const token = await getValidToken()
-
-    expect(token).toBeNull()
+    await expect(getValidToken()).rejects.toThrow()
     expect(currentAccessToken()).toBeNull()
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('mc-session')
   })
@@ -127,5 +123,36 @@ describe('offline session survival (§1)', () => {
   it('currentUserId() still resolves from an expired access token', async () => {
     await persistSession({ accessToken: expiredToken('user_offline'), refreshToken: 'r1', expiresAt: 1 })
     expect(currentUserId()).toBe('user_offline')
+  })
+})
+
+describe('refresh ownership', () => {
+  it('does not restore a session after logout while refresh is pending', async () => {
+    let finish!: (v: unknown) => void
+    ;(refreshTokens as jest.Mock).mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    await persistSession({ accessToken: expiredToken(), refreshToken: 'old', expiresAt: 1 })
+    const refresh = getValidToken().catch(() => null)
+    await clearAccess()
+    finish({ accessToken: fakeToken(), refreshToken: 'new', expiresAt: Date.now() + 3600000 })
+    await refresh
+    expect(currentAccessToken()).toBeNull()
+  })
+
+  it('does not clear a new login when an older refresh is rejected', async () => {
+    let reject!: (e: unknown) => void
+    ;(refreshTokens as jest.Mock).mockReturnValueOnce(new Promise((_, fail) => { reject = fail }))
+    await persistSession({ accessToken: expiredToken(), refreshToken: 'old', expiresAt: 1 })
+    const refresh = getValidToken().catch(() => null)
+    await persistSession({ accessToken: expiredToken('user_2'), refreshToken: 'new-login', expiresAt: Date.now() + 3600000 })
+    reject(new WorkOSHttpError(400, 'invalid_grant'))
+    await refresh
+    expect(currentUserId()).toBe('user_2')
+  })
+
+  it('surfaces a temporary refresh failure instead of returning a guest token', async () => {
+    ;(refreshTokens as jest.Mock).mockRejectedValueOnce(new TypeError('offline'))
+    await persistSession({ accessToken: expiredToken(), refreshToken: 'old', expiresAt: 1 })
+    await expect(getValidToken()).rejects.toThrow()
+    expect(currentUserId()).toBe('user_1')
   })
 })

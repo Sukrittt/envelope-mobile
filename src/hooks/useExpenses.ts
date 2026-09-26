@@ -14,6 +14,7 @@ import {
   type RecentExpenses,
 } from '@/src/api/expenses'
 import { currentMonthKey, shiftMonthKey } from '@/src/lib/envelope'
+import { currentUserId, sessionGeneration, SessionChangedError } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
@@ -94,15 +95,17 @@ export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (row: NewExpenseRow): Promise<AddExpenseResult> => {
+      const owner = currentUserId()
+      const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
       try {
-        const result = await postExpensePayload(payload)
+        const result = await postExpensePayload(payload, generation)
         return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
       } catch (err) {
         // A real rejection (bad request, auth) must still fail loudly — only a
         // transport failure (offline) gets queued for later.
-        if (err instanceof HttpError) throw err
-        await enqueue(payload)
+        if (err instanceof HttpError || err instanceof SessionChangedError || generation !== sessionGeneration()) throw err
+        await enqueue(payload, owner)
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
     },

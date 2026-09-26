@@ -78,7 +78,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toMatchObject({ clientId: 'client-offline-1', pending: true })
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ client_id: 'client-offline-1' }),
+      expect.objectContaining({ client_id: 'client-offline-1' }), null,
     )
   })
 

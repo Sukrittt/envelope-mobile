@@ -8,13 +8,11 @@ const FAILED_PREFIX = 'mc-failed-expenses'
 
 export type PendingExpense = { payload: ExpensePayload; attempts: number }
 
-function key(): string | null {
-  const uid = currentUserId()
+function key(uid: string | null): string | null {
   return uid ? `${PREFIX}:${uid}` : null
 }
 
-function failedKey(): string | null {
-  const uid = currentUserId()
+function failedKey(uid: string | null): string | null {
   return uid ? `${FAILED_PREFIX}:${uid}` : null
 }
 
@@ -38,9 +36,9 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** Queues a create for later sync. No-op when signed out as guest (nothing to namespace it by). */
-export function enqueue(payload: ExpensePayload): Promise<void> {
+export function enqueue(payload: ExpensePayload, owner = currentUserId()): Promise<void> {
   return serialize(async () => {
-    const k = key()
+    const k = key(owner)
     if (!k) return
     const entries = await read(k)
     entries.push({ payload, attempts: 0 })
@@ -49,9 +47,9 @@ export function enqueue(payload: ExpensePayload): Promise<void> {
 }
 
 /** All queued expenses, oldest first. */
-export function list(): Promise<PendingExpense[]> {
+export function list(owner = currentUserId()): Promise<PendingExpense[]> {
   return serialize(async () => {
-    const k = key()
+    const k = key(owner)
     return k ? read(k) : []
   })
 }
@@ -61,9 +59,9 @@ export function count(): Promise<number> {
 }
 
 /** Removes one entry by its client_id — a successful sync, or a manual Undo. */
-export function remove(clientId: string): Promise<void> {
+export function remove(clientId: string, owner = currentUserId()): Promise<void> {
   return serialize(async () => {
-    const k = key()
+    const k = key(owner)
     if (!k) return
     const entries = await read(k)
     await write(
@@ -74,30 +72,31 @@ export function remove(clientId: string): Promise<void> {
 }
 
 /** Bumps an entry's attempt count; moves it to the failed list once it hits the cap. */
-export function bumpAttempts(clientId: string, cap: number): Promise<void> {
+export function bumpAttempts(clientId: string, cap: number, owner = currentUserId()): Promise<void> {
   return serialize(async () => {
-    const k = key()
+    const k = key(owner)
     if (!k) return
     const entries = await read(k)
     const entry = entries.find((e) => e.payload.client_id === clientId)
     if (!entry) return
     entry.attempts += 1
     if (entry.attempts >= cap) {
-      await write(
-        k,
-        entries.filter((e) => e.payload.client_id !== clientId),
-      )
-      const fk = failedKey()
-      if (fk) await write(fk, [...(await read(fk)), entry])
+      const fk = failedKey(owner)
+      if (!fk) return
+      // Save the destination first; a disk/key failure must leave a copy.
+      // Deduplicate so retrying after the source write fails is safe too.
+      const failed = await read(fk)
+      await write(fk, [...failed.filter(e => e.payload.client_id !== clientId), entry])
+      await write(k, entries.filter(e => e.payload.client_id !== clientId))
     } else {
       await write(k, entries)
     }
   })
 }
 
-export function listFailed(): Promise<PendingExpense[]> {
+export function listFailed(owner = currentUserId()): Promise<PendingExpense[]> {
   return serialize(async () => {
-    const fk = failedKey()
+    const fk = failedKey(owner)
     return fk ? read(fk) : []
   })
 }
