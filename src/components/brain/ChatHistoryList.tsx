@@ -5,6 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
+import { PopIn } from '@/src/components/shared/PopIn'
 import type { ChatSessionSummary } from '@/src/api/ai'
 
 /** Written by hand (no Intl) per this app's date-formatting convention — see EnvelopeRow.tsx's lastSpentLabel. */
@@ -76,6 +77,8 @@ export function ChatHistoryList({
     label,
     items: (sessions ?? []).filter((s) => dayBucket(s.updatedAt) === label),
   })).filter((g) => g.items.length > 0)
+  // Stagger index runs across groups so rows pop in top-to-bottom, capped like money-brain.tsx's reveal.
+  const revealIndex = new Map((sessions ?? []).map((s, i) => [s.id, Math.min(i, 6)]))
 
   return (
     <View style={{ flex: 1 }}>
@@ -127,8 +130,8 @@ export function ChatHistoryList({
               <Text style={[styles.groupLabel, { color: tokens.text3 }]}>{g.label.toUpperCase()}</Text>
               <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 {g.items.map((s, i) => (
+                  <PopIn key={s.id} play delay={(revealIndex.get(s.id) ?? 0) * 45}>
                   <Pressable
-                    key={s.id}
                     onPress={() => onSelect(s.id)}
                     style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border }]}
                   >
@@ -150,6 +153,7 @@ export function ChatHistoryList({
                       <Text style={[styles.meta, { color: tokens.text3 }]}>{s.messageCount} messages</Text>
                     </View>
                   </Pressable>
+                  </PopIn>
                 ))}
               </View>
             </View>

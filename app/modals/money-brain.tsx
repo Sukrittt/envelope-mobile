@@ -262,12 +262,12 @@ export default function MoneyBrainModal() {
           <View style={[styles.badge, { backgroundColor: tokens.accentSoft }]}>
             <BirdLandingMark size={26} color={tokens.accent} autoplay={false} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               Money brain
             </Text>
-            <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {brief ? `Reading ${brief.meta.txnCountThisMonth} transactions this month` : 'Reading your budget…'}
+            <Text numberOfLines={1} style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              {brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
             </Text>
           </View>
         </View>
@@ -439,6 +439,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 14,
   },
