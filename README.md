@@ -93,3 +93,7 @@ Real mode stores a WorkOS token pair (access + refresh) in SecureStore; expired 
 ## Notes
 
 Expo 57 API surface differs from older docs — check `https://docs.expo.dev/versions/v57.0.0/` before assuming behavior (see `AGENTS.md`).
+
+## License
+
+Copyright (c) 2026 Sukrit Saha. Licensed under the [GNU Affero General Public License v3.0](LICENSE). If you run a modified version of Aviary as a service, you must publish your source code under the same license.
