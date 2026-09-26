@@ -1,7 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import Svg, { Rect, Line } from 'react-native-svg'
+import Svg, { G, Rect, Line, Text as SvgText } from 'react-native-svg'
 import Reanimated, {
   Easing,
   useAnimatedProps,
@@ -46,12 +46,9 @@ interface Props {
   emptyNote?: string
 }
 
-const VIEW_W = 800
-const VIEW_H = 250
-const PAD_TOP = 35
-const PAD_BOTTOM = 25
-const PAD_X = 8
-const MAX_BAR_W = 56
+const PAD_TOP = 30
+const PAD_BOTTOM = 28
+const PAD_X = 4
 const STAGGER_STEP = 30
 const GROW_DURATION = 350
 
@@ -87,7 +84,7 @@ function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion, d
     y: downward ? y : y + h * (1 - grow.value),
   }))
 
-  return <AnimatedRect animatedProps={animatedProps} x={x} width={w} rx={4} fill={fill} fillOpacity={fillOpacity} />
+  return <AnimatedRect animatedProps={animatedProps} x={x} width={w} rx={7} fill={fill} fillOpacity={fillOpacity} />
 }
 
 /** Trailing-12-months bar chart. Bars only (a smoothed area over discrete
@@ -97,7 +94,7 @@ export function TrendChart({
   data,
   baseline,
   selectedKey,
-  height = 200,
+  height = 220,
   hideAmounts = false,
   onSelect,
   partialKey,
@@ -108,6 +105,9 @@ export function TrendChart({
 
   const { tokens } = useTheme()
   const reducedMotion = useReducedMotion()
+  // viewBox tracks the measured width so bars keep true proportions (a fixed
+  // viewBox letterboxed the plot into a thin strip on phones).
+  const [width, setWidth] = useState(0)
   const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
 
   if (data.length === 0) {
@@ -126,14 +126,16 @@ export function TrendChart({
   const min = Math.min(0, ...data.map((d) => d.value))
   const range = max - min
   const n = data.length
-  const plotH = VIEW_H - PAD_TOP - PAD_BOTTOM
-  const zeroY = VIEW_H - PAD_BOTTOM - (-min / range) * plotH
-  const barGap = 8
-  const slot = (VIEW_W - PAD_X * 2) / n
-  const barW = Math.min(MAX_BAR_W, Math.max(6, slot - barGap))
+  const plotH = height - PAD_TOP - PAD_BOTTOM
+  const zeroY = height - PAD_BOTTOM - (-min / range) * plotH
+  const slot = (width - PAD_X * 2) / n
+  // Bars fill their slot, so they widen/narrow as months are added (matches web).
+  const barW = Math.max(6, slot - Math.min(12, slot * 0.2))
 
   const bars = data.map((d, i) => {
-    const h = d.missing ? (zeroY - PAD_TOP) * 0.45 : Math.max(2, (Math.abs(d.value) / range) * plotH)
+    const h = d.missing
+      ? (zeroY - PAD_TOP) * 0.45
+      : d.value !== 0 ? Math.max(3, (Math.abs(d.value) / range) * plotH) : 2
     return {
       key: d.date,
       value: d.value,
@@ -147,74 +149,104 @@ export function TrendChart({
 
   const baselineY = baseline != null ? zeroY - (baseline / range) * plotH : null
   const selected = selectedKey != null ? bars.find((b) => b.key === selectedKey) : undefined
+  const labelFont = { fontSize: 10, fontFamily: fontFamily.bodyMedium }
+  const boldFont = { fontSize: 10, fontFamily: fontFamily.bodyExtraBold }
 
   return (
     <View>
-      <View style={styles.axisRow}>
-        <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{formatCompact(max, hideAmounts)}</Text>
-        {baseline != null && (
-          <Text style={[styles.axisLabel, { color: tokens.text3 }]}>avg {formatCompact(baseline, hideAmounts)}</Text>
-        )}
-      </View>
-      <View style={{ height }}>
-        <Svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} width="100%" height={height}>
-          {min < 0 && (
-            <Line x1={PAD_X} x2={VIEW_W - PAD_X} y1={zeroY} y2={zeroY} stroke={tokens.text3} strokeWidth={1} strokeOpacity={0.5} />
-          )}
-          {baselineY != null && (
-            <Line
-              x1={PAD_X}
-              x2={VIEW_W - PAD_X}
-              y1={baselineY}
-              y2={baselineY}
-              stroke={tokens.text3}
-              strokeWidth={1.5}
-              strokeDasharray="4,5"
-            />
-          )}
-          {bars.map((b, i) => {
-            const isSelected = selected ? b.key === selected.key : false
-            const dimmed = selected != null && !isSelected && b.key !== partialKey
-            if (b.missing) {
+      <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{formatCompact(max, hideAmounts)}</Text>
+      <View style={{ height }} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
+        {width > 0 && (
+          <Svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}>
+            {min < 0 && (
+              <Line x1={PAD_X} x2={width - PAD_X} y1={zeroY} y2={zeroY} stroke={tokens.text3} strokeWidth={1} strokeOpacity={0.5} />
+            )}
+            {bars.map((b, i) => {
+              const isSelected = selected ? b.key === selected.key : false
+              const dimmed = (b.value === 0 && !b.missing) || (selected != null && !isSelected && b.key !== partialKey)
+              const cx = b.x + b.w / 2
               return (
-                <Rect
-                  key={b.key}
-                  x={b.x}
-                  y={b.y}
-                  width={b.w}
-                  height={b.h}
-                  rx={4}
-                  fill="none"
-                  stroke={tokens.text3}
-                  strokeWidth={1.5}
-                  strokeDasharray="5,5"
-                  strokeOpacity={dimmed ? 0.55 : 1}
-                />
+                <G key={b.key}>
+                  {b.missing ? (
+                    <Rect
+                      x={b.x}
+                      y={b.y}
+                      width={b.w}
+                      height={b.h}
+                      rx={7}
+                      fill="none"
+                      stroke={tokens.text3}
+                      strokeWidth={1.5}
+                      strokeDasharray="5,5"
+                      strokeOpacity={dimmed ? 0.42 : 1}
+                    />
+                  ) : (
+                    <Bar
+                      x={b.x}
+                      y={b.y}
+                      w={b.w}
+                      h={b.h}
+                      index={i}
+                      signature={signature}
+                      fill={b.value < 0 ? tokens.coral : tokens.accent}
+                      fillOpacity={dimmed ? 0.42 : 1}
+                      reducedMotion={reducedMotion}
+                      downward={b.value < 0}
+                    />
+                  )}
+                  {isSelected && (
+                    <SvgText
+                      x={cx}
+                      y={b.value < 0 ? Math.min(height - PAD_BOTTOM - 4, b.y + b.h + 14) : Math.max(15, b.y - 10)}
+                      textAnchor="middle"
+                      fill={tokens.text}
+                      {...boldFont}
+                    >
+                      {b.missing ? 'Add income' : formatCompact(b.value, hideAmounts)}
+                    </SvgText>
+                  )}
+                  <SvgText
+                    x={cx}
+                    y={height - 8}
+                    textAnchor="middle"
+                    fill={isSelected ? tokens.text : tokens.text3}
+                    {...(isSelected ? boldFont : labelFont)}
+                  >
+                    {monthAbbrev(b.key)}
+                    {b.key === partialKey ? '*' : ''}
+                  </SvgText>
+                </G>
               )
-            }
-            return (
-              <Bar
-                key={b.key}
-                x={b.x}
-                y={b.y}
-                w={b.w}
-                h={b.h}
-                index={i}
-                signature={signature}
-                fill={b.value < 0 ? tokens.coral : tokens.accent}
-                fillOpacity={dimmed ? 0.55 : 1}
-                reducedMotion={reducedMotion}
-                downward={b.value < 0}
-              />
-            )
-          })}
-        </Svg>
-        {selected && (
-          <View pointerEvents="none" style={[styles.valueTag, { left: `${((selected.x + selected.w / 2) / VIEW_W) * 100}%` }]}>
-            <Text style={[styles.valueTagText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              {selected.missing ? 'Add income' : formatCurrency(selected.value, hideAmounts)}
-            </Text>
-          </View>
+            })}
+            {/* Drawn after the bars so tall bars don't hide it; card-coloured
+                halo keeps the label legible where it crosses a bar. */}
+            {baselineY != null && (
+              <G>
+                <Line
+                  x1={PAD_X}
+                  x2={width - PAD_X}
+                  y1={baselineY}
+                  y2={baselineY}
+                  stroke={tokens.text3}
+                  strokeOpacity={0.5}
+                  strokeWidth={1.5}
+                  strokeDasharray="4,5"
+                />
+                <SvgText
+                  x={PAD_X + 4}
+                  y={baselineY - 6}
+                  fill={tokens.text2}
+                  stroke={tokens.card}
+                  strokeWidth={3}
+                  // @ts-expect-error paintOrder is supported at runtime but missing from the types
+                  paintOrder="stroke"
+                  {...boldFont}
+                >
+                  avg {formatCompact(baseline!, hideAmounts)}
+                </SvgText>
+              </G>
+            )}
+          </Svg>
         )}
         {onSelect && (
           <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -226,21 +258,6 @@ export function TrendChart({
           </View>
         )}
       </View>
-      <View style={styles.labelRow}>
-        {data.map((d) => (
-          <Text
-            key={d.date}
-            style={[
-              styles.label,
-              { color: d.date === selectedKey ? tokens.text : tokens.text3 },
-              d.date === selectedKey && { fontFamily: fontFamily.bodySemiBold },
-            ]}
-          >
-            {monthAbbrev(d.date)}
-            {d.date === partialKey ? '*' : ''}
-          </Text>
-        ))}
-      </View>
       {partialKey != null && partialNote && data.some((d) => d.date === partialKey) && (
         <Text style={[styles.partialNote, { color: tokens.text3 }]}>* {partialNote}</Text>
       )}
@@ -250,12 +267,7 @@ export function TrendChart({
 
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center' },
-  axisRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 4 },
-  axisLabel: { fontSize: 10 },
+  axisLabel: { fontSize: 10, paddingHorizontal: 4 },
   columnRow: { flex: 1, flexDirection: 'row' },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 4 },
-  label: { fontSize: 9 },
-  valueTag: { position: 'absolute', top: 4, marginLeft: -30, width: 60, alignItems: 'center' },
-  valueTagText: { fontSize: 11 },
   partialNote: { fontSize: 10, paddingHorizontal: 4, paddingTop: 4 },
 })

@@ -1,6 +1,26 @@
-# Aviary (Mobile)
+# Aviary for Android
 
-Expo/React Native companion app for the YNAB-inspired envelope budgeting tool. Talks to the same deployed API as `Web/`.
+**Open-source envelope budgeting, built for rupees.** Give every rupee a job, log a spend in three taps, and see what's safe to spend at a glance.
+
+[Get it on Google Play](https://play.google.com/store/apps/details?id=com.sukrit04.envelope) · [Web app](https://ynab-replacement.vercel.app) · [Web + API repo](https://github.com/Sukrittt/aviary)
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Sukrittt/aviary/main/public/landing/home.jpeg" width="200" alt="Home" />
+  <img src="https://raw.githubusercontent.com/Sukrittt/aviary/main/public/landing/envelopes.jpeg" width="200" alt="Envelopes" />
+  <img src="https://raw.githubusercontent.com/Sukrittt/aviary/main/public/landing/log-expense.jpeg" width="200" alt="Log expense" />
+  <img src="https://raw.githubusercontent.com/Sukrittt/aviary/main/public/landing/insights.jpeg" width="200" alt="Insights" />
+</p>
+
+## Why Aviary
+
+- **YNAB-style method, priced for India.** Envelope budgeting with Ready to Assign, rollovers, and moving money between envelopes — in INR, without a dollar subscription.
+- **Native mobile app.** Not a PWA; shares one account with the web dashboard.
+- **AI that knows your spending.** Money Brain chat, anomaly alerts, and a year-end Wrapped recap.
+- **Open source.** Every line that touches your financial data is public and auditable.
+
+## About this repo
+
+Expo/React Native app for Aviary. Talks to the same deployed API as [`Sukrittt/aviary`](https://github.com/Sukrittt/aviary).
 
 ## Stack
 

@@ -350,7 +350,7 @@ export default function MoreScreen() {
                   <Text style={[styles.rowHint, { color: tokens.text2 }]}>{showBilling && billing ? planSummary(billing) : "You're on the trial plan"}</Text>
                 </View>
                 <Pressable
-                  onPress={() => Linking.openURL('https://github.com/Sukrittt/envelope-mobile')}
+                  onPress={() => Linking.openURL('https://github.com/Sukrittt/aviary-mobile')}
                   style={[styles.badge, { backgroundColor: tokens.mintSoft }]}
                 >
                   <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Open source</Text>
