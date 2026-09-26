@@ -332,6 +332,12 @@ export default function InsightsScreen() {
       ].sort((a, b) => a.date.localeCompare(b.date)),
     [savings, missingInView, trendMonths],
   );
+  // Mean of the finished months in view (the in-progress month and income
+  // placeholders would drag it down). Needs 2+ months, like the spending avg.
+  const savedBaseline = useMemo(() => {
+    const done = savedData.filter((d) => !d.missing && d.date < month);
+    return done.length >= 2 ? done.reduce((sum, d) => sum + d.value, 0) / done.length : null;
+  }, [savedData, month]);
 
   // Same fix as the donut below: a mount-time grow-in plays behind the
   // screen's slide_from_right push and is over before it's visible. Bars
@@ -619,6 +625,7 @@ export default function InsightsScreen() {
             <>
               <TrendChart
                 data={savedData}
+                baseline={savedBaseline}
                 selectedKey={insightMonth}
                 hideAmounts={hideAmounts}
                 onSelect={(key) =>

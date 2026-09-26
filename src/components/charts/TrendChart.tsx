@@ -16,6 +16,8 @@ import { fontFamily } from '@/src/theme/fonts'
 import { monthAbbrev } from '@/src/lib/envelope'
 
 const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
+const AnimatedLine = Reanimated.createAnimatedComponent(Line)
+const AnimatedG = Reanimated.createAnimatedComponent(G)
 
 export interface TrendPoint {
   /** Month key, "YYYY-MM". */
@@ -87,6 +89,69 @@ function Bar({ x, y, w, h, index, signature, fill, fillOpacity, reducedMotion, d
   return <AnimatedRect animatedProps={animatedProps} x={x} width={w} rx={7} fill={fill} fillOpacity={fillOpacity} />
 }
 
+interface BaselineProps {
+  x1: number
+  x2: number
+  y: number
+  label: string
+  /** Starts once the last bar has finished growing. */
+  delay: number
+  signature: string
+  reducedMotion: boolean
+  stroke: string
+  labelFill: string
+  halo: string
+}
+
+/** Dashed average line, drawn left to right after the bars land, label fading
+ *  in behind it. Replays whenever the bars regrow. */
+function Baseline({ x1, x2, y, label, delay, signature, reducedMotion, stroke, labelFill, halo }: BaselineProps) {
+  const draw = useSharedValue(reducedMotion ? 1 : 0)
+
+  useEffect(() => {
+    draw.value = 0
+    draw.value = reducedMotion
+      ? 1
+      : withDelay(delay, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, reducedMotion])
+
+  const lineProps = useAnimatedProps(() => ({ x2: x1 + (x2 - x1) * draw.value }))
+  const labelProps = useAnimatedProps(() => ({ opacity: Math.max(0, draw.value * 2 - 1) }))
+
+  return (
+    <G>
+      <AnimatedLine
+        animatedProps={lineProps}
+        x1={x1}
+        y1={y}
+        y2={y}
+        stroke={stroke}
+        strokeOpacity={0.5}
+        strokeWidth={1.5}
+        strokeDasharray="4,5"
+      />
+      <AnimatedG animatedProps={labelProps}>
+        {/* Halo pass first, fill pass on top (paintOrder isn't reliable in react-native-svg). */}
+        {[true, false].map((isHalo) => (
+          <SvgText
+            key={String(isHalo)}
+            x={x1 + 4}
+            y={y - 6}
+            fill={labelFill}
+            stroke={isHalo ? halo : undefined}
+            strokeWidth={isHalo ? 3 : 0}
+            fontSize={10}
+            fontFamily={fontFamily.bodyExtraBold}
+          >
+            {label}
+          </SvgText>
+        ))}
+      </AnimatedG>
+    </G>
+  )
+}
+
 /** Trailing-12-months bar chart. Bars only (a smoothed area over discrete
  *  months implied a continuity that wasn't there) with a dashed baseline so
  *  the card can answer "is this normal" instead of just "it went up". */
@@ -101,7 +166,7 @@ export function TrendChart({
   partialNote,
   emptyNote = 'No spending data yet',
 }: Props) {
-  const { formatCompact, formatCurrency } = useCurrency()
+  const { formatCompact } = useCurrency()
 
   const { tokens } = useTheme()
   const reducedMotion = useReducedMotion()
@@ -221,30 +286,18 @@ export function TrendChart({
             {/* Drawn after the bars so tall bars don't hide it; card-coloured
                 halo keeps the label legible where it crosses a bar. */}
             {baselineY != null && (
-              <G>
-                <Line
-                  x1={PAD_X}
-                  x2={width - PAD_X}
-                  y1={baselineY}
-                  y2={baselineY}
-                  stroke={tokens.text3}
-                  strokeOpacity={0.5}
-                  strokeWidth={1.5}
-                  strokeDasharray="4,5"
-                />
-                <SvgText
-                  x={PAD_X + 4}
-                  y={baselineY - 6}
-                  fill={tokens.text2}
-                  stroke={tokens.card}
-                  strokeWidth={3}
-                  // @ts-expect-error paintOrder is supported at runtime but missing from the types
-                  paintOrder="stroke"
-                  {...boldFont}
-                >
-                  avg {formatCompact(baseline!, hideAmounts)}
-                </SvgText>
-              </G>
+              <Baseline
+                x1={PAD_X}
+                x2={width - PAD_X}
+                y={baselineY}
+                label={`avg ${formatCompact(baseline!, hideAmounts)}`}
+                delay={(n - 1) * STAGGER_STEP + GROW_DURATION}
+                signature={`${signature}#${baseline}`}
+                reducedMotion={reducedMotion}
+                stroke={tokens.text3}
+                labelFill={tokens.text2}
+                halo={tokens.card}
+              />
             )}
           </Svg>
         )}
